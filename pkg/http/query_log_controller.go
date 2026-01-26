@@ -81,12 +81,16 @@ func QueryLogControllerIndex(ctx context.Context, request *Request) Response {
 		return BadRequestResponse(errors.New("end timestamp must be greater than or equal to start timestamp"))
 	}
 
-	queryLog := request.logManager.GetQueryLog(
-		request.cluster,
+	// Use request.GetQueryLog which automatically configures encryption if needed
+	queryLog, err := request.GetQueryLog(
 		databaseKey.DatabaseHash,
 		databaseKey.DatabaseID,
 		databaseKey.DatabaseBranchID,
 	)
+
+	if err != nil {
+		return ServerErrorResponse(err)
+	}
 
 	uint32StartTimestamp, err := utils.SafeUint64ToUint32(startTimestamp)
 

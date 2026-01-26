@@ -8,6 +8,7 @@ import (
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/database"
+	"github.com/litebase/litebase/pkg/file"
 	"github.com/litebase/litebase/pkg/sqlite3"
 )
 
@@ -337,6 +338,170 @@ func TestQueryLogControllerNonExistentDatabase(t *testing.T) {
 		// Should return 404 for non-existent database
 		if responseCode != 404 {
 			t.Fatalf("Expected response code 404, got %d. Response: %v", responseCode, resp)
+		}
+	})
+}
+
+func TestQueryLogController_EncryptedDatabase(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		// Create an encrypted database using test helper
+		mock := test.MockEncryptedDatabase(server.App)
+
+		// Execute a query to generate query logs
+		conn, err := server.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+		if err != nil {
+			t.Fatalf("Failed to get connection: %v", err)
+		}
+
+		err = conn.GetConnection().Transaction(false, func(dbConn *database.DatabaseConnection) error {
+			_, err := dbConn.Exec("CREATE TABLE test_table (id INTEGER PRIMARY KEY, name TEXT)", nil)
+			return err
+		})
+
+		if err != nil {
+			t.Fatalf("Failed to create table: %v", err)
+		}
+
+		server.App.DatabaseManager.ConnectionManager().Release(conn)
+
+		// Wait a bit for query logs to be written
+		time.Sleep(2 * time.Second)
+
+		// Create client and make request to get query logs
+		client := server.WithAccessKeyClient([]auth.Statement{
+			{
+				Effect:   auth.StatementEffectAllow,
+				Resource: "*",
+				Actions:  []auth.Privilege{auth.DatabaseBranchPrivilegeShow},
+			},
+		})
+
+		now := time.Now()
+		start := now.Add(-1 * time.Hour).Unix()
+		end := now.Unix()
+
+		resp, responseCode, err := client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/branches/%s/metrics/query?start=%d&end=%d&step=1",
+				mock.DatabaseName,
+				mock.BranchName,
+				start,
+				end,
+			),
+			"GET",
+			nil,
+		)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if responseCode != 200 {
+			t.Fatalf("Expected status 200, got %d: %v", responseCode, resp)
+		}
+
+		// Verify that the query log was encrypted by checking if ConfigureEncryption was called
+		queryLog := server.App.LogManager.GetQueryLog(
+			server.App.Cluster,
+			file.DatabaseHash(mock.DatabaseID, mock.DatabaseBranchID),
+			mock.DatabaseID,
+			mock.DatabaseBranchID,
+		)
+
+		// The query log should be encrypted after the controller accessed it
+		if !queryLog.IsEncrypted() {
+			t.Error("Expected query log to be encrypted after controller access")
+		}
+
+		// Verify statement index is encrypted
+		statementIndex, err := queryLog.GetStatementIndex()
+
+		if err != nil {
+			t.Fatalf("Failed to get statement index: %v", err)
+		}
+
+		if !statementIndex.IsEncrypted() {
+			t.Error("Expected statement index to be encrypted")
+		}
+	})
+}
+
+func TestQueryLogController_UnencryptedDatabase(t *testing.T) {
+	test.Run(t, func() {
+		server := test.NewTestServer(t)
+		defer server.Shutdown()
+
+		mock := test.MockDatabase(server.App)
+
+		// Execute a query to generate query logs
+		conn, err := server.App.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+		if err != nil {
+			t.Fatalf("Failed to get connection: %v", err)
+		}
+
+		err = conn.GetConnection().Transaction(false, func(dbConn *database.DatabaseConnection) error {
+			_, err := dbConn.Exec("CREATE TABLE test_table (id INTEGER PRIMARY KEY, name TEXT)", nil)
+			return err
+		})
+
+		if err != nil {
+			t.Fatalf("Failed to create table: %v", err)
+		}
+
+		server.App.DatabaseManager.ConnectionManager().Release(conn)
+
+		// Wait a bit for query logs to be written
+		time.Sleep(2 * time.Second)
+
+		// Create client and make request to get query logs
+		client := server.WithAccessKeyClient([]auth.Statement{
+			{
+				Effect:   auth.StatementEffectAllow,
+				Resource: "*",
+				Actions:  []auth.Privilege{auth.DatabaseBranchPrivilegeShow},
+			},
+		})
+
+		now := time.Now()
+		start := now.Add(-1 * time.Hour).Unix()
+		end := now.Unix()
+
+		resp, responseCode, err := client.Send(
+			fmt.Sprintf(
+				"/v1/databases/%s/branches/%s/metrics/query?start=%d&end=%d&step=1",
+				mock.DatabaseName,
+				mock.BranchName,
+				start,
+				end,
+			),
+			"GET",
+			nil,
+		)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+
+		if responseCode != 200 {
+			t.Fatalf("Expected status 200, got %d: %v", responseCode, resp)
+		}
+
+		// Verify that the query log is NOT encrypted
+		queryLog := server.App.LogManager.GetQueryLog(
+			server.App.Cluster,
+			file.DatabaseHash(mock.DatabaseID, mock.DatabaseBranchID),
+			mock.DatabaseID,
+			mock.DatabaseBranchID,
+		)
+
+		// The query log should NOT be encrypted for unencrypted databases
+		if queryLog.IsEncrypted() {
+			t.Error("Expected query log to NOT be encrypted for unencrypted database")
 		}
 	})
 }

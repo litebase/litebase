@@ -553,11 +553,7 @@ func TestEncryptedDatabase(t *testing.T) {
 			}
 
 			// Check first 4 bytes (or as many as available)
-			checkLen := 4
-
-			if len(rangeData) < checkLen {
-				checkLen = len(rangeData)
-			}
+			checkLen := min(len(rangeData), 4)
 
 			header := string(rangeData[:checkLen])
 

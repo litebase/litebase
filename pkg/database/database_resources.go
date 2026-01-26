@@ -76,7 +76,7 @@ func (d *DatabaseResources) Checkpointer() (*Checkpointer, error) {
 
 		// Configure encryption if branch is encrypted
 		if d.Branch.Settings != nil && d.Branch.Settings.Encrypted && d.Branch.Settings.DataEncryptionKeyHash != "" {
-			dataKey, keyHash, err := matchEncryptionKey(d.config, d.Branch.Settings.DataEncryptionKeyHash)
+			dataKey, keyHash, err := MatchEncryptionKey(d.config, d.Branch.Settings.DataEncryptionKeyHash)
 
 			if err == nil {
 				err = d.rollbackLogger.ConfigureEncryption(dataKey, keyHash)
@@ -144,7 +144,7 @@ func (d *DatabaseResources) createFileSystem() (*storage.DurableDatabaseFileSyst
 	if d.Branch.Settings != nil && d.Branch.Settings.Encrypted && d.Branch.Settings.DataEncryptionKeyHash != "" {
 		var err error
 
-		dataKey, keyHash, err = matchEncryptionKey(d.config, d.Branch.Settings.DataEncryptionKeyHash)
+		dataKey, keyHash, err = MatchEncryptionKey(d.config, d.Branch.Settings.DataEncryptionKeyHash)
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to get encryption key: %w", err)
@@ -313,7 +313,7 @@ func (d *DatabaseResources) RollbackLogger() *backups.RollbackLogger {
 
 		// Configure encryption if branch is encrypted
 		if d.Branch.Settings != nil && d.Branch.Settings.Encrypted && d.Branch.Settings.DataEncryptionKeyHash != "" {
-			dataKey, keyHash, err := matchEncryptionKey(d.config, d.Branch.Settings.DataEncryptionKeyHash)
+			dataKey, keyHash, err := MatchEncryptionKey(d.config, d.Branch.Settings.DataEncryptionKeyHash)
 
 			if err == nil {
 				err = d.rollbackLogger.ConfigureEncryption(dataKey, keyHash)
@@ -420,7 +420,7 @@ func (d *DatabaseResources) SnapshotLogger() *backups.SnapshotLogger {
 
 	// Configure encryption if branch is encrypted
 	if d.Branch.Settings != nil && d.Branch.Settings.Encrypted && d.Branch.Settings.DataEncryptionKeyHash != "" {
-		dataKey, keyHash, err := matchEncryptionKey(d.config, d.Branch.Settings.DataEncryptionKeyHash)
+		dataKey, keyHash, err := MatchEncryptionKey(d.config, d.Branch.Settings.DataEncryptionKeyHash)
 
 		if err == nil {
 			err = d.snapshotLogger.ConfigureEncryption(dataKey, keyHash)
