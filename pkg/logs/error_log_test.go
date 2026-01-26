@@ -1,6 +1,7 @@
 package logs_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -311,6 +312,175 @@ func TestErrorLog_GetFile(t *testing.T) {
 
 		if file == nil {
 			t.Fatal("File is nil")
+		}
+	})
+}
+
+func TestErrorLog_EncryptionConfiguration(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		db := test.MockDatabase(app)
+
+		errorLog := app.LogManager.GetErrorLog(
+			app.Cluster,
+			db.DatabaseKey.DatabaseHash,
+			db.DatabaseID,
+			db.DatabaseBranchID,
+		)
+
+		// Initially, encryption should not be configured
+		if errorLog.IsEncrypted() {
+			t.Fatal("Error log should not be encrypted initially")
+		}
+
+		// Configure encryption
+		dataKey := make([]byte, 32)
+
+		for i := range dataKey {
+			dataKey[i] = byte(i)
+		}
+
+		var keyHash [32]byte
+
+		for i := range keyHash {
+			keyHash[i] = byte(i + 32)
+		}
+
+		err := errorLog.ConfigureEncryption(dataKey, keyHash)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Verify encryption is now enabled
+		if !errorLog.IsEncrypted() {
+			t.Fatal("Error log should be encrypted after configuration")
+		}
+	})
+}
+
+func TestErrorLog_WriteAndReadEncrypted(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		db := test.MockEncryptedDatabase(app)
+
+		errorLog := app.LogManager.GetErrorLog(
+			app.Cluster,
+			db.DatabaseKey.DatabaseHash,
+			db.DatabaseID,
+			db.DatabaseBranchID,
+		)
+
+		startTime := time.Now().UTC()
+
+		// Write encrypted error entries
+		testErrors := []struct {
+			statement string
+			error     string
+			latency   float64
+		}{
+			{"SELECT * FROM encrypted1", "no such table: encrypted1", 0.01},
+			{"INSERT INTO encrypted2 (col) VALUES (?)", "no such table: encrypted2", 0.02},
+			{"UPDATE encrypted3 SET col = ?", "no such table: encrypted3", 0.03},
+		}
+
+		for _, te := range testErrors {
+			err := errorLog.Write(
+				db.Credential.CredentialID,
+				te.statement,
+				te.error,
+				te.latency,
+			)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		errorLog.Flush(true)
+
+		endTime := time.Now().UTC().Add(time.Second)
+
+		uint32StartTime, err := utils.SafeUint64ToUint32(uint64(startTime.Unix()))
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		uint32EndTime, err := utils.SafeUint64ToUint32(uint64(endTime.Unix()))
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Read the encrypted errors back
+		entries, err := errorLog.Read(uint32StartTime, uint32EndTime)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if len(entries) != len(testErrors) {
+			t.Fatalf("Expected %d entries, got %d", len(testErrors), len(entries))
+		}
+
+		// Verify the decrypted entries match the original data
+		for i, entry := range entries {
+			if entry.Statement != testErrors[i].statement {
+				t.Errorf("Expected statement '%s', got '%s'", testErrors[i].statement, entry.Statement)
+			}
+
+			if entry.Error != testErrors[i].error {
+				t.Errorf("Expected error '%s', got '%s'", testErrors[i].error, entry.Error)
+			}
+
+			if entry.CredentialID != db.Credential.CredentialID {
+				t.Errorf("Expected credential ID '%s', got '%s'", db.Credential.CredentialID, entry.CredentialID)
+			}
+		}
+	})
+}
+
+func TestErrorLog_MultipleWritesEncrypted(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		db := test.MockEncryptedDatabase(app)
+
+		errorLog := app.LogManager.GetErrorLog(
+			app.Cluster,
+			db.DatabaseKey.DatabaseHash,
+			db.DatabaseID,
+			db.DatabaseBranchID,
+		)
+
+		// Write multiple error entries to encrypted database
+		for i := range 10 {
+			err := errorLog.Write(
+				db.Credential.CredentialID,
+				fmt.Sprintf("SELECT * FROM encrypted_test%d", i),
+				fmt.Sprintf("no such table: encrypted_test%d", i),
+				0.01,
+			)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		errorLog.Flush(true)
+
+		file, err := errorLog.GetFile()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		fileInfo, err := file.Stat()
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Verify data was written (encrypted data should have size > 0)
+		if fileInfo.Size() == 0 {
+			t.Fatal("File size should not be 0 after writing encrypted entries")
 		}
 	})
 }
