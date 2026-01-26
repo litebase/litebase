@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/litebase/litebase/pkg/backups"
-	"github.com/litebase/litebase/pkg/cache"
+	"github.com/litebase/litebase/pkg/memory"
 )
 
 type Database struct {
@@ -25,7 +25,7 @@ type Database struct {
 	UpdatedAt                time.Time        `json:"updatedAt"`
 	exists                   bool
 	primaryBranch            *Branch
-	branchCache              *cache.LFUCache
+	branchCache              *memory.ManagedCache
 	cacheMutex               sync.Mutex
 }
 
@@ -34,7 +34,12 @@ func NewDatabase(databaseManager *DatabaseManager, databaseName string) *Databas
 		DatabaseID:      uuid.New().String(),
 		DatabaseManager: databaseManager,
 		Name:            databaseName,
-		branchCache:     cache.NewLFUCache(100),
+		branchCache: memory.NewManagedCache(memory.ManagedCacheConfig{
+			Capacity:    BranchCacheCapacity,
+			Manager:     databaseManager.Cluster.MemoryManager,
+			DefaultSize: BranchCacheDefaultSize,
+			Owner:       fmt.Sprintf("branch-cache-%s", databaseName),
+		}),
 	}
 }
 

@@ -207,53 +207,169 @@ func (d *DatabaseManager) ConnectionManager() *ConnectionManager {
 - **Coordinated cleanup**: Works with existing idle timeout mechanism
 - **Visibility**: Track which databases are using memory for connections
 
-## DatabaseResources Integration
+## DatabaseManager/DatabaseResources Integration
 
-### DatabaseResources Problem
+### DatabaseManager Problem
 
-DatabaseResources uses LFUCache with item-count limits, not memory limits.
-Each cache is independent.
+DatabaseManager and Database use LFUCache with item-count limits, not memory
+limits. Each cache operates independently with no global coordination:
 
-### DatabaseResources Solution
+- **DatabaseManager.databaseCache**: Caches Database instances (up to 1000)
+- **DatabaseManager.keyCache**: Caches database name→ID mappings (up to 5000)
+- **Database.branchCache**: Per-database branch cache (up to 100)
 
-Use ManagedCache for all caches:
+With millions of potential databases, these uncoordinated caches could consume
+unbounded memory.
+
+### DatabaseManager Solution
+
+Replace all LFUCache instances with ManagedCache for memory-aware caching:
 
 ```go
-type DatabaseResources struct {
-    manager      *memory.Manager
-    databaseCache *memory.ManagedCache
-    keyCache     *memory.ManagedCache
-    // ... other resources
+// Cache configuration constants
+const (
+    // DatabaseCache holds Database instances
+    DatabaseCacheCapacity    = 1000
+    DatabaseCacheDefaultSize = 4096 // 4KB per database entry
+
+    // KeyCache holds database name→ID mappings
+    KeyCacheCapacity    = 5000
+    KeyCacheDefaultSize = 128 // 128 bytes per key entry
+
+    // BranchCache holds branch metadata per database
+    BranchCacheCapacity    = 100
+    BranchCacheDefaultSize = 2048 // 2KB per branch entry
+)
+
+type DatabaseManager struct {
+    Cluster           *Cluster
+    databaseCache     *memory.ManagedCache // Was: *cache.LFUCache
+    keyCache          *memory.ManagedCache // Was: *cache.LFUCache
+    // ... other fields
 }
 
-func NewDatabaseResources(
-    dbID string,
-    branchID string,
-    manager *memory.Manager,
-) *DatabaseResources {
-    return &DatabaseResources{
-        manager: manager,
+type Database struct {
+    DatabaseManager *DatabaseManager
+    branchCache     *memory.ManagedCache // Was: *cache.LFUCache
+    // ... other fields
+}
+
+func NewDatabaseManager(cluster *Cluster) *DatabaseManager {
+    dm := &DatabaseManager{
+        Cluster: cluster,
         databaseCache: memory.NewManagedCache(memory.ManagedCacheConfig{
-            Capacity:    1000,
-            Manager:     manager,
-            DefaultSize: 4096,
-            Owner:       fmt.Sprintf("db-%s-cache", dbID),
+            Capacity:    DatabaseCacheCapacity,
+            Manager:     cluster.MemoryManager,
+            DefaultSize: DatabaseCacheDefaultSize,
+            Owner:       "database-cache",
         }),
         keyCache: memory.NewManagedCache(memory.ManagedCacheConfig{
-            Capacity:    5000,
-            Manager:     manager,
-            DefaultSize: 128,
-            Owner:       fmt.Sprintf("db-%s-keys", dbID),
+            Capacity:    KeyCacheCapacity,
+            Manager:     cluster.MemoryManager,
+            DefaultSize: KeyCacheDefaultSize,
+            Owner:       "database-key-cache",
         }),
+        // ... initialize other fields
+    }
+
+    return dm
+}
+
+func NewDatabase(databaseManager *DatabaseManager, name string) *Database {
+    return &Database{
+        DatabaseManager: databaseManager,
+        Name:            name,
+        branchCache: memory.NewManagedCache(memory.ManagedCacheConfig{
+            Capacity:    BranchCacheCapacity,
+            Manager:     databaseManager.Cluster.MemoryManager,
+            DefaultSize: BranchCacheDefaultSize,
+            Owner:       fmt.Sprintf("branch-cache-%s", name),
+        }),
+        // ... other fields
     }
 }
 ```
 
-### DatabaseResources Benefits
+### Size Estimation
 
-- Memory limits instead of arbitrary item counts
-- Caches compete fairly for memory
-- Component-level visibility
+Cache entry sizes are defined as constants for consistency:
+
+- **Database entries** (`DatabaseCacheDefaultSize`): 4KB - includes metadata,
+  settings, timestamp fields
+- **Key entries** (`KeyCacheDefaultSize`): 128 bytes - database name string + ID
+- **Branch entries** (`BranchCacheDefaultSize`): 2KB - includes branch metadata,
+  settings, parent references
+
+These estimates ensure proper memory accounting even without precise measurement.
+Using constants makes it easy to adjust globally if profiling reveals different
+actual sizes.
+
+### Cache Usage Patterns
+
+```go
+// DatabaseManager.Get - uses both caches
+func (dm *DatabaseManager) Get(databaseID string) (*Database, error) {
+    // Check database cache first
+    if cached, exists := dm.databaseCache.Get(databaseID); exists {
+        return cached.(*Database), nil
+    }
+
+    // Load from system database
+    database, err := dm.loadDatabase(databaseID)
+
+    if err != nil {
+        return nil, err
+    }
+
+    // Cache the loaded database (respects memory limits)
+    if err := dm.databaseCache.Put(databaseID, database); err != nil {
+        log.Printf("Failed to cache database: %v", err)
+    }
+
+    return database, nil
+}
+
+// Database.Branch - uses branch cache
+func (db *Database) Branch(name string) (*Branch, error) {
+    // Load from system database to get branch ID
+    branch, err := db.loadBranch(name)
+
+    if err != nil {
+        return nil, err
+    }
+
+    // Check cache using branch ID
+    if cached, exists := db.branchCache.Get(branch.DatabaseBranchID); exists {
+        return cached.(*Branch), nil
+    }
+
+    // Cache the branch (respects memory limits)
+    if err := db.branchCache.Put(branch.DatabaseBranchID, branch); err != nil {
+        log.Printf("Failed to cache branch: %v", err)
+    }
+
+    return branch, nil
+}
+```
+
+### Memory Pressure Handling
+
+Under memory pressure, ManagedCache automatically evicts LRU entries:
+
+1. **Cache miss**: Entry evicted to free memory, reloaded from system database
+2. **Cache put fails**: Entry not cached, but operation succeeds (degrades to
+   pass-through)
+3. **Multiple databases**: Memory distributed fairly via global limits
+
+This ensures graceful degradation rather than hard failures.
+
+### Benefits
+
+- **Global memory limits**: All caches respect shared memory budget
+- **Fair allocation**: Memory distributed across databases automatically
+- **Graceful degradation**: Cache misses handled transparently via database reload
+- **Visibility**: Track memory usage per cache component
+- **Coordinated eviction**: LRU policy applies across all caches globally
 
 ## PageLogger/SnapshotLogger Integration
 
@@ -314,58 +430,114 @@ func (pl *PageLogger) Close() error {
 ## Full Stack Integration Example
 
 ```go
-// Application setup
-func NewApp(cfg *config.Config) *App {
-    // Create memory manager
-    memManager, _ := memory.NewManager(memory.Config{
-        Capacity:  cfg.MemoryLimit,
+// Cluster initialization with memory manager
+func NewCluster(cfg *config.Config) (*Cluster, error) {
+    cluster := &Cluster{
+        Config: cfg,
+        // ... other fields
+    }
+
+    // Create memory manager with configured limit
+    memoryLimit := cfg.MemoryLimit
+    if memoryLimit == 0 {
+        memoryLimit = 1 * 1024 * 1024 * 1024 // Default: 1GB
+    }
+
+    cluster.MemoryManager = memory.NewManager(memory.ManagerConfig{
+        Capacity:  memoryLimit,
         Threshold: 0.85,
     })
-    
-    // Create cluster with memory manager
-    cluster := NewCluster(cfg, memManager)
-    
-    // Create database manager with memory manager
-    dbManager := NewDatabaseManager(cluster, memManager)
-    
-    return &App{
-        MemoryManager:   memManager,
-        Cluster:         cluster,
-        DatabaseManager: dbManager,
-    }
+
+    return cluster, nil
 }
 
-// Cluster uses it for tiered FS
+// TieredFS uses memory manager for buffers
 func (c *Cluster) TieredFS() *storage.FileSystem {
-    if c.tieredFS == nil {
-        c.tieredFS = storage.NewTieredFileSystemDriver(
-            c.ctx,
-            c.NetworkFS(),
-            c.ObjectFS(),
-            c.memManager, // Pass memory manager
+    if c.tieredFileSystem == nil {
+        c.fileSystemMutex.Lock()
+        defer c.fileSystemMutex.Unlock()
+
+        if c.tieredFileSystem != nil {
+            return c.tieredFileSystem
+        }
+
+        c.tieredFileSystem = storage.NewFileSystem(
+            storage.NewTieredFileSystemDriver(
+                c.Node().Context(),
+                c.NetworkFS(),
+                c.ObjectFS(),
+                c.MemoryManager, // Pass memory manager for buffer pool
+                fileSyncEligibilityFn,
+            ),
         )
     }
 
-    return c.tieredFS
+    return c.tieredFileSystem
 }
 
-// Database manager uses it for resources
-func (dm *DatabaseManager) Resources(branch *Branch) *DatabaseResources {
-    key := fmt.Sprintf("%s-%s", branch.DatabaseID, branch.DatabaseBranchID)
-    
-    if resources, exists := dm.resourcesCache.Get(key); exists {
-        return resources.(*DatabaseResources)
+// DatabaseManager initialization
+func NewDatabaseManager(
+    cluster *Cluster,
+    secretsManager *auth.SecretsManager,
+) *DatabaseManager {
+    dm := &DatabaseManager{
+        Cluster:           cluster,
+        databaseCache: memory.NewManagedCache(memory.ManagedCacheConfig{
+            Capacity:    1000,
+            Manager:     cluster.MemoryManager,
+            DefaultSize: 4096,
+            Owner:       "database-cache",
+        }),
+        keyCache: memory.NewManagedCache(memory.ManagedCacheConfig{
+            Capacity:    5000,
+            Manager:     cluster.MemoryManager,
+            DefaultSize: 128,
+            Owner:       "database-key-cache",
+        }),
+        // ... other fields
     }
-    
-    resources := NewDatabaseResources(
-        branch.DatabaseID,
-        branch.DatabaseBranchID,
-        dm.memManager, // Pass memory manager
-    )
-    
-    dm.resourcesCache.Put(key, resources)
 
-    return resources
+    return dm
+}
+
+// ConnectionManager gets memory manager from cluster
+func (dm *DatabaseManager) ConnectionManager() *ConnectionManager {
+    dm.connectionManagerMutex.Lock()
+    defer dm.connectionManagerMutex.Unlock()
+
+    if dm.connectionManager != nil {
+        return dm.connectionManager
+    }
+
+    dm.connectionManager = &ConnectionManager{
+        cluster:         dm.Cluster,
+        connectionSize:  256 * 1024, // 256KB per connection
+        databaseManager: dm,
+        databases:       map[string]*DatabaseGroup{},
+        memoryManager:   dm.Cluster.MemoryManager, // Get from cluster
+        mutex:           &sync.RWMutex{},
+        state:           ConnectionManagerStateRunning,
+    }
+
+    // Start connection monitoring ticker
+    go dm.connectionManager.monitorConnections()
+
+    return dm.connectionManager
+}
+
+// Database gets memory manager through DatabaseManager
+func NewDatabase(databaseManager *DatabaseManager, name string) *Database {
+    return &Database{
+        DatabaseManager: databaseManager,
+        Name:            name,
+        branchCache: memory.NewManagedCache(memory.ManagedCacheConfig{
+            Capacity:    100,
+            Manager:     databaseManager.Cluster.MemoryManager,
+            DefaultSize: 2048,
+            Owner:       fmt.Sprintf("branch-cache-%s", name),
+        }),
+        // ... other fields
+    }
 }
 ```
 
