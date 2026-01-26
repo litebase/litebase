@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"bytes"
 	"container/list"
 	"context"
 	"crypto/rand"
@@ -19,6 +18,7 @@ import (
 	"time"
 
 	internalStorage "github.com/litebase/litebase/internal/storage"
+	"github.com/litebase/litebase/pkg/memory"
 )
 
 // ReleaseFileWithLock acquires the mutex and calls releaseFile. Use this for any external calls.
@@ -46,7 +46,7 @@ var (
 // storage that have S3 compatibility. This provides fast read access
 // performance with scalable and cost-effective long-term storage.
 type TieredFileSystemDriver struct {
-	buffers                  sync.Pool
+	bufferPool               *memory.BytesBufferPool
 	CanSyncDirtyFiles        func() bool // Function to check if dirty files can be synced
 	context                  context.Context
 	logger                   *TieredFileSystemLogger
@@ -56,6 +56,7 @@ type TieredFileSystemDriver struct {
 	Files                    map[string]*TieredFile
 	highTierFileSystemDriver FileSystemDriver
 	MaxFilesOpened           int
+	memoryManager            *memory.Manager
 	mutex                    *sync.Mutex
 	releasingOldestFile      atomic.Bool
 	shuttingDown             bool
@@ -84,20 +85,18 @@ func NewTieredFileSystemDriver(
 	context context.Context,
 	highTierFileSystemDriver *FileSystem,
 	lowTierFileSystemDriver *FileSystem,
+	memManager *memory.Manager,
 	f ...TieredFileSystemNewFunc,
 ) *TieredFileSystemDriver {
 	fsd := &TieredFileSystemDriver{
-		buffers: sync.Pool{
-			New: func() any {
-				return bytes.NewBuffer(make([]byte, 0, 1024))
-			},
-		},
+		bufferPool:               memory.NewBytesBufferPool(32*1024, memManager),
 		context:                  context,
 		FileOrder:                list.New(),
 		fileOrderMutex:           &sync.Mutex{},
 		Files:                    map[string]*TieredFile{},
 		highTierFileSystemDriver: highTierFileSystemDriver,
 		lowTierFileSystemDriver:  lowTierFileSystemDriver,
+		memoryManager:            memManager,
 		logger:                   nil,
 		MaxFilesOpened:           TieredFileSystemMaxOpenFiles,
 		mutex:                    &sync.Mutex{},
@@ -248,35 +247,30 @@ func (fsd *TieredFileSystemDriver) ClearFiles() error {
 
 // CopyFile copies data from src to dst using a buffer pool to minimize memory allocations.
 func (fsd *TieredFileSystemDriver) CopyFile(dst io.Writer, src io.Reader) (int64, error) {
-	buf := make([]byte, 32*1024) // Use a fixed-size buffer (32 KB in this example)
+	buf, err := fsd.bufferPool.Get()
 
-	var totalBytes int64
-
-	for {
-		n, readErr := src.Read(buf)
-		if n > 0 {
-			written, writeErr := dst.Write(buf[:n])
-			totalBytes += int64(written)
-
-			if writeErr != nil {
-				return totalBytes, writeErr
-			}
-
-			if written != n {
-				return totalBytes, io.ErrShortWrite
-			}
-		}
-
-		if readErr == io.EOF {
-			break
-		}
-
-		if readErr != nil {
-			return totalBytes, readErr
-		}
+	if err != nil {
+		return 0, err
 	}
 
-	return totalBytes, nil
+	defer func() {
+		if err := fsd.bufferPool.Put(buf); err != nil {
+			slog.Error("Error returning buffer to pool:", "error", err)
+		}
+	}()
+
+	// Use bytes.Buffer for efficient copying
+	buf.Reset()
+
+	_, err = buf.ReadFrom(src)
+
+	if err != nil {
+		return 0, err
+	}
+
+	n, err := buf.WriteTo(dst)
+
+	return n, err
 }
 
 // Creating a new file instantiates a new file that will be used to manage
@@ -446,11 +440,19 @@ func (fsd *TieredFileSystemDriver) flushFileToDurableStorage(file *TieredFile, f
 			return err
 		}
 
-		buffer := fsd.buffers.Get().(*bytes.Buffer)
+		buffer, err := fsd.bufferPool.Get()
+
+		if err != nil {
+			return err
+		}
 
 		buffer.Reset()
 
-		defer fsd.buffers.Put(buffer)
+		defer func() {
+			if err := fsd.bufferPool.Put(buffer); err != nil {
+				slog.Error("Error returning buffer to pool:", "error", err)
+			}
+		}()
 
 		_, err = buffer.ReadFrom(file.File)
 

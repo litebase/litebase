@@ -18,6 +18,7 @@ import (
 	"github.com/litebase/litebase/internal/utils/lock"
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/config"
+	"github.com/litebase/litebase/pkg/memory"
 	"github.com/litebase/litebase/pkg/storage"
 )
 
@@ -42,11 +43,12 @@ type Cluster struct {
 	Initialized        bool   `json:"-"`
 	ID                 string `json:"id"`
 	locks              map[string]internalStorage.File
-	QueryPrimary       string `json:"-"`
+	MemoryManager      *memory.Manager
 	nodes              []*NodeIdentifier
 	MembersRetrievedAt time.Time `json:"-"`
 	mutex              *sync.Mutex
 	node               *Node
+	QueryPrimary       string `json:"-"`
 	subscriptions      map[string][]EventHandler
 
 	localFileSystem     *storage.FileSystem
@@ -108,11 +110,28 @@ func (cluster *Cluster) createDirectoriesAndFiles() error {
 
 // Create a new cluster instance.
 func NewCluster(config *config.Config) (*Cluster, error) {
+	// Create memory manager with limit from config (default 1GB if not set)
+	memoryLimit := int64(1024 * 1024 * 1024) // 1GB default
+
+	if config.MemoryLimit > 0 {
+		memoryLimit = config.MemoryLimit
+	}
+
+	memManager, err := memory.NewManager(memory.Config{
+		Capacity:  memoryLimit,
+		Threshold: 0.85, // Trigger eviction at 85%
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create memory manager: %w", err)
+	}
+
 	cluster := &Cluster{
 		Config:          config,
 		eventsChannel:   make(chan *EventMessage, 1000),
 		fileSystemMutex: &sync.Mutex{},
 		locks:           map[string]internalStorage.File{},
+		MemoryManager:   memManager,
 		mutex:           &sync.Mutex{},
 		subscriptions:   map[string][]EventHandler{},
 	}

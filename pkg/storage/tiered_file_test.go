@@ -26,6 +26,7 @@ func TestTieredFile(t *testing.T) {
 				context.Background(),
 				app.Cluster.NetworkFS(),
 				app.Cluster.ObjectFS(),
+				app.Cluster.MemoryManager,
 				func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 					fsd.CanSyncDirtyFiles = func() bool {
 						return true
@@ -81,6 +82,7 @@ func TestTieredFile(t *testing.T) {
 				context.Background(),
 				app.Cluster.NetworkFS(),
 				app.Cluster.ObjectFS(),
+				app.Cluster.MemoryManager,
 				func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 					fsd.CanSyncDirtyFiles = func() bool {
 						return true
@@ -116,6 +118,7 @@ func TestTieredFile(t *testing.T) {
 				context.Background(),
 				app.Cluster.NetworkFS(),
 				app.Cluster.ObjectFS(),
+				app.Cluster.MemoryManager,
 				func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 					fsd.CanSyncDirtyFiles = func() bool {
 						return true
@@ -147,6 +150,7 @@ func TestTieredFile(t *testing.T) {
 				context.Background(),
 				app.Cluster.NetworkFS(),
 				app.Cluster.ObjectFS(),
+				app.Cluster.MemoryManager,
 				func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 					fsd.CanSyncDirtyFiles = func() bool {
 						return true
@@ -242,6 +246,7 @@ func TestTieredFile(t *testing.T) {
 				context.Background(),
 				app.Cluster.NetworkFS(),
 				app.Cluster.ObjectFS(),
+				app.Cluster.MemoryManager,
 				func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 					fsd.CanSyncDirtyFiles = func() bool {
 						return true
@@ -304,6 +309,7 @@ func TestTieredFile(t *testing.T) {
 				context.Background(),
 				app.Cluster.NetworkFS(),
 				app.Cluster.ObjectFS(),
+				app.Cluster.MemoryManager,
 				func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 					fsd.CanSyncDirtyFiles = func() bool {
 						return true
@@ -426,6 +432,7 @@ func TestTieredFile(t *testing.T) {
 				context.Background(),
 				app.Cluster.NetworkFS(),
 				app.Cluster.ObjectFS(),
+				app.Cluster.MemoryManager,
 				func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 					fsd.CanSyncDirtyFiles = func() bool {
 						return true
@@ -481,6 +488,7 @@ func TestTieredFile(t *testing.T) {
 				context.Background(),
 				app.Cluster.NetworkFS(),
 				app.Cluster.ObjectFS(),
+				app.Cluster.MemoryManager,
 				func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 					fsd.CanSyncDirtyFiles = func() bool {
 						return true
@@ -536,6 +544,7 @@ func TestTieredFile(t *testing.T) {
 				context.Background(),
 				app.Cluster.NetworkFS(),
 				app.Cluster.ObjectFS(),
+				app.Cluster.MemoryManager,
 				func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 					fsd.CanSyncDirtyFiles = func() bool {
 						return true
@@ -597,6 +606,7 @@ func TestTieredFile(t *testing.T) {
 				context.Background(),
 				app.Cluster.NetworkFS(),
 				app.Cluster.ObjectFS(),
+				app.Cluster.MemoryManager,
 				func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 					fsd.CanSyncDirtyFiles = func() bool {
 						return true
@@ -658,6 +668,7 @@ func TestTieredFile(t *testing.T) {
 				app.Cluster.Node().Context(),
 				app.Cluster.NetworkFS(),
 				app.Cluster.ObjectFS(),
+				app.Cluster.MemoryManager,
 				func(c context.Context, fsd *storage.TieredFileSystemDriver) {
 					fsd.WriteInterval = 1 * time.Millisecond
 				},
@@ -730,6 +741,7 @@ func TestTieredFile(t *testing.T) {
 				context.Background(),
 				app.Cluster.NetworkFS(),
 				app.Cluster.ObjectFS(),
+				app.Cluster.MemoryManager,
 				func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 					fsd.CanSyncDirtyFiles = func() bool {
 						return true
@@ -802,6 +814,7 @@ func TestTieredFile(t *testing.T) {
 				context.Background(),
 				app.Cluster.NetworkFS(),
 				app.Cluster.ObjectFS(),
+				app.Cluster.MemoryManager,
 				func(ctx context.Context, fsd *storage.TieredFileSystemDriver) {
 					fsd.CanSyncDirtyFiles = func() bool {
 						return true

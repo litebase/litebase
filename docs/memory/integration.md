@@ -84,14 +84,14 @@ func (cm *ConnectionManager) Get(dbID, branchID string) (*Connection, error) {
     
     conn, err := cm.getOrCreateConnection(dbID, branchID)
     
-	if err != nil {
+    if err != nil {
         cm.manager.Release(lease)
         return nil, err
     }
     
     conn.lease = lease
     
-	return conn, nil
+    return conn, nil
 }
 
 func (cm *ConnectionManager) Release(conn *Connection) {
