@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"log/slog"
+	"runtime"
 	"time"
 
 	"github.com/litebase/litebase/pkg/config"
@@ -12,17 +13,19 @@ import (
 	"github.com/joho/godotenv"
 
 	netHttp "net/http"
-	// _ "net/http/pprof"
+	_ "net/http/pprof"
 )
 
 func main() {
-	// Debugging with pprof
-	// Uncomment the following lines to enable pprof
-	// go func() {
-	// 	runtime.SetBlockProfileRate(1)
-	// 	runtime.SetMutexProfileFraction(1)
-	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
-	// }()
+	log.Println("WARNING: This server is for testing and development purposes only.")
+	log.Println("For production use, run: litebase start")
+
+	// Enable pprof for profiling and debugging on localhost:6060
+	go func() {
+		runtime.SetBlockProfileRate(1)
+		runtime.SetMutexProfileFraction(1)
+		log.Println(netHttp.ListenAndServe("localhost:6060", nil))
+	}()
 
 	err := godotenv.Load(".env")
 
