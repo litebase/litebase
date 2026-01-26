@@ -212,7 +212,7 @@ tryOpen:
 		}
 
 		config := wal.walManager.connectionManager.databaseManager.Cluster.Config
-		dataKey, keyHash, err := matchEncryptionKey(config, dataEncryptionKeyHash)
+		dataKey, keyHash, err := MatchEncryptionKey(config, dataEncryptionKeyHash)
 
 		if err != nil {
 			if err := file.Close(); err != nil {
@@ -278,10 +278,10 @@ tryOpen:
 	return wal.file, nil
 }
 
-// matchEncryptionKey finds the matching encryption key in the config based on the key hash.
+// MatchEncryptionKey finds the matching encryption key in the config based on the key hash.
 // It checks both DataEncryptionKeyHash and DataEncryptionKeyNextHash.
 // Returns the key, its hash, and an error if no match is found.
-func matchEncryptionKey(cfg *config.Config, dataEncryptionKeyHash string) ([]byte, [32]byte, error) {
+func MatchEncryptionKey(cfg *config.Config, dataEncryptionKeyHash string) ([]byte, [32]byte, error) {
 	if dataEncryptionKeyHash == "" {
 		return nil, [32]byte{}, errors.New("data encryption key hash is empty")
 	}

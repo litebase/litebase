@@ -519,6 +519,46 @@ func (request *Request) QueryParams(queryParamStruct any) (any, error) {
 	return queryParamStruct, nil
 }
 
+// GetQueryLog returns a query log for the specified database, automatically
+// configuring encryption if the database/branch is encrypted.
+func (request *Request) GetQueryLog(databaseHash, databaseID, branchID string) (*logs.QueryLog, error) {
+	queryLog := request.logManager.GetQueryLog(request.cluster, databaseHash, databaseID, branchID)
+
+	// Check if the database is encrypted and configure encryption if needed
+	db, err := request.databaseManager.Get(databaseID)
+
+	if err != nil {
+		return queryLog, nil // Return query log even if we can't check encryption
+	}
+
+	branch, err := db.BranchByID(branchID)
+
+	if err != nil {
+		return queryLog, nil // Return query log even if we can't check encryption
+	}
+
+	// If the branch is encrypted and query log isn't already encrypted, configure it
+	if branch.Settings != nil && branch.Settings.Encrypted && branch.Settings.DataEncryptionKeyHash != "" && !queryLog.IsEncrypted() {
+		dataKey, keyHash, err := database.MatchEncryptionKey(
+			request.cluster.Config,
+			branch.Settings.DataEncryptionKeyHash)
+
+		if err != nil {
+			slog.Error("Failed to match encryption key for query log", "error", err)
+			return queryLog, err
+		}
+
+		err = queryLog.ConfigureEncryption(dataKey, keyHash)
+
+		if err != nil {
+			slog.Error("Failed to configure query log encryption", "error", err)
+			return queryLog, err
+		}
+	}
+
+	return queryLog, nil
+}
+
 func (request *Request) Validate(
 	input any,
 	messages map[string]string,

@@ -82,6 +82,14 @@ func (q *QueryLog) ConfigureEncryption(dataKey []byte, keyHash [32]byte) error {
 	return nil
 }
 
+// IsEncrypted returns whether encryption is configured for this QueryLog.
+func (q *QueryLog) IsEncrypted() bool {
+	q.mutex.RLock()
+	defer q.mutex.RUnlock()
+
+	return q.encrypted
+}
+
 func (q *QueryLog) Close() error {
 	// Flush before closing to avoid deadlock
 	q.Flush(true)
