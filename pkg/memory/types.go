@@ -29,14 +29,30 @@ const (
 
 // Lease represents a memory allocation
 type Lease struct {
-	ID         LeaseID
-	Size       int64
+	ID          LeaseID
+	Size        int64
 	Reclaimable bool
-	Priority   Priority
-	Owner      string
-	LastUsed   time.Time
-	OnReclaim  func() error
-	Reclaimed  bool
+	Priority    Priority
+	Owner       string
+	lastUsed    atomic.Int64 // Unix timestamp in nanoseconds
+	OnReclaim   func() error
+	Reclaimed   bool
+}
+
+// GetLastUsed returns the last used time as a time.Time
+func (l *Lease) GetLastUsed() time.Time {
+	nanos := l.lastUsed.Load()
+
+	if nanos == 0 {
+		return time.Time{}
+	}
+
+	return time.Unix(0, nanos)
+}
+
+// SetLastUsed sets the last used time (for testing purposes)
+func (l *Lease) SetLastUsed(t time.Time) {
+	l.lastUsed.Store(t.UnixNano())
 }
 
 // LeaseOption is a functional option for configuring a Lease

@@ -81,8 +81,8 @@ func (m *Manager) Request(size int64, opts ...LeaseOption) (*Lease, error) {
 		Size:        size,
 		Reclaimable: true,
 		Priority:    PriorityNormal,
-		LastUsed:    time.Now().UTC(),
 	}
+	lease.lastUsed.Store(time.Now().UTC().UnixNano())
 
 	// Apply options
 	for _, opt := range opts {
@@ -120,7 +120,7 @@ func (m *Manager) Release(lease *Lease) error {
 // Touch updates the last used time of a lease
 func (m *Manager) Touch(lease *Lease) {
 	if lease != nil {
-		lease.LastUsed = time.Now().UTC()
+		lease.lastUsed.Store(time.Now().UTC().UnixNano())
 	}
 }
 

@@ -54,7 +54,7 @@ func (p *LRUEvictionPolicy) SelectForEviction(leases []*Lease, needed int64) []*
 
 	for i, lease := range reclaimable {
 		// Calculate age in seconds since last use
-		age := now.Sub(lease.LastUsed).Seconds()
+		age := now.Sub(lease.GetLastUsed()).Seconds()
 
 		// Higher score = more likely to evict
 		// Age / priority weight (lower priority = higher score)
