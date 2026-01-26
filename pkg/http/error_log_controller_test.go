@@ -42,7 +42,11 @@ func TestErrorLogControllerSuccess(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		// Manually flush the error log to ensure entries are written
-		errorLog.Flush(true)
+		err := errorLog.Flush(true)
+
+		if err != nil {
+			t.Fatalf("Failed to flush error log: %v", err)
+		}
 
 		// Set up test time range
 		now := time.Now()

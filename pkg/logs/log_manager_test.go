@@ -140,7 +140,11 @@ func TestLogManager_GetErrorLogEncrypted(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		errorLog.Flush(true)
+		err = errorLog.Flush(true)
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		// Verify file was created and has content
 		file, err := errorLog.GetFile()

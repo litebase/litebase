@@ -257,11 +257,9 @@ func (e *ErrorLog) Read(startTimestamp, endTimestamp uint32) ([]*ErrorEntry, err
 
 	var entries []*ErrorEntry
 
-	buffer := make([]byte, 1024*4) // 4KB buffer
-
 	for {
 		// Read entry from file
-		entry, err := e.readEntry(f, buffer, startTimestamp, endTimestamp)
+		entry, err := e.readEntry(f, startTimestamp, endTimestamp)
 
 		if err != nil {
 			if err.Error() == "EOF" {
@@ -280,7 +278,7 @@ func (e *ErrorLog) Read(startTimestamp, endTimestamp uint32) ([]*ErrorEntry, err
 }
 
 // readEntry reads a single error entry from the file
-func (e *ErrorLog) readEntry(f internalStorage.File, buffer []byte, startTimestamp, endTimestamp uint32) (*ErrorEntry, error) {
+func (e *ErrorLog) readEntry(f internalStorage.File, startTimestamp, endTimestamp uint32) (*ErrorEntry, error) {
 	// Read timestamp (4 bytes)
 	timestampBytes := make([]byte, 4)
 

@@ -69,7 +69,11 @@ func TestErrorLog_Flush(t *testing.T) {
 			db.DatabaseBranchID,
 		)
 
-		errorLog.Flush(true)
+		err := errorLog.Flush(true)
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		file, err := errorLog.GetFile()
 
@@ -99,7 +103,11 @@ func TestErrorLog_Flush(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		errorLog.Flush(true)
+		err = errorLog.Flush(true)
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		file, err = errorLog.GetFile()
 
@@ -159,7 +167,11 @@ func TestErrorLog_Read(t *testing.T) {
 			}
 		}
 
-		errorLog.Flush(true)
+		err := errorLog.Flush(true)
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		endTime := time.Now().UTC().Add(time.Second)
 
@@ -272,7 +284,11 @@ func TestErrorLog_MultipleWrites(t *testing.T) {
 			}
 		}
 
-		errorLog.Flush(true)
+		err := errorLog.Flush(true)
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		file, err := errorLog.GetFile()
 
@@ -395,7 +411,11 @@ func TestErrorLog_WriteAndReadEncrypted(t *testing.T) {
 			}
 		}
 
-		errorLog.Flush(true)
+		err := errorLog.Flush(true)
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		endTime := time.Now().UTC().Add(time.Second)
 
@@ -464,7 +484,11 @@ func TestErrorLog_MultipleWritesEncrypted(t *testing.T) {
 			}
 		}
 
-		errorLog.Flush(true)
+		err := errorLog.Flush(true)
+
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		file, err := errorLog.GetFile()
 
