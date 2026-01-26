@@ -65,7 +65,7 @@ func setupTestEnv(t testing.TB) (string, error) {
 
 	setTestEnvVariable(t)
 
-	envPath := fmt.Sprintf("%s.env.test", rootDirectory)
+	envPath := filepath.Join(rootDirectory, ".env.test")
 
 	if _, err := os.Stat(envPath); err == nil {
 		err := godotenv.Load(envPath)
@@ -76,7 +76,7 @@ func setupTestEnv(t testing.TB) (string, error) {
 	}
 
 	if envDataPath == "" {
-		envDataPath = fmt.Sprintf("%s%s", rootDirectory, os.Getenv("LITEBASE_STORAGE_LOCAL_PATH"))
+		envDataPath = filepath.Join(rootDirectory, os.Getenv("LITEBASE_STORAGE_LOCAL_PATH"))
 	}
 
 	var dataPath string
@@ -84,11 +84,11 @@ func setupTestEnv(t testing.TB) (string, error) {
 	if os.Getenv("LITEBASE_TEST_DATA_PATH") != "" {
 		dataPath = os.Getenv("LITEBASE_TEST_DATA_PATH")
 	} else {
-		dataPath = fmt.Sprintf("%s/%s", envDataPath, CreateHash(64))
+		dataPath = filepath.Join(envDataPath, CreateHash(64))
 	}
 
-	networkStoragePath := fmt.Sprintf("%s/_network", dataPath)
-	tmpPath := fmt.Sprintf("%s/_tmp", dataPath)
+	networkStoragePath := filepath.Join(dataPath, "_network")
+	tmpPath := filepath.Join(dataPath, "_tmp")
 
 	t.Setenv("LITEBASE_STORAGE_LOCAL_PATH", dataPath)
 	t.Setenv("LITEBASE_STORAGE_NETWORK_PATH", networkStoragePath)
