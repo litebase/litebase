@@ -6,11 +6,13 @@ This guide shows how to integrate the Memory Manager with existing Litebase comp
 
 ## TieredFileSystemDriver Integration
 
-### Problem
+### TieredFileSystemDriver Problem
 
-The TieredFileSystemDriver currently uses raw `sync.Pool` for buffer management with no memory tracking. With potentially 10,000+ open files per database, memory usage can spiral out of control.
+The TieredFileSystemDriver currently uses raw `sync.Pool` for buffer
+management with no memory tracking. With potentially 10,000+ open files per
+database, memory usage can spiral out of control.
 
-### Solution
+### TieredFileSystemDriver Solution
 
 Replace the raw buffer pool with a memory-managed BufferPool:
 
@@ -28,13 +30,19 @@ func NewTieredFileSystemDriver(
     manager *memory.Manager,
 ) *TieredFileSystemDriver {
     return &TieredFileSystemDriver{
-        bufferPool: memory.NewBufferPool(32*1024, manager), // 32KB buffers
+        bufferPool: memory.NewBufferPool(
+            32*1024,
+            manager,
+        ), // 32KB buffers
         manager:    manager,
         // ... initialize other fields
     }
 }
 
-func (fsd *TieredFileSystemDriver) CopyFile(dst io.Writer, src io.Reader) (int64, error) {
+func (fsd *TieredFileSystemDriver) CopyFile(
+    dst io.Writer,
+    src io.Reader,
+) (int64, error) {
     buf, err := fsd.bufferPool.Get()
 
     if err != nil {
@@ -42,12 +50,12 @@ func (fsd *TieredFileSystemDriver) CopyFile(dst io.Writer, src io.Reader) (int64
     }
 
     defer fsd.bufferPool.Put(buf)
-    
+
     return io.CopyBuffer(dst, src, *buf)
 }
 ```
 
-### Benefits
+### TieredFileSystemDriver Benefits
 
 - Buffer memory is tracked globally
 - Under pressure, buffers can be evicted
@@ -57,7 +65,9 @@ func (fsd *TieredFileSystemDriver) CopyFile(dst io.Writer, src io.Reader) (int64
 
 ### Problem
 
-The ConnectionManager has unbounded connection maps with only idle timeout. No global memory limits exist.
+The ConnectionManager has unbounded connection maps with only idle timeout.
+No global memory limits exist. With potentially millions of databases, the
+total number of connections could easily exceed available memory.
 
 ### Solution
 
@@ -65,56 +75,146 @@ Request memory leases for each connection:
 
 ```go
 type ConnectionManager struct {
-    manager        *memory.Manager
-    connectionSize int64 // Estimated size per connection
+    memoryManager  *memory.Manager
+    connectionSize int64 // Estimated size per connection (256KB)
     // ... existing fields
 }
 
-func (cm *ConnectionManager) Get(dbID, branchID string) (*Connection, error) {
-    // Request memory for connection
-    lease, err := cm.manager.Request(cm.connectionSize,
-        memory.Reclaimable(false), // Connections can't be evicted
-        memory.WithPriority(memory.PriorityHigh),
-        memory.WithOwner("connection-pool"),
-    )
+type ClientConnection struct {
+    Branch      *Branch
+    connection  *DatabaseConnection
+    memoryLease *memory.Lease // Track memory
+}
+
+func (cm *ConnectionManager) Get(
+    dbID,
+    branchID string,
+) (*ClientConnection, error) {
+    // Try to reuse existing connection
+    conn := cm.findAvailableConnection(dbID, branchID)
+
+    if conn != nil {
+        return conn, nil
+    }
+    
+    // Request memory for new connection
+    var lease *memory.Lease
+
+    if cm.memoryManager != nil {
+        var err error
+
+        lease, err = cm.memoryManager.Request(
+            cm.connectionSize,
+            memory.Reclaimable(false), // Can't be evicted
+            memory.WithPriority(memory.PriorityHigh),
+            memory.WithOwner(
+                fmt.Sprintf("connection-%s-%s", dbID, branchID),
+            ),
+        )
+
+        if err != nil {
+            return nil, fmt.Errorf("insufficient memory for connection: %w", err)
+        }
+    }
+
+    // Create new connection
+    conn, err := NewClientConnection(cm, branch)
 
     if err != nil {
-        return nil, fmt.Errorf("insufficient memory for connection: %w", err)
-    }
-    
-    conn, err := cm.getOrCreateConnection(dbID, branchID)
-    
-    if err != nil {
-        cm.manager.Release(lease)
+        // Release lease if connection creation fails
+        if lease != nil {
+            cm.memoryManager.Release(lease)
+        }
+
         return nil, err
     }
-    
-    conn.lease = lease
-    
+
+    // Store lease in connection for later release
+    conn.memoryLease = lease
+
     return conn, nil
 }
 
-func (cm *ConnectionManager) Release(conn *Connection) {
-    if conn.lease != nil {
-        cm.manager.Release(conn.lease)
+func (cm *ConnectionManager) remove(clientConnection *ClientConnection) {
+    // Release memory lease when connection is removed
+    if clientConnection.memoryLease != nil && cm.memoryManager != nil {
+        cm.memoryManager.Release(clientConnection.memoryLease)
+        clientConnection.memoryLease = nil
     }
-    // ... existing cleanup
+
+    clientConnection.Close()
 }
 ```
 
-### Benefits
+### Implementation Details
 
-- Hard limit on total connections across all databases
-- Fair allocation across databases
-- Prevents OOM from too many connections
+#### Connection Size Estimation
+
+- Each connection estimated at 256KB (SQLite connection overhead + buffers)
+- Stored in `ConnectionManager.connectionSize` for easy adjustment
+- Non-reclaimable to prevent evicting active connections
+
+#### Lifecycle Management
+
+1. **Allocation**: Request lease in `Get()` before creating connection
+2. **Storage**: Lease stored in `ClientConnection.memoryLease`
+3. **Release**: Lease released in `remove()` after connection closes
+4. **Failure Handling**: Lease released immediately if connection creation fails
+
+#### Memory Pressure Response
+
+When memory is low:
+
+- New connection requests fail with "insufficient memory" error
+- Existing connections remain active (non-reclaimable)
+- Idle connections removed normally via existing timeout mechanism
+- Client retries or queues requests until memory available
+
+### Initialization
+
+Wire memory manager from cluster to connection manager:
+
+```go
+func (d *DatabaseManager) ConnectionManager() *ConnectionManager {
+    d.connectionManagerMutex.Lock()
+    defer d.connectionManagerMutex.Unlock()
+
+    if d.connectionManager != nil {
+        return d.connectionManager
+    }
+
+    d.connectionManager = &ConnectionManager{
+        cluster:         d.Cluster,
+        connectionSize:  256 * 1024,
+        databaseManager: d,
+        databases:       map[string]*DatabaseGroup{},
+        memoryManager:   d.Cluster.MemoryManager, // Get from cluster
+        mutex:           &sync.RWMutex{},
+        state:           ConnectionManagerStateRunning,
+    }
+
+    // ... start connection ticker
+
+    return d.connectionManager
+}
+```
+
+### ConnectionManager Benefits
+
+- **Hard memory limit**: Total connections capped by available memory
+- **Fair allocation**: Memory distributed across all databases
+- **Prevents OOM**: Connection creation fails gracefully under pressure
+- **Coordinated cleanup**: Works with existing idle timeout mechanism
+- **Visibility**: Track which databases are using memory for connections
 
 ## DatabaseResources Integration
 
-### Problem
+### DatabaseResources Problem
 
-DatabaseResources uses LFUCache with item-count limits, not memory limits. Each cache is independent.
+DatabaseResources uses LFUCache with item-count limits, not memory limits.
+Each cache is independent.
 
-### Solution
+### DatabaseResources Solution
 
 Use ManagedCache for all caches:
 
@@ -126,7 +226,11 @@ type DatabaseResources struct {
     // ... other resources
 }
 
-func NewDatabaseResources(dbID, branchID string, manager *memory.Manager) *DatabaseResources {
+func NewDatabaseResources(
+    dbID string,
+    branchID string,
+    manager *memory.Manager,
+) *DatabaseResources {
     return &DatabaseResources{
         manager: manager,
         databaseCache: memory.NewManagedCache(memory.ManagedCacheConfig{
@@ -145,7 +249,7 @@ func NewDatabaseResources(dbID, branchID string, manager *memory.Manager) *Datab
 }
 ```
 
-### Benefits
+### DatabaseResources Benefits
 
 - Memory limits instead of arbitrary item counts
 - Caches compete fairly for memory
@@ -153,11 +257,11 @@ func NewDatabaseResources(dbID, branchID string, manager *memory.Manager) *Datab
 
 ## PageLogger/SnapshotLogger Integration
 
-### Problem
+### PageLogger Problem
 
 Page loggers buffer writes in memory with no global coordination.
 
-### Solution
+### PageLogger Solution
 
 Track buffer memory with leases:
 
@@ -196,12 +300,12 @@ func (pl *PageLogger) Close() error {
     }
 
     // ... existing cleanup
-    
+
     return nil
 }
 ```
 
-### Benefits
+### PageLogger Benefits
 
 - Log buffers can be flushed under pressure
 - Prevents memory exhaustion from buffered writes

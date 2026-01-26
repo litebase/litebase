@@ -175,8 +175,10 @@ func (d *DatabaseManager) ConnectionManager() *ConnectionManager {
 
 	d.connectionManager = &ConnectionManager{
 		cluster:         d.Cluster,
+		connectionSize:  256 * 1024, // Estimate 256KB per connection
 		databaseManager: d,
 		databases:       map[string]*DatabaseGroup{},
+		memoryManager:   d.Cluster.MemoryManager,
 		mutex:           &sync.RWMutex{},
 		state:           ConnectionManagerStateRunning,
 	}

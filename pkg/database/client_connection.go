@@ -4,11 +4,13 @@ import (
 	"log/slog"
 
 	"github.com/litebase/litebase/pkg/auth"
+	"github.com/litebase/litebase/pkg/memory"
 )
 
 type ClientConnection struct {
-	Branch     *Branch
-	connection *DatabaseConnection
+	Branch      *Branch
+	connection  *DatabaseConnection
+	memoryLease *memory.Lease
 }
 
 // Create a new instance of a ClientConnection.
