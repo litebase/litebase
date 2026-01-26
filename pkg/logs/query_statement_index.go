@@ -20,10 +20,13 @@ import (
 // These entries are associated with a hash that associates the query with Query
 // Log entries.
 type QueryStatementIndex struct {
-	cache *cache.LFUCache
-	file  internalStorage.File
-	mutex *sync.Mutex
-	path  string
+	cache     *cache.LFUCache
+	dataKey   []byte // Optional: 32-byte encryption key
+	encrypted bool   // Whether the index file is encrypted
+	file      internalStorage.File
+	keyHash   [32]byte // Optional: SHA256 hash of encryption key
+	mutex     *sync.Mutex
+	path      string
 }
 
 func GetQueryStatementIndex(tieredFS *storage.FileSystem, path, name string, timestamp int64) (*QueryStatementIndex, error) {
@@ -44,10 +47,44 @@ func GetQueryStatementIndex(tieredFS *storage.FileSystem, path, name string, tim
 	}
 
 	return &QueryStatementIndex{
-		cache: cache.NewLFUCache(1000),
-		file:  file,
-		mutex: &sync.Mutex{},
-		path:  path,
+		cache:     cache.NewLFUCache(1000),
+		encrypted: false,
+		file:      file,
+		mutex:     &sync.Mutex{},
+		path:      path,
+	}, nil
+}
+
+// GetQueryStatementIndexWithEncryption opens a query statement index with encryption enabled.
+func GetQueryStatementIndexWithEncryption(tieredFS *storage.FileSystem, path, name string, timestamp int64, dataKey []byte, keyHash [32]byte) (*QueryStatementIndex, error) {
+	if len(dataKey) != 32 {
+		return nil, fmt.Errorf("dataKey must be 32 bytes, got %d", len(dataKey))
+	}
+
+	directoryPath := fmt.Sprintf("%s/%d/", path, timestamp)
+	indexPath := fmt.Sprintf("%s/%s", directoryPath, name)
+
+	err := tieredFS.MkdirAll(directoryPath, 0750)
+
+	if err != nil {
+		return nil, err
+	}
+
+	file, err := tieredFS.OpenFile(indexPath, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0600)
+
+	if err != nil {
+		log.Println("Failed to open file", err)
+		return nil, err
+	}
+
+	return &QueryStatementIndex{
+		cache:     cache.NewLFUCache(1000),
+		dataKey:   dataKey,
+		encrypted: true,
+		file:      file,
+		keyHash:   keyHash,
+		mutex:     &sync.Mutex{},
+		path:      path,
 	}, nil
 }
 
@@ -56,6 +93,30 @@ func (q *QueryStatementIndex) Close() error {
 	defer q.mutex.Unlock()
 
 	return q.file.Close()
+}
+
+// ConfigureEncryption sets the encryption parameters for the QueryStatementIndex.
+func (q *QueryStatementIndex) ConfigureEncryption(dataKey []byte, keyHash [32]byte) error {
+	if len(dataKey) != 32 {
+		return fmt.Errorf("dataKey must be 32 bytes, got %d", len(dataKey))
+	}
+
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+
+	q.dataKey = dataKey
+	q.keyHash = keyHash
+	q.encrypted = true
+
+	return nil
+}
+
+// IsEncrypted returns whether the statement index is encrypted.
+func (q *QueryStatementIndex) IsEncrypted() bool {
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+
+	return q.encrypted
 }
 
 func (q *QueryStatementIndex) Get(key string) ([]byte, bool) {

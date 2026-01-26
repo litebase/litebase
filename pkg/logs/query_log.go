@@ -37,8 +37,11 @@ type QueryLog struct {
 	cluster        *cluster.Cluster
 	databaseHash   string
 	databaseId     string
+	dataKey        []byte // Optional: 32-byte encryption key
+	encrypted      bool   // Whether query logs should be encrypted
 	file           internalStorage.File
 	keyBuffer      *bytes.Buffer
+	keyHash        [32]byte // Optional: SHA256 hash of encryption key
 	lastLoggedTime time.Time
 	mutex          sync.RWMutex
 	path           string
@@ -55,6 +58,28 @@ type QueryLogEntry struct {
 	DatabaseHash, DatabaseID, BranchID, CredentialID string
 	Statement                                        string
 	Latency                                          float64
+}
+
+// ConfigureEncryption sets the encryption parameters for the QueryLog.
+// This must be called before any query logs are written or statement index is accessed.
+func (q *QueryLog) ConfigureEncryption(dataKey []byte, keyHash [32]byte) error {
+	if len(dataKey) != 32 {
+		return fmt.Errorf("dataKey must be 32 bytes, got %d", len(dataKey))
+	}
+
+	q.mutex.Lock()
+	defer q.mutex.Unlock()
+
+	q.dataKey = dataKey
+	q.keyHash = keyHash
+	q.encrypted = true
+
+	// If statement index already exists, configure its encryption
+	if q.statementIndex != nil {
+		q.statementIndex.ConfigureEncryption(dataKey, keyHash)
+	}
+
+	return nil
 }
 
 func (q *QueryLog) Close() error {
@@ -121,12 +146,27 @@ func (q *QueryLog) GetStatementIndex() (*QueryStatementIndex, error) {
 	defer q.mutex.Unlock()
 
 	if q.statementIndex == nil {
-		statementIndex, err := GetQueryStatementIndex(
-			q.tieredFS,
-			q.path,
-			fmt.Sprintf("QUERY_STATEMENT_INDEX_%s", q.cluster.Node().ID),
-			q.timestamp,
-		)
+		var statementIndex *QueryStatementIndex
+		var err error
+
+		// Create statement index with encryption if enabled
+		if q.encrypted {
+			statementIndex, err = GetQueryStatementIndexWithEncryption(
+				q.tieredFS,
+				q.path,
+				fmt.Sprintf("QUERY_STATEMENT_INDEX_%s", q.cluster.Node().ID),
+				q.timestamp,
+				q.dataKey,
+				q.keyHash,
+			)
+		} else {
+			statementIndex, err = GetQueryStatementIndex(
+				q.tieredFS,
+				q.path,
+				fmt.Sprintf("QUERY_STATEMENT_INDEX_%s", q.cluster.Node().ID),
+				q.timestamp,
+			)
+		}
 
 		if err != nil {
 			if os.IsNotExist(err) {

@@ -87,6 +87,7 @@ func (lm *LogManager) GetQueryLog(cluster *cluster.Cluster, databaseHash, databa
 			cluster:      cluster,
 			databaseHash: databaseHash,
 			databaseId:   databaseId,
+			encrypted:    false,
 			keyBuffer:    bytes.NewBuffer(make([]byte, 20)),
 			mutex:        sync.RWMutex{},
 			path:         path,
