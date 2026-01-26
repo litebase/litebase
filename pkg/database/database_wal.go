@@ -13,11 +13,17 @@ import (
 	"time"
 
 	internalStorage "github.com/litebase/litebase/internal/storage"
-	"github.com/litebase/litebase/pkg/cache"
 	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/file"
+	"github.com/litebase/litebase/pkg/memory"
 	"github.com/litebase/litebase/pkg/storage"
+)
+
+const (
+	// WAL cache configuration
+	WALCacheCapacity    = 1000 // Number of pages to cache (1000 pages × 4KB = 4MB per WAL)
+	WALCacheDefaultSize = 4096 // 4KB per page
 )
 
 var (
@@ -35,8 +41,9 @@ var (
 // Frame header and 4KB for the contents of the page.
 type DatabaseWAL struct {
 	BranchID       string
-	cache          *cache.LFUCache
+	cache          *memory.ManagedCache
 	cacheKeyBuffer []byte
+	memoryManager  *memory.Manager
 	createdAt      time.Time
 	DatabaseID     string
 	checkpointedAt time.Time
@@ -55,7 +62,7 @@ type DatabaseWAL struct {
 	walManager     *DatabaseWALManager
 }
 
-// getCacheKey generates a cache key for a timestamp+offset combination
+// walCacheKey is used as a cache key to avoid string allocations
 type walCacheKey struct {
 	Timestamp int64
 	Offset    int64
@@ -64,6 +71,7 @@ type walCacheKey struct {
 func NewDatabaseWAL(
 	node *cluster.Node,
 	connectionManager *ConnectionManager,
+	memoryManager *memory.Manager,
 	databaseId string,
 	branchId string,
 	fileSystem *storage.FileSystem,
@@ -71,14 +79,20 @@ func NewDatabaseWAL(
 	timestamp int64,
 ) *DatabaseWAL {
 	return &DatabaseWAL{
-		BranchID:       branchId,
-		cache:          cache.NewLFUCache(1000), // Cache up to 1000 pages
+		BranchID: branchId,
+		cache: memory.NewManagedCache(memory.ManagedCacheConfig{
+			Capacity:    WALCacheCapacity,
+			Manager:     memoryManager,
+			DefaultSize: WALCacheDefaultSize,
+			Owner:       fmt.Sprintf("wal-cache-%s-%s-%d", databaseId, branchId, timestamp),
+		}),
 		cacheKeyBuffer: make([]byte, 0, 64),
 		createdAt:      time.Now().UTC(),
 		DatabaseID:     databaseId,
 		fileSystem:     fileSystem,
 		lastKnownSize:  -1,
 		lastSyncTime:   time.Time{},
+		memoryManager:  memoryManager,
 		mutex:          &sync.RWMutex{},
 		node:           node,
 		Path:           fmt.Sprintf("%slogs/wal/WAL_%d", file.GetDatabaseFileBaseDir(databaseId, branchId), timestamp),
@@ -93,7 +107,6 @@ func (wal *DatabaseWAL) Checkpointing() bool {
 }
 
 func (wal *DatabaseWAL) Close() error {
-	wal.cache.Close()
 
 	if wal.file != nil {
 		err := wal.file.Close()

@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/litebase/litebase/pkg/memory"
 	"github.com/litebase/litebase/pkg/storage"
 )
 
@@ -79,7 +80,17 @@ func TestPageLogger_SizeBasedCompactionIntegration(t *testing.T) {
 	// Create a simple mock node publisher
 	mockPublisher := &SimpleNodePublisher{}
 
-	pageLogger, err := storage.NewPageLogger("test-db", "main", fs, mockPublisher)
+	// Create memory manager for testing
+	memManager, err := memory.NewManager(memory.Config{
+		Capacity:  100 * 1024 * 1024, // 100MB
+		Threshold: 0.85,
+	})
+
+	if err != nil {
+		t.Fatalf("Failed to create memory manager: %v", err)
+	}
+
+	pageLogger, err := storage.NewPageLogger("test-db", "main", fs, mockPublisher, memManager)
 
 	if err != nil {
 		t.Fatalf("Failed to create page logger: %v", err)

@@ -13,6 +13,7 @@ import (
 
 	"github.com/litebase/litebase/pkg/cluster/messages"
 	"github.com/litebase/litebase/pkg/file"
+	"github.com/litebase/litebase/pkg/memory"
 )
 
 const (
@@ -247,6 +248,7 @@ type PageLogger struct {
 	dataKey         []byte   // Optional: encryption key (32 bytes)
 	encrypted       bool     // Whether this PageLogger creates encrypted PageLogs
 	keyHash         [32]byte // Optional: SHA256 hash of encryption key
+	memoryManager   *memory.Manager
 	NetworkFS       *FileSystem
 	index           *PageLoggerIndex
 	logs            map[PageGroup]map[PageGroupVersion]*PageLog
@@ -269,6 +271,7 @@ func NewPageLogger(
 	branchId string,
 	networkFS *FileSystem,
 	nodePublisher NodePublisher,
+	memoryManager *memory.Manager,
 ) (*PageLogger, error) {
 	path := file.GetDatabaseFileBaseDir(databaseId, branchId)
 	pli, err := NewPageLoggerIndex(networkFS, fmt.Sprintf("%slogs/page/PAGE_LOGGER_INDEX", path))
@@ -281,6 +284,7 @@ func NewPageLogger(
 		BranchID:        branchId,
 		compactionMutex: &sync.Mutex{},
 		DatabaseID:      databaseId,
+		memoryManager:   memoryManager,
 		NetworkFS:       networkFS,
 		index:           pli,
 		logs:            make(map[PageGroup]map[PageGroupVersion]*PageLog),
@@ -593,10 +597,10 @@ func (pl *PageLogger) createNewPageLog(logGroup PageGroup, logTimestamp PageGrou
 	)
 
 	if pl.encrypted {
-		return NewEncryptedPageLog(pl.NetworkFS, path, pl.dataKey, pl.keyHash)
+		return NewEncryptedPageLog(pl.NetworkFS, pl.memoryManager, path, pl.dataKey, pl.keyHash)
 	}
 
-	return NewPageLog(pl.NetworkFS, path)
+	return NewPageLog(pl.NetworkFS, pl.memoryManager, path)
 }
 
 // ConfigureEncryption sets the encryption parameters for this PageLogger.

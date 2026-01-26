@@ -6,12 +6,26 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/pkg/memory"
 	"github.com/litebase/litebase/pkg/server"
 	"github.com/litebase/litebase/pkg/storage"
 )
 
+func newTestMemoryManager(t *testing.T) *memory.Manager {
+	memManager, err := memory.NewManager(memory.Config{
+		Capacity:  100 * 1024 * 1024, // 100MB for tests
+		Threshold: 0.85,
+	})
+
+	if err != nil {
+		t.Fatalf("Failed to create memory manager: %v", err)
+	}
+
+	return memManager
+}
+
 func TestNewPageLogManager(t *testing.T) {
-	plm := storage.NewPageLogManager(context.Background())
+	plm := storage.NewPageLogManager(context.Background(), newTestMemoryManager(t))
 
 	defer func() {
 		if err := plm.Close(); err != nil {
@@ -25,7 +39,7 @@ func TestNewPageLogManager(t *testing.T) {
 }
 
 func TestPageLogManager_Close(t *testing.T) {
-	plm := storage.NewPageLogManager(context.Background())
+	plm := storage.NewPageLogManager(context.Background(), newTestMemoryManager(t))
 	err := plm.Close()
 
 	if err != nil {
@@ -37,7 +51,7 @@ func TestPageLogManager_Get(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tieredFS := app.Cluster.TieredFS()
 
-		plm := storage.NewPageLogManager(context.Background())
+		plm := storage.NewPageLogManager(context.Background(), app.Cluster.MemoryManager)
 
 		defer func() {
 			if err := plm.Close(); err != nil {
@@ -66,7 +80,7 @@ func TestPageLogManager_Release(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		tieredFS := app.Cluster.TieredFS()
 
-		plm := storage.NewPageLogManager(context.Background())
+		plm := storage.NewPageLogManager(context.Background(), app.Cluster.MemoryManager)
 
 		defer func() {
 			if err := plm.Close(); err != nil {
@@ -95,6 +109,7 @@ func TestPageLogManager_SetCompactionFn(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		plm := storage.NewPageLogManager(
 			context.Background(),
+			app.Cluster.MemoryManager,
 			func(plm *storage.PageLogManager) {
 				plm.CompactionInterval = time.Millisecond * 1
 			},

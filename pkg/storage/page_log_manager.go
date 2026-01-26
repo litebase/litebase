@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/pkg/file"
+	"github.com/litebase/litebase/pkg/memory"
 )
 
 // Currently using a lower time to catch bugs and issues
@@ -31,19 +32,21 @@ type PageLogManager struct {
 	CompactionInterval  time.Duration
 	context             context.Context
 	loggers             map[string]*PageLogger
+	memoryManager       *memory.Manager
 	mutex               *sync.Mutex
 	nodePublisher       NodePublisher
 	running             bool
 }
 
 // Create a new instance of the PageLogManager.
-func NewPageLogManager(ctx context.Context, config ...PageLogManagerConfig) *PageLogManager {
+func NewPageLogManager(ctx context.Context, memoryManager *memory.Manager, config ...PageLogManagerConfig) *PageLogManager {
 	plm := &PageLogManager{
 		CompactionInterval:  PageLogManagerCompactionInterval,
 		compactionFn:        func() {},
 		compactionSemaphore: make(chan struct{}, MaxConcurrentCompactions),
 		context:             ctx,
 		loggers:             make(map[string]*PageLogger),
+		memoryManager:       memoryManager,
 		mutex:               &sync.Mutex{},
 	}
 
@@ -103,6 +106,7 @@ func (plm *PageLogManager) Get(
 		branchId,
 		networkFS,
 		plm.nodePublisher,
+		plm.memoryManager,
 	)
 
 	if err != nil {

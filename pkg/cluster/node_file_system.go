@@ -185,6 +185,7 @@ func (cluster *Cluster) TieredFS() *storage.FileSystem {
 				cluster.Node().Context(),
 				cluster.NetworkFS(),
 				cluster.ObjectFS(),
+				cluster.MemoryManager,
 				fileSyncEligibilityFn,
 			),
 		)
@@ -238,6 +239,7 @@ func (cluster *Cluster) TmpTieredFS() *storage.FileSystem {
 				cluster.Node().Context(),
 				cluster.TmpFS(),
 				cluster.ObjectFS(),
+				cluster.MemoryManager,
 				fileSyncEligibilityFn,
 			),
 		)

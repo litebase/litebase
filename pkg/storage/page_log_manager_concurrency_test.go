@@ -21,6 +21,7 @@ func TestPageLogManagerConcurrentCompaction(t *testing.T) {
 			maxConcurrent := 3
 
 			plm := storage.NewPageLogManager(ctx,
+				app.Cluster.MemoryManager,
 				storage.WithMaxConcurrentCompactions(maxConcurrent))
 
 			defer func() {
@@ -157,7 +158,7 @@ func TestPageLogManagerConcurrentCompaction(t *testing.T) {
 		t.Run("GetActiveCompactions", func(t *testing.T) {
 			ctx := t.Context()
 
-			plm := storage.NewPageLogManager(ctx, storage.WithMaxConcurrentCompactions(5))
+			plm := storage.NewPageLogManager(ctx, app.Cluster.MemoryManager, storage.WithMaxConcurrentCompactions(5))
 
 			defer func() {
 				if err := plm.Close(); err != nil {
@@ -234,7 +235,7 @@ func TestPageLogManagerConcurrentCompaction(t *testing.T) {
 
 			// Test with custom concurrency limit
 			customLimit := 7
-			plm := storage.NewPageLogManager(ctx, storage.WithMaxConcurrentCompactions(customLimit))
+			plm := storage.NewPageLogManager(ctx, app.Cluster.MemoryManager, storage.WithMaxConcurrentCompactions(customLimit))
 
 			defer func() {
 				if err := plm.Close(); err != nil {
@@ -280,7 +281,7 @@ func TestPageLogManagerConcurrentCompaction(t *testing.T) {
 		t.Run("CompactAllDatabasesMethod", func(t *testing.T) {
 			ctx := t.Context()
 
-			plm := storage.NewPageLogManager(ctx, storage.WithMaxConcurrentCompactions(5))
+			plm := storage.NewPageLogManager(ctx, app.Cluster.MemoryManager, storage.WithMaxConcurrentCompactions(5))
 			defer func() {
 				if err := plm.Close(); err != nil {
 					t.Errorf("Failed to close PageLogManager: %v", err)

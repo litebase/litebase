@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/pkg/cluster"
+	"github.com/litebase/litebase/pkg/memory"
 )
 
 const (
@@ -29,9 +30,11 @@ const DatabaseCheckpointThreshold = 1 * time.Second
 type ConnectionManager struct {
 	checkpointing    bool
 	cluster          *cluster.Cluster
+	connectionSize   int64 // Estimated memory per connection
 	connectionTicker *time.Ticker
 	databaseManager  *DatabaseManager
 	databases        map[string]*DatabaseGroup
+	memoryManager    *memory.Manager
 	mutex            *sync.RWMutex
 	state            int
 }
@@ -345,13 +348,40 @@ func (c *ConnectionManager) Get(databaseId string, branchId string) (*ClientConn
 
 	c.ensureDatabaseBranchExists(databaseId, branchId)
 
+	// Request memory for the connection
+	var lease *memory.Lease
+
+	if c.memoryManager != nil {
+		lease, err = c.memoryManager.Request(c.connectionSize,
+			memory.Reclaimable(false), // Connections cannot be evicted
+			memory.WithPriority(memory.PriorityHigh),
+			memory.WithOwner(fmt.Sprintf("connection-%s-%s", databaseId, branchId)),
+		)
+
+		if err != nil {
+			return nil, fmt.Errorf("insufficient memory for connection: %w", err)
+		}
+	}
+
 	// Create a new client connection, only one connection can be created at a
 	// time to avoid SQL Logic errors on sqlite3_open.
 	con, err := NewClientConnection(c, branch)
 
 	if err != nil {
+		// Release memory lease if connection creation fails
+		if lease != nil && c.memoryManager != nil {
+			err = c.memoryManager.Release(lease)
+
+			if err != nil {
+				slog.Error("Error releasing memory lease", "error", err)
+			}
+		}
+
 		return nil, err
 	}
+
+	// Store the lease in the connection for later release
+	con.memoryLease = lease
 
 	databaseGroup := c.databases[databaseId]
 
@@ -422,6 +452,17 @@ func (c *ConnectionManager) remove(clientConnection *ClientConnection) {
 	if len(c.databases[clientConnection.Branch.DatabaseID].branches[clientConnection.Branch.DatabaseBranchID]) == 0 {
 		delete(c.databases[clientConnection.Branch.DatabaseID].branches, clientConnection.Branch.DatabaseBranchID)
 		c.databaseManager.Remove(clientConnection.Branch.DatabaseID, clientConnection.Branch.DatabaseBranchID)
+	}
+
+	// Release memory lease if it exists
+	if clientConnection.memoryLease != nil && c.memoryManager != nil {
+		err := c.memoryManager.Release(clientConnection.memoryLease)
+
+		if err != nil {
+			slog.Error("Error releasing memory lease", "error", err)
+		}
+
+		clientConnection.memoryLease = nil
 	}
 
 	clientConnection.Close()

@@ -278,7 +278,7 @@ func TestEncryptedPageLog(t *testing.T) {
 		fs := app.Cluster.NetworkFS()
 		path := "test_encrypted_pagelog"
 
-		pageLog, err := storage.NewEncryptedPageLog(fs, path, dataKey, keyHash)
+		pageLog, err := storage.NewEncryptedPageLog(fs, app.Cluster.MemoryManager, path, dataKey, keyHash)
 
 		if err != nil {
 			t.Fatalf("Failed to create encrypted PageLog: %v", err)
@@ -343,7 +343,7 @@ func TestEncryptedPageLog(t *testing.T) {
 			t.Fatalf("Failed to close PageLog: %v", err)
 		}
 
-		pageLog2, err := storage.NewEncryptedPageLog(fs, path, dataKey, keyHash)
+		pageLog2, err := storage.NewEncryptedPageLog(fs, app.Cluster.MemoryManager, path, dataKey, keyHash)
 
 		if err != nil {
 			t.Fatalf("Failed to reopen encrypted PageLog: %v", err)

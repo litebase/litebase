@@ -8,19 +8,34 @@ import (
 	"time"
 
 	"github.com/litebase/litebase/pkg/auth"
-	"github.com/litebase/litebase/pkg/cache"
 	"github.com/litebase/litebase/pkg/cluster"
 	"github.com/litebase/litebase/pkg/file"
+	"github.com/litebase/litebase/pkg/memory"
 	"github.com/litebase/litebase/pkg/storage"
+)
+
+// Cache configuration constants
+const (
+	// DatabaseCache holds Database instances
+	DatabaseCacheCapacity    = 1000
+	DatabaseCacheDefaultSize = 4096 // 4KB per database entry
+
+	// KeyCache holds database name→ID mappings
+	KeyCacheCapacity    = 5000
+	KeyCacheDefaultSize = 128 // 128 bytes per key entry
+
+	// BranchCache holds branch metadata per database
+	BranchCacheCapacity    = 100
+	BranchCacheDefaultSize = 2048 // 2KB per branch entry
 )
 
 type DatabaseManager struct {
 	Cluster                *cluster.Cluster
 	connectionManager      *ConnectionManager
 	connectionManagerMutex *sync.Mutex
-	databaseCache          *cache.LFUCache
+	databaseCache          *memory.ManagedCache
 	importManager          *DatabaseImportManager
-	keyCache               *cache.LFUCache
+	keyCache               *memory.ManagedCache
 	mutex                  *sync.Mutex
 	pageLogManager         *storage.PageLogManager
 	resources              map[string]*DatabaseResources
@@ -38,17 +53,28 @@ func NewDatabaseManager(
 	dbm := &DatabaseManager{
 		Cluster:                cluster,
 		connectionManagerMutex: &sync.Mutex{},
-		databaseCache:          cache.NewLFUCache(100),
-		keyCache:               cache.NewLFUCache(100),
-		mutex:                  &sync.Mutex{},
-		resources:              make(map[string]*DatabaseResources),
-		SecretsManager:         secretsManager,
-		systemDatabaseMutex:    &sync.Mutex{},
-		WriteQueueManager:      NewWriteQueueManager(cluster.Node().Context()),
+		databaseCache: memory.NewManagedCache(memory.ManagedCacheConfig{
+			Capacity:    DatabaseCacheCapacity,
+			Manager:     cluster.MemoryManager,
+			DefaultSize: DatabaseCacheDefaultSize,
+			Owner:       "database-cache",
+		}),
+		keyCache: memory.NewManagedCache(memory.ManagedCacheConfig{
+			Capacity:    KeyCacheCapacity,
+			Manager:     cluster.MemoryManager,
+			DefaultSize: KeyCacheDefaultSize,
+			Owner:       "database-key-cache",
+		}),
+		mutex:               &sync.Mutex{},
+		resources:           make(map[string]*DatabaseResources),
+		SecretsManager:      secretsManager,
+		systemDatabaseMutex: &sync.Mutex{},
+		WriteQueueManager:   NewWriteQueueManager(cluster.Node().Context()),
 	}
 
 	dbm.pageLogManager = storage.NewPageLogManager(
 		dbm.Cluster.Node().Context(),
+		cluster.MemoryManager,
 		storage.WithNodePublisher(NewNodeAdapter(dbm.Cluster.Node())),
 	)
 
@@ -100,7 +126,12 @@ func (d *DatabaseManager) All() ([]*Database, error) {
 		}
 
 		database.DatabaseManager = d
-		database.branchCache = cache.NewLFUCache(100)
+		database.branchCache = memory.NewManagedCache(memory.ManagedCacheConfig{
+			Capacity:    100,
+			Manager:     d.Cluster.MemoryManager,
+			DefaultSize: 2048,
+			Owner:       fmt.Sprintf("branch-cache-%s", database.Name),
+		})
 		databases = append(databases, database)
 	}
 
@@ -175,8 +206,10 @@ func (d *DatabaseManager) ConnectionManager() *ConnectionManager {
 
 	d.connectionManager = &ConnectionManager{
 		cluster:         d.Cluster,
+		connectionSize:  256 * 1024, // Estimate 256KB per connection
 		databaseManager: d,
 		databases:       map[string]*DatabaseGroup{},
+		memoryManager:   d.Cluster.MemoryManager,
 		mutex:           &sync.RWMutex{},
 		state:           ConnectionManagerStateRunning,
 	}
@@ -310,7 +343,12 @@ func (d *DatabaseManager) Get(databaseID string) (*Database, error) {
 		database.DatabaseManager = d
 
 		if database.branchCache == nil {
-			database.branchCache = cache.NewLFUCache(100)
+			database.branchCache = memory.NewManagedCache(memory.ManagedCacheConfig{
+				Capacity:    100,
+				Manager:     d.Cluster.MemoryManager,
+				DefaultSize: 2048,
+				Owner:       "branch-cache-system",
+			})
 		}
 
 		return database, nil
@@ -349,7 +387,12 @@ func (d *DatabaseManager) Get(databaseID string) (*Database, error) {
 
 	d.mutex.Lock()
 	database.DatabaseManager = d
-	database.branchCache = cache.NewLFUCache(100)
+	database.branchCache = memory.NewManagedCache(memory.ManagedCacheConfig{
+		Capacity:    100,
+		Manager:     d.Cluster.MemoryManager,
+		DefaultSize: 2048,
+		Owner:       fmt.Sprintf("branch-cache-%s", database.Name),
+	})
 	d.mutex.Unlock()
 
 	err = d.databaseCache.Put(database.DatabaseID, database)
@@ -449,7 +492,12 @@ func (d *DatabaseManager) GetByName(name string) (*Database, error) {
 
 	d.mutex.Lock()
 	database.DatabaseManager = d
-	database.branchCache = cache.NewLFUCache(100)
+	database.branchCache = memory.NewManagedCache(memory.ManagedCacheConfig{
+		Capacity:    100,
+		Manager:     d.Cluster.MemoryManager,
+		DefaultSize: 2048,
+		Owner:       fmt.Sprintf("branch-cache-%s", database.Name),
+	})
 	d.mutex.Unlock()
 
 	err = d.databaseCache.Put(database.DatabaseID, database)

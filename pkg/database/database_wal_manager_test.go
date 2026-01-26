@@ -14,6 +14,7 @@ func TestNewDatabaseWAlManager(t *testing.T) {
 		walm, err := database.NewDatabaseWALManager(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			"databaseId",
 			"branchId",
 			app.Cluster.NetworkFS(),
@@ -34,6 +35,7 @@ func TestDatabaseWALManager_Create(t *testing.T) {
 		walm, err := database.NewDatabaseWALManager(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			"databaseId",
 			"branchId",
 			app.Cluster.NetworkFS(),
@@ -66,6 +68,7 @@ func TestDatabaseWALManager_CreateFailsOnReplica(t *testing.T) {
 		walm, err := database.NewDatabaseWALManager(
 			replica.App.Cluster.Node(),
 			replica.App.DatabaseManager.ConnectionManager(),
+			replica.App.Cluster.MemoryManager,
 			"databaseId",
 			"branchId",
 			replica.App.Cluster.NetworkFS(),
@@ -88,6 +91,7 @@ func TestDatabaseWALManager_Get(t *testing.T) {
 		walm, err := database.NewDatabaseWALManager(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			"databaseId",
 			"branchId",
 			app.Cluster.NetworkFS(),
@@ -128,6 +132,7 @@ func TestDatabaseWALManager_InUse(t *testing.T) {
 		walm, err := database.NewDatabaseWALManager(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			"databaseId",
 			"branchId",
 			app.Cluster.NetworkFS(),
@@ -160,6 +165,7 @@ func TestDatabaseWALManager_InUseVersions(t *testing.T) {
 		walm, err := database.NewDatabaseWALManager(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			"databaseId",
 			"branchId",
 			app.Cluster.NetworkFS(),
@@ -212,6 +218,7 @@ func TestDatabaseWALManager_Release(t *testing.T) {
 		walm, err := database.NewDatabaseWALManager(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			"databaseId",
 			"branchId",
 			app.Cluster.NetworkFS(),
@@ -244,6 +251,7 @@ func TestDatabaseWALManager_RunGarbageCollection(t *testing.T) {
 		walm, err := database.NewDatabaseWALManager(
 			app.Cluster.Node(),
 			app.DatabaseManager.ConnectionManager(),
+			app.Cluster.MemoryManager,
 			"databaseId",
 			"branchId",
 			app.Cluster.NetworkFS(),
@@ -330,6 +338,7 @@ func TestDatabaseWALManager_RunGarbageCollectionFailsOnReplica(t *testing.T) {
 		walm, err := database.NewDatabaseWALManager(
 			replica.App.Cluster.Node(),
 			replica.App.DatabaseManager.ConnectionManager(),
+			replica.App.Cluster.MemoryManager,
 			"databaseId",
 			"branchId",
 			replica.App.Cluster.NetworkFS(),
