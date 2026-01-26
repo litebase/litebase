@@ -473,6 +473,7 @@ func getPluralResourceName(resourceType string) string {
 		"DatabaseSnapshot": "DatabaseSnapshots",
 		"ClusterStatus":    "ClusterStatuses",
 		"QueryLog":         "QueryLogs",
+		"ErrorLog":         "ErrorLogs",
 		"AccessKey":        "AccessKeys",
 		"Database":         "Databases",
 		"Token":            "Tokens",
@@ -498,6 +499,7 @@ func getListOperationID(resourceType string) string {
 		"Token":            "listTokens",
 		"User":             "listUsers",
 		"QueryLog":         "listQueryLogs",
+		"ErrorLog":         "listErrorLogs",
 		"ClusterStatus":    "listClusterStatuses",
 		"Node":             "listNodes",
 		"Cluster":          "listClusters",
@@ -584,6 +586,31 @@ func generateListTestCase(operationID, resourceType string, details map[string]a
 		steps = append(steps, generateDatabaseSnapshotPrerequisites()...)
 	} else if resourceType == "QueryLog" {
 		steps = append(steps, generateQueryLogPrerequisites()...)
+
+		steps = append(steps, TestStep{
+			Request: &Request{
+				Name:       fmt.Sprintf("List %s", getPluralResourceName(resourceType)),
+				Model:      resourceType,
+				Operation:  operationID,
+				Body:       map[string]any{},
+				Parameters: extractPathParameters(details),
+			},
+			Response: &Response{
+				StatusCode: 200,
+				Content: map[string]any{
+					"data": []any{},
+				},
+			},
+		})
+
+		return TestCase{
+			OperationID: operationID,
+			Name:        fmt.Sprintf("Test %s - List resources", operationID),
+			Description: fmt.Sprintf("Verifies the %s list operation works (read-only resource)", resourceType),
+			Steps:       steps,
+		}
+	} else if resourceType == "ErrorLog" {
+		steps = append(steps, generateErrorLogPrerequisites()...)
 
 		steps = append(steps, TestStep{
 			Request: &Request{
@@ -1250,6 +1277,52 @@ func generateQueryLogPrerequisites() []TestStep {
 					map[string]any{
 						"id":         fmt.Sprintf("query-%d", time.Now().UTC().Nanosecond()),
 						"statement":  "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO test_table (value) VALUES ('test');",
+						"parameters": map[string]any{},
+					},
+				},
+			},
+			Parameters: []string{"databaseName", "branchName"},
+		},
+		Response: &Response{
+			StatusCode: 200,
+			Content:    map[string]any{},
+		},
+	})
+
+	return steps
+}
+
+func generateErrorLogPrerequisites() []TestStep {
+	steps := []TestStep{}
+
+	// Step 1: Create database
+	steps = append(steps, TestStep{
+		Request: &Request{
+			Name:      "Create test Database",
+			Model:     "Database",
+			Operation: "createDatabase",
+			Body: map[string]any{
+				"name": generateRandomDatabaseName(),
+			},
+		},
+		Response: &Response{
+			StatusCode: 201,
+			Content:    map[string]any{},
+			Captures:   []string{"databaseName", "branchName"},
+		},
+	})
+
+	// Step 2: Execute query that will cause an error to trigger error log
+	steps = append(steps, TestStep{
+		Request: &Request{
+			Name:      "Execute query with error to trigger error log",
+			Model:     "Query",
+			Operation: "createQuery",
+			Body: map[string]any{
+				"queries": []any{
+					map[string]any{
+						"id":         fmt.Sprintf("query-%d", time.Now().UTC().Nanosecond()),
+						"statement":  "SELECT * FROM nonexistent_table;",
 						"parameters": map[string]any{},
 					},
 				},

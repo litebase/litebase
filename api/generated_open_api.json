@@ -1651,6 +1651,130 @@
         }
       ]
     },
+    "/v1/databases/{databaseName}/branches/{branchName}/errors": {
+      "get": {
+        "tags": [
+          "ErrorLog"
+        ],
+        "summary": "List all error logs",
+        "description": "List error logs for a specific database and branch",
+        "operationId": "listErrorLogs",
+        "parameters": [
+          {
+            "name": "end",
+            "in": "query",
+            "description": "The end timestamp for the error logs to retrieve (in seconds since epoch).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "description": "The start timestamp for the error logs to retrieve (in seconds since epoch).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "description": "Return value from .ErrorLogIndexResponse()"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Response message",
+                      "example": "Successfully retrieved error logs."
+                    },
+                    "status": {
+                      "type": "string",
+                      "description": "Response status",
+                      "example": "success"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "message",
+                    "status"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "AccessKeyAuth": []
+          },
+          {
+            "BasicAuth": []
+          },
+          {
+            "TokenAuth": []
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "databaseName",
+          "in": "path",
+          "description": "The databaseName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        },
+        {
+          "name": "branchName",
+          "in": "path",
+          "description": "The branchName parameter",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "example": "example_value"
+          }
+        }
+      ]
+    },
     "/v1/databases/{databaseName}/branches/{branchName}/export": {
       "post": {
         "tags": [
@@ -5934,6 +6058,10 @@
     {
       "name": "DatabaseSnapshot",
       "description": "Database snapshot operations"
+    },
+    {
+      "name": "ErrorLog",
+      "description": "Error performance and usage metrics"
     },
     {
       "name": "Import",
