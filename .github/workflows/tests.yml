@@ -31,6 +31,7 @@ jobs:
             { name: "database", path: pkg/database },
             { name: "http", path: pkg/http },
             { name: "logs", path: pkg/logs },
+            { name: "memory", path: pkg/memory },
             { name: "openapi", path: pkg/openapi },
             { name: "queue", path: pkg/queue },
             { name: "scheduler", path: pkg/scheduler },
