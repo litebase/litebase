@@ -407,7 +407,7 @@ func TestPublicRoutesHaveMiddleware(t *testing.T) {
 	appHttp.LoadPublicRoutes(router)
 
 	// Count total routes defined in our test cases
-	expectedRouteCount := 46 // Update this number if you add more routes
+	expectedRouteCount := 47 // Update this number if you add more routes
 
 	totalRoutes := 0
 
