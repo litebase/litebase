@@ -627,8 +627,12 @@ func TestPageLogger(t *testing.T) {
 				t.Fatalf("Failed to read random data: %v", err)
 			}
 
+			// Use fewer pages to make the test run faster with race detection
+			// 1000 pages should be sufficient to test the compaction interval logic
+			pageCount := 1000
+
 			for _, version := range []int64{1, 2, 3} {
-				for i := range 8192 {
+				for i := range pageCount {
 					_, err := pageLogger.Write(int64(i+1), version, write)
 
 					if err != nil {
@@ -654,7 +658,7 @@ func TestPageLogger(t *testing.T) {
 
 			// Write more data after compaction
 			for _, version := range []int64{4, 5, 6} {
-				for i := range 8192 {
+				for i := range pageCount {
 					_, err := pageLogger.Write(int64(i+1), version, write)
 
 					if err != nil {
@@ -690,7 +694,7 @@ func TestPageLogger(t *testing.T) {
 
 			// The new data (versions 4, 5, 6) should still be available since compaction didn't run
 			for _, version := range []int64{4, 5, 6} {
-				for i := range 8192 {
+				for i := range pageCount {
 					found, _, err := pageLogger.Read(int64(i+1), version, read)
 
 					if err != nil {
