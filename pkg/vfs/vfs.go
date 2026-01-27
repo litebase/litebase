@@ -31,6 +31,7 @@ var VfsMap = make(map[uintptr]*LitebaseVFS)
 
 type LitebaseVFS struct {
 	connectionHash         string
+	connectionManager      ConnectionManager
 	databaseHash           string
 	filename               string
 	fileSystem             *storage.DurableDatabaseFileSystem
@@ -41,6 +42,56 @@ type LitebaseVFS struct {
 	wal                    WAL
 	walTimestamp           int64
 	shm                    *ShmMemory
+}
+
+// ConnectionManager interface for accessing database connections
+type ConnectionManager interface {
+	Get(databaseID, branchID string) (interface{}, error)
+	Release(conn interface{})
+}
+
+// GetVfsFromId retrieves a VFS instance by its ID string
+func GetVfsFromId(vfsId string) (*LitebaseVFS, error) {
+	if vfsId == "" {
+		return nil, errors.New("vfsId cannot be empty")
+	}
+
+	cvfsId, err := utils.SafeCString(vfsId)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert vfsId to C string: %v", err)
+	}
+
+	defer C.free(unsafe.Pointer(cvfsId))
+
+	pVfs := C.sqlite3_vfs_find((*C.char)(cvfsId))
+
+	if pVfs == nil {
+		return nil, fmt.Errorf("VFS not found: %s", vfsId)
+	}
+
+	vfsIdPtr := uintptr(unsafe.Pointer(pVfs.zName))
+
+	vfsMutex.RLock()
+	defer vfsMutex.RUnlock()
+
+	vfs, ok := VfsMap[vfsIdPtr]
+
+	if !ok {
+		return nil, fmt.Errorf("VFS not registered: %s", vfsId)
+	}
+
+	return vfs, nil
+}
+
+// SetConnectionManager sets the connection manager for this VFS instance
+func (l *LitebaseVFS) SetConnectionManager(cm ConnectionManager) {
+	l.connectionManager = cm
+}
+
+// ConnectionManager returns the connection manager for this VFS
+func (l *LitebaseVFS) ConnectionManager() ConnectionManager {
+	return l.connectionManager
 }
 
 // Register a new VFS instance for a database connection.
