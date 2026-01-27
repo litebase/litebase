@@ -119,6 +119,11 @@ func executeParallelScan(vfsID, databaseID, branchID, tableName, columnName stri
 
 //export goVectorScan
 func goVectorScan(vfsID, databaseID, branchID, tableName, columnName *C.char, queryBlob unsafe.Pointer, queryBlobLen C.int, k C.int, metric *C.char) C.longlong {
+	return GoVectorScan(vfsID, databaseID, branchID, tableName, columnName, queryBlob, queryBlobLen, k, metric)
+}
+
+// GoVectorScan is the exported Go function that can be called from other packages
+func GoVectorScan(vfsID, databaseID, branchID, tableName, columnName *C.char, queryBlob unsafe.Pointer, queryBlobLen C.int, k C.int, metric *C.char) C.longlong {
 	vfsIDStr := C.GoString(vfsID)
 	databaseIDStr := C.GoString(databaseID)
 	branchIDStr := C.GoString(branchID)
@@ -140,6 +145,11 @@ func goVectorScan(vfsID, databaseID, branchID, tableName, columnName *C.char, qu
 
 //export goGetScanResult
 func goGetScanResult(handleID C.longlong, rowid *C.longlong, distance *C.double) C.int {
+	return GoGetScanResult(handleID, rowid, distance)
+}
+
+// GoGetScanResult is the exported Go function that can be called from other packages
+func GoGetScanResult(handleID C.longlong, rowid *C.longlong, distance *C.double) C.int {
 	handle := cgo.Handle(handleID).Value().(*ScanHandle)
 
 	if handle.Index >= len(handle.Results) {
@@ -156,6 +166,11 @@ func goGetScanResult(handleID C.longlong, rowid *C.longlong, distance *C.double)
 
 //export goReleaseScanResults
 func goReleaseScanResults(handleID C.longlong) {
+	GoReleaseScanResults(handleID)
+}
+
+// GoReleaseScanResults is the exported Go function that can be called from other packages
+func GoReleaseScanResults(handleID C.longlong) {
 	handle := cgo.Handle(handleID)
 	handle.Delete()
 }

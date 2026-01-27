@@ -627,6 +627,12 @@ func (con *DatabaseConnection) registerVFS() error {
 
 	con.vfs = vfs
 
+	// Set the connection manager adapter on the VFS for vector operations
+	if con.connectionManager != nil {
+		adapter := NewVfsConnectionAdapter(con.connectionManager)
+		vfs.SetConnectionManager(adapter)
+	}
+
 	return nil
 }
 

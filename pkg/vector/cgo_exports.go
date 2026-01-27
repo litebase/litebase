@@ -13,6 +13,11 @@ import (
 
 //export goEncodeVector
 func goEncodeVector(jsonStr *C.char, blobLen *C.int) unsafe.Pointer {
+	return GoEncodeVector(jsonStr, blobLen)
+}
+
+// GoEncodeVector is the exported Go function that can be called from other packages
+func GoEncodeVector(jsonStr *C.char, blobLen *C.int) unsafe.Pointer {
 	jsonString := C.GoString(jsonStr)
 
 	values, err := ParseJSONArray(jsonString)
@@ -51,5 +56,10 @@ func goEncodeVector(jsonStr *C.char, blobLen *C.int) unsafe.Pointer {
 
 //export goFreeVector
 func goFreeVector(ptr unsafe.Pointer) {
+	GoFreeVector(ptr)
+}
+
+// GoFreeVector is the exported Go function that can be called from other packages
+func GoFreeVector(ptr unsafe.Pointer) {
 	C.free(ptr)
 }

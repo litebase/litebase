@@ -21,6 +21,9 @@ import (
 
 extern int go_authorizer(uintptr_t connectionHandle, int actionCode, char* arg1, char* arg2, char* arg3, char* arg4);
 extern int go_progress_handler(uintptr_t connectionHandle);
+
+// Forward declaration for vector extension initialization
+extern int sqlite3_vectorextension_init(sqlite3 *db, char **pzErrMsg, const void *pApi);
 */
 import "C"
 
@@ -111,6 +114,13 @@ func Open(ctx context.Context, path, vfsId string, flags OpenFlags) (*Connection
 		C.sqlite3_close_v2(c.sqlite3)
 
 		return nil, errors.New(C.GoString(C.sqlite3_errstr(err)))
+	}
+
+	// Register vector extension
+	if err := c.registerVectorExtension(); err != nil {
+		C.sqlite3_close_v2(c.sqlite3)
+
+		return nil, fmt.Errorf("failed to register vector extension: %w", err)
 	}
 
 	return c, nil
@@ -369,6 +379,21 @@ func (c *Connection) Authorizer(authorizer Authorizer) {
 			nil,
 		)
 	}
+}
+
+// registerVectorExtension initializes the vector extension for this connection
+func (c *Connection) registerVectorExtension() error {
+	var errMsg *C.char
+
+	rc := C.sqlite3_vectorextension_init(c.sqlite3, &errMsg, nil)
+
+	if rc != SQLITE_OK {
+		defer C.sqlite3_free(unsafe.Pointer(errMsg))
+
+		return fmt.Errorf("vector extension initialization failed: %s", C.GoString(errMsg))
+	}
+
+	return nil
 }
 
 //export go_authorizer
