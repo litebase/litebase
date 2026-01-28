@@ -133,7 +133,11 @@ func (s *Statement) Bind(parameters ...StatementParameter) error {
 		case "NULL":
 			rc = C.sqlite3_bind_null(s.sqlite3_stmt, index)
 		case "TEXT":
-			value := parameter.Value.([]byte)
+			value, ok := parameter.Value.([]byte)
+
+			if !ok {
+				return errors.New("parameter value is not a []byte")
+			}
 
 			if len(value) == 0 {
 				// For empty strings, we need to pass a pointer to an empty string, not nil
@@ -156,7 +160,11 @@ func (s *Statement) Bind(parameters ...StatementParameter) error {
 
 			rc = C.sqlite3_bind_text(s.sqlite3_stmt, index, cText, cTextLen, C.SQLITE_TRANSIENT)
 		case "BLOB":
-			value := parameter.Value.([]byte)
+			value, ok := parameter.Value.([]byte)
+
+			if !ok {
+				return errors.New("parameter value is not a []byte")
+			}
 
 			var valuePointer unsafe.Pointer
 
@@ -392,7 +400,12 @@ func (s *Statement) Finalize() error {
 
 // Get the blob data
 func (s *Statement) getBlobData(index int) []byte {
-	buf := statementBufferPool.Get().(*bytes.Buffer)
+	buf, ok := statementBufferPool.Get().(*bytes.Buffer)
+
+	if !ok {
+		return nil
+	}
+
 	defer statementBufferPool.Put(buf)
 
 	buf.Reset()
