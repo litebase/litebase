@@ -24,39 +24,19 @@ func (vca *VfsConnectionAdapter) Get(databaseID, branchID string) (interface{}, 
 		return nil, err
 	}
 
-	return conn.connection, nil
+	// Return the ClientConnection itself, not the underlying DatabaseConnection
+	return conn, nil
 }
 
 // Release releases a database connection back to the pool
 func (vca *VfsConnectionAdapter) Release(conn interface{}) {
-	dbConn, ok := conn.(*DatabaseConnection)
+	clientConn, ok := conn.(*ClientConnection)
 
 	if !ok {
 		slog.Error("Invalid connection type in Release", "type", conn)
 		return
 	}
 
-	// Find the client connection that wraps this database connection
-	// by searching through all database groups and branches
-	vca.connectionManager.mutex.RLock()
-	defer vca.connectionManager.mutex.RUnlock()
-
-	for _, dbGroup := range vca.connectionManager.databases {
-		dbGroup.mutex.Lock()
-
-		for _, branchConnections := range dbGroup.branches {
-			for _, clientConn := range branchConnections {
-				if clientConn.connection.connection == dbConn {
-					vca.connectionManager.Release(clientConn.connection)
-					dbGroup.mutex.Unlock()
-
-					return
-				}
-			}
-		}
-
-		dbGroup.mutex.Unlock()
-	}
-
-	slog.Warn("Connection not found in pool during Release")
+	// Release the client connection directly
+	vca.connectionManager.Release(clientConn)
 }

@@ -371,15 +371,13 @@ func TestVectorScanVirtualTable(t *testing.T) {
 		queryVector := "[1.0, 0.0, 0.0, 0.0]"
 		k := 3
 
-		// Call vector_scan virtual table directly using hidden columns
+		// Call vector_scan as a table-valued function:
+		// - Arguments are: table_name, column_name, query_vector, k, metric
+		// - Returns: rowid (INTEGER), distance (REAL)
+		// - Using hidden column approach where arguments map to hidden columns
 		stmt, err := conn.GetConnection().Prepare(ctx, `
 			SELECT rowid, distance
-			FROM vector_scan
-			WHERE table_name = 'items'
-			  AND column_name = 'embedding'
-			  AND query_vector = vector_f32(?)
-			  AND k = ?
-			  AND metric = 'l2'
+			FROM vector_scan('items', 'embedding', vector_f32(?), ?, 'l2')
 			ORDER BY distance
 		`)
 

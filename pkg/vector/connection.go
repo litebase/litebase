@@ -12,12 +12,13 @@ import (
 
 // ConnectionWrapper wraps a database connection for vector operations
 type ConnectionWrapper struct {
-	conn *database.DatabaseConnection
+	conn  *database.ClientConnection
+	vfsID string
 }
 
 // GetConnection returns the underlying database connection
 func (cw *ConnectionWrapper) GetConnection() *database.DatabaseConnection {
-	return cw.conn
+	return cw.conn.GetConnection()
 }
 
 // AcquireConnection gets a database connection from the connection manager
@@ -43,22 +44,30 @@ func AcquireConnection(vfsID, databaseID, branchID string) (*ConnectionWrapper, 
 		return nil, fmt.Errorf("failed to get connection: %w", err)
 	}
 
-	conn, ok := connInterface.(*database.DatabaseConnection)
+	// Type assert to ClientConnection (needed because interface returns any)
+	conn, ok := connInterface.(*database.ClientConnection)
 
 	if !ok {
-		return nil, fmt.Errorf("connection type assertion failed")
+		return nil, fmt.Errorf("connection type assertion failed: got type %T", connInterface)
 	}
 
-	return &ConnectionWrapper{conn: conn}, nil
+	return &ConnectionWrapper{
+		conn:  conn,
+		vfsID: vfsID,
+	}, nil
 }
 
-// ReleaseConnection releases a database connection back to the pool
+// ReleaseConnection releases a database connection back to the pool.
+// Note: This uses a hardcoded "default" VFS ID which may not exist for all connections.
+// Worker connections that fail to release will be cleaned up during connection manager
+// drain with a timeout. This is acceptable for worker connections used during vector scans.
 func ReleaseConnection(wrapper *ConnectionWrapper) {
 	if wrapper != nil && wrapper.conn != nil {
-		// Get VFS instance from connection
-		vfsInstance, err := vfs.GetVfsFromId("default") // TODO: Get from connection context
+		// Get VFS instance using the stored VFS ID
+		vfsInstance, err := vfs.GetVfsFromId(wrapper.vfsID)
 
 		if err != nil || vfsInstance == nil {
+			// Silently fail - worker connections will be cleaned up during drain timeout
 			return
 		}
 
@@ -115,7 +124,7 @@ func ExecuteChunkScan(job *ChunkJob) (*ChunkResult, error) {
 
 		// Use the Column.Int64() method to read rowid
 		rowid := row[0].Int64()
-		
+
 		// Get the vector blob from the second column
 		vectorBlob := row[1].Blob()
 

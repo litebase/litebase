@@ -46,8 +46,8 @@ type LitebaseVFS struct {
 
 // ConnectionManager interface for accessing database connections
 type ConnectionManager interface {
-	Get(databaseID, branchID string) (interface{}, error)
-	Release(conn interface{})
+	Get(databaseID, branchID string) (any, error)
+	Release(conn any)
 }
 
 // GetVfsFromId retrieves a VFS instance by its ID string

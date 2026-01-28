@@ -217,21 +217,18 @@ func (c *ConnectionManager) Drain(databaseId string, branchId string, drained fu
 
 	for i := range databaseGroup.branches[branchId] {
 		wg.Add(1)
-		go func(branchConnection *BranchConnection) {
+		go func(branchConnection *BranchConnection, index int) {
 			defer wg.Done()
+
 			timeout := time.After(ConnectionDrainingWaitTime)
 
-			for {
-				select {
-				case <-branchConnection.Unclaimed():
-					branchConnection.connection.Close()
-					return
-				case <-timeout:
-					branchConnection.Close()
-					return
-				}
+			select {
+			case <-branchConnection.Unclaimed():
+				branchConnection.connection.Close()
+			case <-timeout:
+				branchConnection.Close()
 			}
-		}(databaseGroup.branches[branchId][i])
+		}(databaseGroup.branches[branchId][i], i)
 	}
 
 	wg.Wait()
