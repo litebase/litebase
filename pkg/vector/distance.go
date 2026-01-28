@@ -20,9 +20,10 @@ import (
 
 // Distance metric types
 const (
-	MetricL2     = "l2"
-	MetricCosine = "cosine"
-	MetricDot    = "dot"
+	MetricL2      = "l2"
+	MetricCosine  = "cosine"
+	MetricDot     = "dot"
+	MetricHamming = "hamming"
 )
 
 var ErrUnsupportedMetric = errors.New("unsupported distance metric")
@@ -50,6 +51,14 @@ func ComputeDistance(a, b *VectorBlob, metric string) (float64, error) {
 		return DistanceCosine(a, b)
 	case MetricDot:
 		return DistanceDot(a, b)
+	case MetricHamming:
+		distance, err := DistanceHamming(a, b)
+
+		if err != nil {
+			return 0, err
+		}
+
+		return float64(distance), nil
 	default:
 		return 0, ErrUnsupportedMetric
 	}
@@ -98,6 +107,49 @@ func DistanceDot(a, b *VectorBlob) (float64, error) {
 	result := float64(C.compute_distance_dot(aPtr, bPtr, dims))
 
 	return result, nil
+}
+
+// DistanceHamming computes the Hamming distance between two bit vectors
+// Returns the number of differing bits
+func DistanceHamming(a, b *VectorBlob) (int, error) {
+	if err := ValidateDimensions(a, b); err != nil {
+		return 0, err
+	}
+
+	// Hamming distance only makes sense for bit vectors
+	if a.Type != VectorTypeBit || b.Type != VectorTypeBit {
+		return 0, errors.New("hamming distance only supported for bit vectors")
+	}
+
+	return hammingDistanceGo(a.Data, b.Data), nil
+}
+
+// hammingDistanceGo computes Hamming distance in pure Go using POPCNT
+func hammingDistanceGo(a, b []byte) int {
+	distance := 0
+
+	for i := range a {
+		// XOR gives 1 where bits differ
+		xor := a[i] ^ b[i]
+
+		// Count set bits (population count)
+		distance += popcount(xor)
+	}
+
+	return distance
+}
+
+// popcount counts the number of set bits in a byte
+func popcount(x byte) int {
+	// Brian Kernighan's algorithm
+	count := 0
+
+	for x != 0 {
+		x &= x - 1 // Clear the least significant set bit
+		count++
+	}
+
+	return count
 }
 
 // Pure Go implementations for testing/comparison

@@ -1,5 +1,7 @@
 package vector
 
+import "runtime"
+
 // Vector BLOB format version
 const (
 	VectorVersion1 byte = 0x01
@@ -8,6 +10,12 @@ const (
 // Vector type identifiers
 const (
 	VectorTypeFloat32 byte = 0x01
+	VectorTypeFloat64 byte = 0x02
+	VectorTypeInt8    byte = 0x03
+	VectorTypeInt16   byte = 0x04
+	VectorTypeFloat16 byte = 0x05 // Half-precision (2 bytes/dim)
+	VectorTypeBit     byte = 0x06 // Binary quantization (1 bit/dim)
+	VectorTypeSparse  byte = 0x07 // Sparse vectors (index-value pairs)
 )
 
 // Maximum dimensions supported
@@ -37,5 +45,11 @@ func ShutdownWorkerPool() {
 // getNumCPU returns the number of available CPUs
 func getNumCPU() int {
 	// This will be implemented to get runtime.NumCPU()
-	return 4 // Default for now
+	numCPUs := runtime.NumCPU()
+
+	if numCPUs > 0 {
+		return numCPUs
+	}
+
+	return 4
 }

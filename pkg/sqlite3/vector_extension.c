@@ -7,10 +7,21 @@ SQLITE_EXTENSION_INIT1
 
 // Forward declarations for CGO exports from pkg/vector
 extern void *goEncodeVector(char *jsonStr, int *blobLen);
+extern void *goEncodeVectorF64(char *jsonStr, int *blobLen);
+extern void *goEncodeVectorInt8(char *jsonStr, int *blobLen);
+extern void *goEncodeVectorInt16(char *jsonStr, int *blobLen);
+extern void *goEncodeVectorF16(char *jsonStr, int *blobLen);
+extern void *goEncodeVectorBit(char *jsonStr, int *blobLen);
+extern void *goEncodeVectorSparse(char *jsonStr, int *blobLen);
 extern void goFreeVector(void *ptr);
 extern long long goVectorScan(char *vfsID, char *databaseID, char *branchID, char *tableName, char *columnName, void *queryBlob, int queryBlobLen, int k, char *metric);
 extern int goGetScanResult(long long handleID, long long *rowid, double *distance);
 extern void goReleaseScanResults(long long handleID);
+extern void *goQuantizeToInt8(void *blobPtr, int blobLen, int *resultLen, float *scaleOut, float *offsetOut);
+extern void *goQuantizeToInt16(void *blobPtr, int blobLen, int *resultLen, float *scaleOut, float *offsetOut);
+extern void *goQuantizeToFloat16(void *blobPtr, int blobLen, int *resultLen);
+extern void *goQuantizeToBit(void *blobPtr, int blobLen, int *resultLen);
+extern int goComputeHammingDistance(void *blobPtr1, int blobLen1, void *blobPtr2, int blobLen2);
 
 // ============================================================================
 // vector_f32() Scalar Function
@@ -50,6 +61,381 @@ static void vector_f32_func(
 
 	// Free Go-allocated memory
 	goFreeVector(blob);
+}
+
+// ============================================================================
+// vector_f64() Scalar Function
+// ============================================================================
+
+static void vector_f64_func(
+	sqlite3_context *context,
+	int argc,
+	sqlite3_value **argv)
+{
+	if (argc != 1)
+	{
+		sqlite3_result_error(context, "vector_f64() requires exactly 1 argument", -1);
+		return;
+	}
+
+	const char *json_str = (const char *)sqlite3_value_text(argv[0]);
+
+	if (json_str == NULL)
+	{
+		sqlite3_result_error(context, "vector_f64() argument must be text", -1);
+		return;
+	}
+
+	int blob_len = 0;
+	void *blob = goEncodeVectorF64((char *)json_str, &blob_len);
+
+	if (blob == NULL || blob_len <= 0)
+	{
+		sqlite3_result_error(context, "Failed to parse vector JSON", -1);
+		return;
+	}
+
+	sqlite3_result_blob(context, blob, blob_len, SQLITE_TRANSIENT);
+	goFreeVector(blob);
+}
+
+// ============================================================================
+// vector_int8() Scalar Function
+// ============================================================================
+
+static void vector_int8_func(
+	sqlite3_context *context,
+	int argc,
+	sqlite3_value **argv)
+{
+	if (argc != 1)
+	{
+		sqlite3_result_error(context, "vector_int8() requires exactly 1 argument", -1);
+		return;
+	}
+
+	const char *json_str = (const char *)sqlite3_value_text(argv[0]);
+
+	if (json_str == NULL)
+	{
+		sqlite3_result_error(context, "vector_int8() argument must be text", -1);
+		return;
+	}
+
+	int blob_len = 0;
+	void *blob = goEncodeVectorInt8((char *)json_str, &blob_len);
+
+	if (blob == NULL || blob_len <= 0)
+	{
+		sqlite3_result_error(context, "Failed to parse vector JSON", -1);
+		return;
+	}
+
+	sqlite3_result_blob(context, blob, blob_len, SQLITE_TRANSIENT);
+	goFreeVector(blob);
+}
+
+// ============================================================================
+// vector_int16() Scalar Function
+// ============================================================================
+
+static void vector_int16_func(
+	sqlite3_context *context,
+	int argc,
+	sqlite3_value **argv)
+{
+	if (argc != 1)
+	{
+		sqlite3_result_error(context, "vector_int16() requires exactly 1 argument", -1);
+		return;
+	}
+
+	const char *json_str = (const char *)sqlite3_value_text(argv[0]);
+
+	if (json_str == NULL)
+	{
+		sqlite3_result_error(context, "vector_int16() argument must be text", -1);
+		return;
+	}
+
+	int blob_len = 0;
+	void *blob = goEncodeVectorInt16((char *)json_str, &blob_len);
+
+	if (blob == NULL || blob_len <= 0)
+	{
+		sqlite3_result_error(context, "Failed to parse vector JSON", -1);
+		return;
+	}
+
+	sqlite3_result_blob(context, blob, blob_len, SQLITE_TRANSIENT);
+	goFreeVector(blob);
+}
+
+// ============================================================================
+// vector_f16() Scalar Function
+// ============================================================================
+
+static void vector_f16_func(
+	sqlite3_context *context,
+	int argc,
+	sqlite3_value **argv)
+{
+	if (argc != 1)
+	{
+		sqlite3_result_error(context, "vector_f16() requires exactly 1 argument", -1);
+		return;
+	}
+
+	const char *json_str = (const char *)sqlite3_value_text(argv[0]);
+
+	if (json_str == NULL)
+	{
+		sqlite3_result_error(context, "vector_f16() argument must be text", -1);
+		return;
+	}
+
+	int blob_len = 0;
+	void *blob = goEncodeVectorF16((char *)json_str, &blob_len);
+
+	if (blob == NULL || blob_len <= 0)
+	{
+		sqlite3_result_error(context, "Failed to parse vector JSON", -1);
+		return;
+	}
+
+	sqlite3_result_blob(context, blob, blob_len, SQLITE_TRANSIENT);
+	goFreeVector(blob);
+}
+
+// ============================================================================
+// vector_bit() Scalar Function
+// ============================================================================
+
+static void vector_bit_func(
+	sqlite3_context *context,
+	int argc,
+	sqlite3_value **argv)
+{
+	if (argc != 1)
+	{
+		sqlite3_result_error(context, "vector_bit() requires exactly 1 argument", -1);
+		return;
+	}
+
+	const char *json_str = (const char *)sqlite3_value_text(argv[0]);
+
+	if (json_str == NULL)
+	{
+		sqlite3_result_error(context, "vector_bit() argument must be text", -1);
+		return;
+	}
+
+	int blob_len = 0;
+	void *blob = goEncodeVectorBit((char *)json_str, &blob_len);
+
+	if (blob == NULL || blob_len <= 0)
+	{
+		sqlite3_result_error(context, "Failed to parse vector JSON", -1);
+		return;
+	}
+
+	sqlite3_result_blob(context, blob, blob_len, SQLITE_TRANSIENT);
+	goFreeVector(blob);
+}
+
+// ============================================================================
+// vector_sparse() Scalar Function
+// ============================================================================
+
+static void vector_sparse_func(
+	sqlite3_context *context,
+	int argc,
+	sqlite3_value **argv)
+{
+	if (argc != 1)
+	{
+		sqlite3_result_error(context, "vector_sparse() requires exactly 1 argument", -1);
+		return;
+	}
+
+	const char *json_str = (const char *)sqlite3_value_text(argv[0]);
+
+	if (json_str == NULL)
+	{
+		sqlite3_result_error(context, "vector_sparse() argument must be text", -1);
+		return;
+	}
+
+	int blob_len = 0;
+	void *blob = goEncodeVectorSparse((char *)json_str, &blob_len);
+
+	if (blob == NULL || blob_len <= 0)
+	{
+		sqlite3_result_error(context, "Failed to parse vector JSON", -1);
+		return;
+	}
+
+	sqlite3_result_blob(context, blob, blob_len, SQLITE_TRANSIENT);
+	goFreeVector(blob);
+}
+
+// ============================================================================
+// vector_quantize_int8() Scalar Function
+// ============================================================================
+
+static void vector_quantize_int8_func(
+	sqlite3_context *context,
+	int argc,
+	sqlite3_value **argv)
+{
+	if (argc != 1)
+	{
+		sqlite3_result_error(context, "vector_quantize_int8() requires exactly 1 argument", -1);
+		return;
+	}
+
+	const void *input_blob = sqlite3_value_blob(argv[0]);
+	int input_len = sqlite3_value_bytes(argv[0]);
+
+	if (input_blob == NULL || input_len == 0)
+	{
+		sqlite3_result_error(context, "vector_quantize_int8() argument must be a vector BLOB", -1);
+		return;
+	}
+
+	int result_len = 0;
+	float scale = 0.0f;
+	float offset = 0.0f;
+	void *result_blob = goQuantizeToInt8((void *)input_blob, input_len, &result_len, &scale, &offset);
+
+	if (result_blob == NULL || result_len <= 0)
+	{
+		sqlite3_result_error(context, "Failed to quantize vector", -1);
+		return;
+	}
+
+	// Return quantized BLOB
+	sqlite3_result_blob(context, result_blob, result_len, SQLITE_TRANSIENT);
+
+	// Store metadata in auxiliary data for retrieval
+	// Note: In production, metadata should be stored alongside the BLOB
+	sqlite3_set_auxdata(context, 0, &scale, NULL);
+	sqlite3_set_auxdata(context, 1, &offset, NULL);
+
+	goFreeVector(result_blob);
+}
+
+// ============================================================================
+// vector_quantize_int16() Scalar Function
+// ============================================================================
+
+static void vector_quantize_int16_func(
+	sqlite3_context *context,
+	int argc,
+	sqlite3_value **argv)
+{
+	if (argc != 1)
+	{
+		sqlite3_result_error(context, "vector_quantize_int16() requires exactly 1 argument", -1);
+		return;
+	}
+
+	const void *input_blob = sqlite3_value_blob(argv[0]);
+	int input_len = sqlite3_value_bytes(argv[0]);
+
+	if (input_blob == NULL || input_len == 0)
+	{
+		sqlite3_result_error(context, "vector_quantize_int16() argument must be a vector BLOB", -1);
+		return;
+	}
+
+	int result_len = 0;
+	float scale = 0.0f;
+	float offset = 0.0f;
+	void *result_blob = goQuantizeToInt16((void *)input_blob, input_len, &result_len, &scale, &offset);
+
+	if (result_blob == NULL || result_len <= 0)
+	{
+		sqlite3_result_error(context, "Failed to quantize vector", -1);
+		return;
+	}
+
+	sqlite3_result_blob(context, result_blob, result_len, SQLITE_TRANSIENT);
+	goFreeVector(result_blob);
+}
+
+// ============================================================================
+// vector_quantize_f16() Scalar Function
+// ============================================================================
+
+static void vector_quantize_f16_func(
+	sqlite3_context *context,
+	int argc,
+	sqlite3_value **argv)
+{
+	if (argc != 1)
+	{
+		sqlite3_result_error(context, "vector_quantize_f16() requires exactly 1 argument", -1);
+		return;
+	}
+
+	const void *input_blob = sqlite3_value_blob(argv[0]);
+	int input_len = sqlite3_value_bytes(argv[0]);
+
+	if (input_blob == NULL || input_len == 0)
+	{
+		sqlite3_result_error(context, "vector_quantize_f16() argument must be a vector BLOB", -1);
+		return;
+	}
+
+	int result_len = 0;
+	void *result_blob = goQuantizeToFloat16((void *)input_blob, input_len, &result_len);
+
+	if (result_blob == NULL || result_len <= 0)
+	{
+		sqlite3_result_error(context, "Failed to quantize vector", -1);
+		return;
+	}
+
+	sqlite3_result_blob(context, result_blob, result_len, SQLITE_TRANSIENT);
+	goFreeVector(result_blob);
+}
+
+// ============================================================================
+// vector_quantize_bit() Scalar Function
+// ============================================================================
+
+static void vector_quantize_bit_func(
+	sqlite3_context *context,
+	int argc,
+	sqlite3_value **argv)
+{
+	if (argc != 1)
+	{
+		sqlite3_result_error(context, "vector_quantize_bit() requires exactly 1 argument", -1);
+		return;
+	}
+
+	const void *input_blob = sqlite3_value_blob(argv[0]);
+	int input_len = sqlite3_value_bytes(argv[0]);
+
+	if (input_blob == NULL || input_len == 0)
+	{
+		sqlite3_result_error(context, "vector_quantize_bit() argument must be a vector BLOB", -1);
+		return;
+	}
+
+	int result_len = 0;
+	void *result_blob = goQuantizeToBit((void *)input_blob, input_len, &result_len);
+
+	if (result_blob == NULL || result_len <= 0)
+	{
+		sqlite3_result_error(context, "Failed to quantize vector", -1);
+		return;
+	}
+
+	sqlite3_result_blob(context, result_blob, result_len, SQLITE_TRANSIENT);
+	goFreeVector(result_blob);
 }
 
 // ============================================================================
@@ -264,6 +650,53 @@ static int vector_scan_rowid(sqlite3_vtab_cursor *pCursor, sqlite3_int64 *pRowid
 	return SQLITE_OK;
 }
 
+// ============================================================================
+// vector_hamming_distance() Scalar Function
+// ============================================================================
+
+static void vector_hamming_distance_func(
+	sqlite3_context *context,
+	int argc,
+	sqlite3_value **argv)
+{
+	if (argc != 2)
+	{
+		sqlite3_result_error(context, "vector_hamming_distance() requires exactly 2 arguments", -1);
+		return;
+	}
+
+	const void *blob1 = sqlite3_value_blob(argv[0]);
+	const void *blob2 = sqlite3_value_blob(argv[1]);
+
+	if (blob1 == NULL || blob2 == NULL)
+	{
+		sqlite3_result_error(context, "vector_hamming_distance() arguments must be BLOBs", -1);
+		return;
+	}
+
+	int blob1_len = sqlite3_value_bytes(argv[0]);
+	int blob2_len = sqlite3_value_bytes(argv[1]);
+
+	if (blob1_len == 0 || blob2_len == 0)
+	{
+		sqlite3_result_error(context, "vector_hamming_distance() arguments cannot be empty", -1);
+		return;
+	}
+
+	// Call Go function to compute Hamming distance
+	int distance = goComputeHammingDistance(
+		(void *)blob1, blob1_len,
+		(void *)blob2, blob2_len);
+
+	if (distance < 0)
+	{
+		sqlite3_result_error(context, "Failed to compute Hamming distance", -1);
+		return;
+	}
+
+	sqlite3_result_int(context, distance);
+}
+
 // Virtual table module definition
 static sqlite3_module vector_scan_module = {
 	0,						/* iVersion */
@@ -304,6 +737,182 @@ int sqlite3_vectorextension_init(
 		SQLITE_UTF8,
 		NULL,
 		vector_f32_func,
+		NULL,
+		NULL);
+
+	if (rc != SQLITE_OK)
+	{
+		return rc;
+	}
+
+	// Register vector_f64() scalar function
+	rc = sqlite3_create_function(
+		db,
+		"vector_f64",
+		1,
+		SQLITE_UTF8,
+		NULL,
+		vector_f64_func,
+		NULL,
+		NULL);
+
+	if (rc != SQLITE_OK)
+	{
+		return rc;
+	}
+
+	// Register vector_int8() scalar function
+	rc = sqlite3_create_function(
+		db,
+		"vector_int8",
+		1,
+		SQLITE_UTF8,
+		NULL,
+		vector_int8_func,
+		NULL,
+		NULL);
+
+	if (rc != SQLITE_OK)
+	{
+		return rc;
+	}
+
+	// Register vector_int16() scalar function
+	rc = sqlite3_create_function(
+		db,
+		"vector_int16",
+		1,
+		SQLITE_UTF8,
+		NULL,
+		vector_int16_func,
+		NULL,
+		NULL);
+
+	if (rc != SQLITE_OK)
+	{
+		return rc;
+	}
+
+	// Register vector_f16() scalar function
+	rc = sqlite3_create_function(
+		db,
+		"vector_f16",
+		1,
+		SQLITE_UTF8,
+		NULL,
+		vector_f16_func,
+		NULL,
+		NULL);
+
+	if (rc != SQLITE_OK)
+	{
+		return rc;
+	}
+
+	// Register vector_bit() scalar function
+	rc = sqlite3_create_function(
+		db,
+		"vector_bit",
+		1,
+		SQLITE_UTF8,
+		NULL,
+		vector_bit_func,
+		NULL,
+		NULL);
+
+	if (rc != SQLITE_OK)
+	{
+		return rc;
+	}
+
+	// Register vector_sparse() scalar function
+	rc = sqlite3_create_function(
+		db,
+		"vector_sparse",
+		1,
+		SQLITE_UTF8,
+		NULL,
+		vector_sparse_func,
+		NULL,
+		NULL);
+
+	if (rc != SQLITE_OK)
+	{
+		return rc;
+	}
+
+	// Register vector_quantize_int8() scalar function
+	rc = sqlite3_create_function(
+		db,
+		"vector_quantize_int8",
+		1,
+		SQLITE_UTF8,
+		NULL,
+		vector_quantize_int8_func,
+		NULL,
+		NULL);
+
+	if (rc != SQLITE_OK)
+	{
+		return rc;
+	}
+
+	// Register vector_quantize_int16() scalar function
+	rc = sqlite3_create_function(
+		db,
+		"vector_quantize_int16",
+		1,
+		SQLITE_UTF8,
+		NULL,
+		vector_quantize_int16_func,
+		NULL,
+		NULL);
+
+	if (rc != SQLITE_OK)
+	{
+		return rc;
+	}
+
+	// Register vector_quantize_f16() scalar function
+	rc = sqlite3_create_function(
+		db,
+		"vector_quantize_f16",
+		1,
+		SQLITE_UTF8,
+		NULL,
+		vector_quantize_f16_func,
+		NULL,
+		NULL);
+
+	if (rc != SQLITE_OK)
+	{
+		return rc;
+	}
+
+	// Register vector_quantize_bit() scalar function
+	rc = sqlite3_create_function(
+		db,
+		"vector_quantize_bit",
+		1,
+		SQLITE_UTF8,
+		NULL,
+		vector_quantize_bit_func,
+		NULL,
+		NULL);
+
+	if (rc != SQLITE_OK)
+	{
+		return rc;
+	}
+
+	// Register vector_hamming_distance() scalar function
+	rc = sqlite3_create_function(
+		db,
+		"vector_hamming_distance",
+		2,
+		SQLITE_UTF8,
+		NULL,
+		vector_hamming_distance_func,
 		NULL,
 		NULL);
 

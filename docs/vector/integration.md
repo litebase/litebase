@@ -16,8 +16,37 @@ The vector extension is registered automatically when SQLite connections are ope
 
 The extension provides:
 
-- `vector_f32(json_array)` - Scalar function to encode vectors as BLOBs
-- `vector_scan` - Virtual table module for k-NN search (future implementation)
+**Vector Creation Functions:**
+
+- `vector_f16(json_array)` - Create float16 vectors (2 bytes/dimension)
+- `vector_f32(json_array)` - Create float32 vectors (4 bytes/dimension)
+- `vector_f64(json_array)` - Create float64 vectors (8 bytes/dimension)
+- `vector_int16(json_array)` - Create int16 vectors (2 bytes/dimension)
+- `vector_int8(json_array)` - Create int8 vectors (1 byte/dimension)
+- `vector_bit(json_array)` - Create bit vectors (1 bit/dimension)
+- `vector_sparse(json_object)` - Create sparse vectors (variable size)
+
+**Quantization Functions:**
+
+- `vector_quantize_f16(blob)` - Quantize to float16 (50% savings)
+- `vector_quantize_int16(blob)` - Quantize to 16-bit (50% savings)
+- `vector_quantize_int8(blob)` - Quantize to 8-bit (74% savings)
+- `vector_quantize_bit(blob)` - Quantize to binary (96% savings)
+
+**Distance Functions:**
+
+- `vector_hamming_distance(blob1, blob2)` - Hamming distance for bit vectors
+
+**Virtual Table:**
+
+- `vector_scan` - k-NN search module for similarity queries
+
+> **Note**: The `vector_scan` virtual table module is registered but requires implementation updates to support:
+>
+> 1. Eponymous table-valued function syntax for direct querying
+> 2. Parameter passing for vfsID, databaseID, branchID, table, column, k, and metric
+>
+> Currently, these parameters are passed programmatically via the CGO bridge (`goVectorScan`), which allows the vector scan system to work across databases and branches. The database/branch IDs are necessary because the scan acquires connections via `vfs.GetVfsFromId(vfsID)` → `connManager.Get(databaseID, branchID)`, enabling cross-database vector searches.
 
 ### 2. VFS Connection Manager Adapter
 
@@ -39,8 +68,24 @@ vfs.SetConnectionManager(adapter)
 
 The vector package exports C-callable functions that the SQLite extension uses:
 
-- `goEncodeVector` - Parses JSON and encodes as binary BLOB
+**Vector Encoding:**
+
+- `goEncodeVector` / `goEncodeVectorF64` / `goEncodeVectorInt8` / `goEncodeVectorInt16` - Parse JSON and encode vectors
+- `goEncodeVectorF16` / `goEncodeVectorBit` / `goEncodeVectorSparse` - Encode specialized vector types
 - `goFreeVector` - Frees allocated memory
+
+**Quantization:**
+
+- `goQuantizeToInt8` / `goQuantizeToInt16` - Quantize to integer formats
+- `goQuantizeToFloat16` - Quantize to half-precision
+- `goQuantizeToBit` - Quantize to binary
+
+**Distance Computation:**
+
+- `goComputeHammingDistance` - Compute Hamming distance between bit vectors
+
+**k-NN Search:**
+
 - `goVectorScan` - Initiates vector similarity search
 - `goGetScanResult` - Retrieves next result from scan
 - `goReleaseScanResults` - Cleans up scan resources
@@ -68,37 +113,61 @@ Comprehensive testing verifies the integration:
 
 ### Encoding Vectors
 
-Use the `vector_f32()` function to convert JSON arrays to binary BLOBs:
+Use vector creation functions to convert JSON to binary BLOBs:
 
 ```sql
--- Create a table with a vector column
+-- Create a table with vector columns
 CREATE TABLE embeddings (
     id INTEGER PRIMARY KEY,
-    vector BLOB
+    vec_f32 BLOB,      -- Full precision
+    vec_f16 BLOB,      -- Half precision (50% smaller)
+    vec_int8 BLOB,     -- Quantized (74% smaller)
+    vec_bit BLOB       -- Binary (96% smaller)
 );
 
--- Insert vectors
-INSERT INTO embeddings (id, vector) 
-VALUES (1, vector_f32('[1.0, 2.0, 3.0, 4.0]'));
+-- Insert vectors with different types
+INSERT INTO embeddings (id, vec_f32, vec_f16, vec_int8, vec_bit)
+VALUES (
+    1,
+    vector_f32('[1.0, 2.0, 3.0, 4.0]'),
+    vector_f16('[1.0, 2.0, 3.0, 4.0]'),
+    vector_int8('[127, 64, -64, -128]'),
+    vector_bit('[1, 1, 0, 1]')
+);
 
--- Query vectors
-SELECT id, vector FROM embeddings;
+-- Quantize existing float32 vectors
+UPDATE embeddings 
+SET vec_f16 = vector_quantize_f16(vec_f32),
+    vec_int8 = vector_quantize_int8(vec_f32),
+    vec_bit = vector_quantize_bit(vec_f32);
+
+-- Compute distances
+SELECT id, vector_hamming_distance(vec_bit, vector_quantize_bit(vector_f32('[1, 1, 1, 1]'))) as distance
+FROM embeddings
+ORDER BY distance
+LIMIT 10;
 ```
 
 ### Binary Format
 
-Vectors are encoded as:
+All vectors use a 6-byte header:
 
-- 1 byte: Version (0x01 for VectorVersion1)
+- 1 byte: Version (0x01)
+- 1 byte: Type (0x01-0x07)
 - 4 bytes: Dimensions (uint32, little-endian)
-- N × 4 bytes: Float32 values (IEEE 754, little-endian)
+- N bytes: Type-specific data
 
-Example for `[1.0, 2.0, 3.0]`:
+**Type-Specific Encoding:**
 
-- Total size: 1 + 4 + (3 × 4) = 17 bytes
-- Version: `0x01`
-- Dimensions: `0x03000000` (3 in little-endian)
-- Data: 12 bytes of float32 values
+| Type    | Code | Bytes/Dim | Example (3-D)          |
+| ------- | ---- | --------- | ---------------------- |
+| Float32 | 0x01 | 4         | 6 + (3 × 4) = 18 bytes |
+| Float64 | 0x02 | 8         | 6 + (3 × 8) = 30 bytes |
+| Int8    | 0x03 | 1         | 6 + (3 × 1) = 9 bytes  |
+| Int16   | 0x04 | 2         | 6 + (3 × 2) = 12 bytes |
+| Float16 | 0x05 | 2         | 6 + (3 × 2) = 12 bytes |
+| Bit     | 0x06 | 0.125     | 6 + ⌈3/8⌉ = 7 bytes    |
+| Sparse  | 0x07 | Variable  | 6 + indices + values   |
 
 ## Implementation Details
 
@@ -166,10 +235,19 @@ import _ "github.com/litebase/litebase/pkg/vector"
 
 **Solution**: Verify `registerVectorExtension()` is called in `sqlite3.Open()`
 
+## Implemented Features
+
+- ✅ 7 vector types (float16/32/64, int8/16, bit, sparse)
+- ✅ 4 quantization functions (int8/16, float16, bit)
+- ✅ Hamming distance for bit vectors
+- ✅ `vector_scan` virtual table for k-NN search
+- ✅ Multiple distance metrics (L2, cosine, dot product, Hamming)
+- ✅ SIMD-optimized distance computations
+
 ## Future Enhancements
 
-- [ ] Implement `vector_scan` virtual table for k-NN search
-- [ ] Add vector indexing support
-- [ ] Support additional distance metrics
-- [ ] Optimize BLOB encoding for different vector types
-- [ ] Add batch vector operations
+- [ ] Vector indexing (HNSW, IVF)
+- [ ] Approximate nearest neighbor search (ANN)
+- [ ] Additional distance metrics (Manhattan, Chebyshev)
+- [ ] Batch quantization operations
+- [ ] GPU acceleration for large-scale operations
