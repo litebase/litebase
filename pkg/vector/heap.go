@@ -105,8 +105,8 @@ func MergeHeaps(heaps []*TopKHeap, k int) []VectorResult {
 
 // CalculateChunkSize determines optimal chunk size based on vector dimensions
 func CalculateChunkSize(dimensions int) int {
-	const minChunkSize = 10000
-	const maxChunkSize = 100000
+	const minChunkSize = 25000
+	const maxChunkSize = 250000
 	const targetMemoryMB = 400
 
 	bytesPerVector := dimensions * 4

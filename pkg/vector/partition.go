@@ -21,22 +21,30 @@ func PartitionTable(vfsID, databaseID, branchID, tableName, columnName string, q
 
 	defer ReleaseConnection(conn)
 
-	// Count total rows
-	// TODO: Use proper Litebase query API
-	// For now, return a simple partition
-	rowCount := int64(1000) // Placeholder
+	// Count total rows in the table - Exec() handles prepare and cleanup internally
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE %s IS NOT NULL", tableName, columnName)
+
+	countResult, err := conn.GetConnection().Exec(countQuery, nil)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute count query: %w", err)
+	}
+
+	if len(countResult.Rows) == 0 || len(countResult.Rows[0]) == 0 {
+		return nil, fmt.Errorf("no count result returned")
+	}
+
+	rowCount := countResult.Rows[0][0].Int64()
 
 	if rowCount == 0 {
 		return nil, nil
 	}
 
-	// Sample first vector to determine dimensions
+	// Calculate optimal chunk size based on dimensions and available workers
 	dimensions := queryVector.Dimensions
-
-	// Calculate optimal chunk size based on dimensions
 	chunkSize := int64(CalculateChunkSize(dimensions))
 
-	// Create partitions
+	// Create partitions that split the table among workers
 	var partitions []TablePartition
 
 	for start := int64(1); start <= rowCount; start += chunkSize {
