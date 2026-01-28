@@ -17,6 +17,7 @@ type BranchConnection struct {
 	inUse         bool
 	lastUsedAt    time.Time
 	mutex         sync.Mutex
+	unclaimedCh   chan bool // Signaled when connection becomes unclaimed
 }
 
 // Create a new BranchConnection instance.
@@ -35,6 +36,7 @@ func NewBranchConnection(
 		databaseGroup: databaseGroup,
 		inUse:         true,
 		lastUsedAt:    time.Now().UTC(),
+		unclaimedCh:   make(chan bool, 1), // Buffered to avoid blocking
 	}
 }
 
@@ -62,7 +64,15 @@ func (b *BranchConnection) Close() {
 func (b *BranchConnection) Release() {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
+
 	b.inUse = false
+
+	// Signal that connection is now unclaimed (non-blocking send)
+	select {
+	case b.unclaimedCh <- true:
+	default:
+		// Channel already has a signal, no need to send another
+	}
 }
 
 // Check if the branch connection requires a checkpoint to be created.
@@ -80,21 +90,20 @@ func (b *BranchConnection) RequiresCheckpoint() bool {
 // Check if the branch connection is unclaimed, and return a channel that will
 // be notified when it becomes unclaimed.
 func (b *BranchConnection) Unclaimed() chan bool {
-	c := make(chan bool)
+	// If already unclaimed, signal immediately
+	b.mutex.Lock()
 
-	go func() {
-		for {
-			select {
-			case <-b.context.Done():
-				return
-			default:
-				if !b.inUse {
-					c <- true
-					return
-				}
-			}
-		}
-	}()
+	if !b.inUse {
+		b.mutex.Unlock()
 
-	return c
+		immediate := make(chan bool, 1)
+		immediate <- true
+
+		return immediate
+	}
+
+	b.mutex.Unlock()
+
+	// Otherwise, return the channel that will be signaled on Release()
+	return b.unclaimedCh
 }
