@@ -72,7 +72,8 @@ func NewWorkerPool(maxWorkers int) *WorkerPool {
 	return pool
 }
 
-// worker processes jobs from the job channel
+// worker processes jobs from the job channel with prefetching support
+// Phase 2 optimization: Overlaps I/O (prefetch next chunk) with compute (process current chunk)
 func (wp *WorkerPool) worker(w *Worker) {
 	defer wp.wg.Done()
 	defer func() {
@@ -81,43 +82,101 @@ func (wp *WorkerPool) worker(w *Worker) {
 		}
 	}()
 
+	var prefetchedJob *ChunkJob
+	var prefetchedResult *ChunkResult
+
 	for {
+		var currentJob *ChunkJob
+		var currentResult *ChunkResult
+
+		// If we have a prefetched result, use it
+		if prefetchedJob != nil {
+			currentJob = prefetchedJob
+			currentResult = prefetchedResult
+			prefetchedJob = nil
+			prefetchedResult = nil
+		} else {
+			// Otherwise, get the next job from channel
+			select {
+			case <-wp.ctx.Done():
+				return
+			case job, ok := <-wp.jobChan:
+				if !ok {
+					return
+				}
+				currentJob = job
+				currentResult = nil // Will be computed below
+			}
+		}
+
+		// Try to prefetch next job while processing current
+		// Use non-blocking select to avoid waiting
 		select {
-		case <-wp.ctx.Done():
-			return
-		case job, ok := <-wp.jobChan:
-			if !ok {
+		case nextJob, ok := <-wp.jobChan:
+			if ok {
+				// Start prefetching asynchronously
+				go func(job *ChunkJob) {
+					result := wp.executePrefetch(w, job)
+					// Send result to worker's prefetch channel
+					select {
+					case w.prefetchChan <- result:
+					case <-wp.ctx.Done():
+						// Context cancelled, send error result
+						job.ResultChan <- &ChunkResult{
+							ChunkID: job.ChunkID,
+							Error:   context.Canceled,
+						}
+					}
+				}(nextJob)
+				prefetchedJob = nextJob
+			}
+		default:
+			// No job available, continue without prefetch
+		}
+
+		// Process current job if we haven't already
+		if currentResult == nil {
+			currentResult = wp.executeJob(w, currentJob)
+		}
+
+		// Send result
+		currentJob.ResultChan <- currentResult
+
+		// If we started a prefetch, wait for it to complete
+		if prefetchedJob != nil {
+			select {
+			case prefetchedResult = <-w.prefetchChan:
+				// Prefetch completed, will use on next iteration
+			case <-wp.ctx.Done():
 				return
 			}
-
-			wp.processJob(w, job)
 		}
 	}
 }
 
-// processJob processes a single chunk job with worker-local connection and statement caching
-func (wp *WorkerPool) processJob(w *Worker, job *ChunkJob) {
+// executeJob executes a job and returns the result (with panic recovery)
+func (wp *WorkerPool) executeJob(w *Worker, job *ChunkJob) *ChunkResult {
 	defer func() {
 		if r := recover(); r != nil {
-			job.ResultChan <- &ChunkResult{
-				ChunkID: job.ChunkID,
-				Error:   ErrInvalidBlobFormat,
-			}
+			slog.Error("Job execution panic", "worker_id", w.id, "chunk_id", job.ChunkID, "panic", r)
 		}
 	}()
 
 	result, err := ExecuteChunkScanWithWorker(w, job)
 
 	if err != nil {
-		job.ResultChan <- &ChunkResult{
+		return &ChunkResult{
 			ChunkID: job.ChunkID,
 			Error:   err,
 		}
-
-		return
 	}
 
-	job.ResultChan <- result
+	return result
+}
+
+// executePrefetch executes a prefetch job (same as executeJob but for async prefetch)
+func (wp *WorkerPool) executePrefetch(w *Worker, job *ChunkJob) *ChunkResult {
+	return wp.executeJob(w, job)
 }
 
 func (wp *WorkerPool) MaxWorkers() int {
