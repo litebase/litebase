@@ -441,3 +441,262 @@ func TestVectorScanVirtualTable(t *testing.T) {
 		t.Logf("  - Results properly ordered by distance")
 	})
 }
+
+func TestVectorScanCosineMetric(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		testDb := test.MockDatabase(app)
+
+		conn, err := app.DatabaseManager.ConnectionManager().Get(testDb.DatabaseID, testDb.DatabaseBranchID)
+
+		if err != nil {
+			t.Fatalf("Failed to get connection: %v", err)
+		}
+
+		defer app.DatabaseManager.ConnectionManager().Release(conn)
+
+		ctx := context.Background()
+
+		// Create a table with vectors
+		_, err = conn.GetConnection().Exec(`
+			CREATE TABLE items (
+				id INTEGER PRIMARY KEY,
+				name TEXT,
+				embedding BLOB
+			)`, nil)
+
+		if err != nil {
+			t.Fatalf("Failed to create items table: %v", err)
+		}
+
+		// Insert test data with vectors of different angles
+		// Using normalized vectors to better test cosine similarity
+		vectors := []struct {
+			id   int
+			name string
+			vec  string
+		}{
+			{1, "item1", "[1.0, 0.0, 0.0, 0.0]"},     // Same direction as query
+			{2, "item2", "[0.707, 0.707, 0.0, 0.0]"}, // 45 degrees
+			{3, "item3", "[0.0, 1.0, 0.0, 0.0]"},     // 90 degrees (orthogonal)
+			{4, "item4", "[-1.0, 0.0, 0.0, 0.0]"},    // 180 degrees (opposite)
+			{5, "item5", "[0.866, 0.5, 0.0, 0.0]"},   // 30 degrees
+		}
+
+		for _, v := range vectors {
+			_, err = conn.GetConnection().Exec(
+				`INSERT INTO items (id, name, embedding) VALUES (?, ?, vector_f32(?))`,
+				[]sqlite3.StatementParameter{
+					{Type: sqlite3.ParameterTypeInteger, Value: int64(v.id)},
+					{Type: sqlite3.ParameterTypeText, Value: []byte(v.name)},
+					{Type: sqlite3.ParameterTypeText, Value: []byte(v.vec)},
+				})
+
+			if err != nil {
+				t.Fatalf("Failed to insert vector %s: %v", v.name, err)
+			}
+		}
+
+		// Perform a k-NN search using cosine metric
+		// Query vector: [1.0, 0.0, 0.0, 0.0]
+		// Expected order by cosine distance:
+		// 1. item1 (0 degrees, distance ~0)
+		// 2. item5 (30 degrees, distance ~0.134)
+		// 3. item2 (45 degrees, distance ~0.293)
+		queryVector := "[1.0, 0.0, 0.0, 0.0]"
+		k := 3
+
+		stmt, err := conn.GetConnection().Prepare(ctx, `
+			SELECT rowid, distance
+			FROM vector_scan('items', 'embedding', vector_f32(?), ?, 'cosine')
+			ORDER BY distance
+		`)
+
+		if err != nil {
+			t.Fatalf("Failed to prepare k-NN query: %v", err)
+		}
+
+		result := sqlite3.NewResult()
+
+		err = stmt.Sqlite3Statement.Exec(result,
+			sqlite3.StatementParameter{Type: sqlite3.ParameterTypeText, Value: []byte(queryVector)},
+			sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: int64(k)},
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to execute k-NN query: %v", err)
+		}
+
+		if len(result.Rows) != k {
+			t.Errorf("Expected %d results, got %d", k, len(result.Rows))
+		}
+
+		// Verify results are ordered by distance
+		var lastDistance float64
+
+		for i, row := range result.Rows {
+			if len(row) < 2 {
+				t.Fatalf("Row %d has insufficient columns", i)
+			}
+
+			rowid := int64(binary.LittleEndian.Uint64(row[0].ColumnValue))
+			distance := math.Float64frombits(binary.LittleEndian.Uint64(row[1].ColumnValue))
+
+			if i > 0 && distance < lastDistance {
+				t.Errorf("Results not ordered by distance: row %d has distance %.4f < previous %.4f",
+					i, distance, lastDistance)
+			}
+
+			lastDistance = distance
+
+			t.Logf("  Result %d: rowid=%d, distance=%.4f", i+1, rowid, distance)
+		}
+
+		// The first result should be item1 (exact match, cosine distance ~0)
+		if len(result.Rows) > 0 {
+			firstRowID := int64(binary.LittleEndian.Uint64(result.Rows[0][0].ColumnValue))
+			firstDistance := math.Float64frombits(binary.LittleEndian.Uint64(result.Rows[0][1].ColumnValue))
+
+			if firstRowID != 1 {
+				t.Errorf("Expected first result to be item1 (rowid=1), got rowid=%d", firstRowID)
+			}
+
+			if firstDistance > 0.0001 {
+				t.Errorf("Expected first result distance ~0, got %.4f", firstDistance)
+			}
+		}
+
+		t.Logf("✓ Vector scan with cosine metric working!")
+		t.Logf("  - k-NN search returned %d results", len(result.Rows))
+		t.Logf("  - Results properly ordered by cosine distance")
+	})
+}
+
+func TestVectorScanDotProductMetric(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		testDb := test.MockDatabase(app)
+
+		conn, err := app.DatabaseManager.ConnectionManager().Get(testDb.DatabaseID, testDb.DatabaseBranchID)
+
+		if err != nil {
+			t.Fatalf("Failed to get connection: %v", err)
+		}
+
+		defer app.DatabaseManager.ConnectionManager().Release(conn)
+
+		ctx := context.Background()
+
+		// Create a table with vectors
+		_, err = conn.GetConnection().Exec(`
+			CREATE TABLE items (
+				id INTEGER PRIMARY KEY,
+				name TEXT,
+				embedding BLOB
+			)`, nil)
+
+		if err != nil {
+			t.Fatalf("Failed to create items table: %v", err)
+		}
+
+		// Insert test data
+		// For dot product, higher values mean more similar (less distance)
+		vectors := []struct {
+			id   int
+			name string
+			vec  string
+		}{
+			{1, "item1", "[1.0, 0.0, 0.0, 0.0]"},  // dot = 1.0, distance = -1.0
+			{2, "item2", "[0.5, 0.5, 0.0, 0.0]"},  // dot = 0.5, distance = -0.5
+			{3, "item3", "[0.0, 1.0, 0.0, 0.0]"},  // dot = 0.0, distance = 0.0
+			{4, "item4", "[-1.0, 0.0, 0.0, 0.0]"}, // dot = -1.0, distance = 1.0
+			{5, "item5", "[0.8, 0.2, 0.0, 0.0]"},  // dot = 0.8, distance = -0.8
+		}
+
+		for _, v := range vectors {
+			_, err = conn.GetConnection().Exec(
+				`INSERT INTO items (id, name, embedding) VALUES (?, ?, vector_f32(?))`,
+				[]sqlite3.StatementParameter{
+					{Type: sqlite3.ParameterTypeInteger, Value: int64(v.id)},
+					{Type: sqlite3.ParameterTypeText, Value: []byte(v.name)},
+					{Type: sqlite3.ParameterTypeText, Value: []byte(v.vec)},
+				})
+
+			if err != nil {
+				t.Fatalf("Failed to insert vector %s: %v", v.name, err)
+			}
+		}
+
+		// Perform a k-NN search using dot product metric
+		// Query vector: [1.0, 0.0, 0.0, 0.0]
+		// Expected order by dot product distance (negative dot product):
+		// 1. item1 (dot=1.0, distance=-1.0)
+		// 2. item5 (dot=0.8, distance=-0.8)
+		// 3. item2 (dot=0.5, distance=-0.5)
+		queryVector := "[1.0, 0.0, 0.0, 0.0]"
+		k := 3
+
+		stmt, err := conn.GetConnection().Prepare(ctx, `
+			SELECT rowid, distance
+			FROM vector_scan('items', 'embedding', vector_f32(?), ?, 'dot')
+			ORDER BY distance
+		`)
+
+		if err != nil {
+			t.Fatalf("Failed to prepare k-NN query: %v", err)
+		}
+
+		result := sqlite3.NewResult()
+
+		err = stmt.Sqlite3Statement.Exec(result,
+			sqlite3.StatementParameter{Type: sqlite3.ParameterTypeText, Value: []byte(queryVector)},
+			sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: int64(k)},
+		)
+
+		if err != nil {
+			t.Fatalf("Failed to execute k-NN query: %v", err)
+		}
+
+		if len(result.Rows) != k {
+			t.Errorf("Expected %d results, got %d", k, len(result.Rows))
+		}
+
+		// Verify results are ordered by distance (lowest first)
+		var lastDistance float64 = math.Inf(-1)
+
+		for i, row := range result.Rows {
+			if len(row) < 2 {
+				t.Fatalf("Row %d has insufficient columns", i)
+			}
+
+			rowid := int64(binary.LittleEndian.Uint64(row[0].ColumnValue))
+			distance := math.Float64frombits(binary.LittleEndian.Uint64(row[1].ColumnValue))
+
+			if i > 0 && distance < lastDistance {
+				t.Errorf("Results not ordered by distance: row %d has distance %.4f < previous %.4f",
+					i, distance, lastDistance)
+			}
+
+			lastDistance = distance
+
+			t.Logf("  Result %d: rowid=%d, distance=%.4f", i+1, rowid, distance)
+		}
+
+		// The first result should be item1 (highest dot product, lowest distance)
+		if len(result.Rows) > 0 {
+			firstRowID := int64(binary.LittleEndian.Uint64(result.Rows[0][0].ColumnValue))
+			firstDistance := math.Float64frombits(binary.LittleEndian.Uint64(result.Rows[0][1].ColumnValue))
+
+			if firstRowID != 1 {
+				t.Errorf("Expected first result to be item1 (rowid=1), got rowid=%d", firstRowID)
+			}
+
+			// For dot product with identical vectors, distance should be -1.0
+			if math.Abs(firstDistance-(-1.0)) > 0.0001 {
+				t.Errorf("Expected first result distance ~-1.0, got %.4f", firstDistance)
+			}
+		}
+
+		t.Logf("✓ Vector scan with dot product metric working!")
+		t.Logf("  - k-NN search returned %d results", len(result.Rows))
+		t.Logf("  - Results properly ordered by dot product distance")
+	})
+}
