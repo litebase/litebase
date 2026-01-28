@@ -106,6 +106,18 @@ func MergeHeaps(heaps []*TopKHeap, k int) []VectorResult {
 	return finalHeap.Results()
 }
 
+// MergeWith merges another heap into this heap
+// Phase 2.5: Enables continuous merging during streaming
+func (h *TopKHeap) MergeWith(other *TopKHeap) {
+	if other == nil {
+		return
+	}
+
+	for _, result := range other.results {
+		h.Insert(result.Rowid, result.Distance)
+	}
+}
+
 // CalculateChunkSize determines optimal chunk size based on vector dimensions
 func CalculateChunkSize(dimensions int) int {
 	const minChunkSize = 25000

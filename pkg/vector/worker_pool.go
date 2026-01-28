@@ -20,6 +20,7 @@ type ChunkJob struct {
 	Metric      string
 	K           int
 	ResultChan  chan *ChunkResult
+	StreamChan  chan *ChunkResult
 }
 
 // ChunkResult represents the result of processing a chunk
@@ -31,9 +32,8 @@ type ChunkResult struct {
 
 // Worker represents a single worker with optional prefetch support
 type Worker struct {
-	id            int
-	prefetchChan  chan *ChunkResult // Channel for prefetched results (Phase 2 optimization)
-	prefetchReady bool              // Whether prefetch is ready
+	id           int
+	prefetchChan chan *ChunkResult // Channel for prefetched results (Phase 2 optimization)
 }
 
 // WorkerPool manages a pool of goroutines for parallel processing

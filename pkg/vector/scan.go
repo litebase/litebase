@@ -59,10 +59,33 @@ func executeParallelScan(vfsID, databaseID, branchID, tableName, columnName stri
 	// Get worker pool
 	pool := GetWorkerPool()
 
-	// Create result channel
+	// Phase 2.5: Create streaming channel for batch heaps
+	// Buffer size = workers * batches per chunk (approx 10 batches/chunk)
+	streamChan := make(chan *ChunkResult, pool.MaxWorkers()*10)
 	resultChan := make(chan *ChunkResult, len(partitions))
 
-	// Submit jobs to worker pool
+	// Create central heap for continuous merging
+	centralHeap := NewTopKHeap(k)
+
+	// Start central merger goroutine that continuously merges incoming batch heaps
+	mergerDone := make(chan struct{})
+
+	go func() {
+		defer close(mergerDone)
+
+		for batchResult := range streamChan {
+			if batchResult.Error != nil {
+				slog.Debug("Batch error", "chunk_id", batchResult.ChunkID, "error", batchResult.Error)
+				continue
+			}
+
+			// Merge batch heap into central heap as it arrives
+			// This overlaps merge work with database I/O from workers
+			centralHeap.MergeWith(batchResult.Heap)
+		}
+	}()
+
+	// Submit jobs to worker pool with streaming channel
 	for i, partition := range partitions {
 		job := &ChunkJob{
 			ChunkID:     i,
@@ -77,42 +100,29 @@ func executeParallelScan(vfsID, databaseID, branchID, tableName, columnName stri
 			Metric:      metric,
 			K:           k,
 			ResultChan:  resultChan,
+			StreamChan:  streamChan, // Phase 2.5: Stream batch heaps here
 		}
 
 		pool.Submit(job)
 	}
 
-	// Collect results
-	heaps := make([]*TopKHeap, len(partitions))
-	errorsFound := 0
-
+	// Wait for all chunks to complete
 	for i := 0; i < len(partitions); i++ {
 		result := <-resultChan
 
 		if result.Error != nil {
 			slog.Debug("Chunk scan error", "chunk_id", result.ChunkID, "error", result.Error)
-			errorsFound++
-			continue
 		}
-
-		heaps[result.ChunkID] = result.Heap
 	}
 
 	close(resultChan)
+	close(streamChan) // Signal merger we're done streaming
 
-	// Filter out nil heaps
-	validHeaps := make([]*TopKHeap, 0, len(heaps))
+	// Wait for merger to finish processing all batches
+	<-mergerDone
 
-	for _, h := range heaps {
-		if h != nil {
-			validHeaps = append(validHeaps, h)
-		}
-	}
-
-	// Merge heaps
-	finalResults := MergeHeaps(validHeaps, k)
-
-	return finalResults, nil
+	// Return sorted results from central heap
+	return centralHeap.Results(), nil
 }
 
 // CGO exports for C code

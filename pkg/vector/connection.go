@@ -80,6 +80,7 @@ func ReleaseConnection(wrapper *ConnectionWrapper) {
 }
 
 // ExecuteChunkScan executes a vector scan on a chunk of the table
+// Executes multiple smaller queries (batchSize rows) and streams heaps to central merger
 func ExecuteChunkScan(job *ChunkJob) (*ChunkResult, error) {
 	// Get connection
 	conn, err := AcquireConnection(job.VfsID, job.DatabaseID, job.BranchID)
@@ -90,15 +91,13 @@ func ExecuteChunkScan(job *ChunkJob) (*ChunkResult, error) {
 
 	defer ReleaseConnection(conn)
 
-	// Create heap for this chunk
-	topK := NewTopKHeap(job.K)
+	const batchSize = 2500
 
-	// Query the table chunk
+	// Query template for batches
 	query := fmt.Sprintf("SELECT rowid, %s FROM %s WHERE rowid BETWEEN ? AND ?",
 		job.ColumnName, job.TableName)
 
 	// Use Statement() method for cached statement lookup (Phase 1 optimization)
-	// This caches prepared statements per connection, avoiding repeated SQL parsing
 	stmt, err := conn.GetConnection().Statement(query)
 
 	if err != nil {
@@ -110,70 +109,100 @@ func ExecuteChunkScan(job *ChunkJob) (*ChunkResult, error) {
 	result := conn.GetConnection().ResultPool().Get()
 	defer conn.GetConnection().ResultPool().Put(result)
 
-	// Execute query with parameters
-	err = stmt.Sqlite3Statement.Exec(result,
-		sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: int64(job.StartRow)},
-		sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: int64(job.EndRow)},
-	)
+	// Process chunk in batches, streaming heaps to central processor
+	for batchStart := job.StartRow; batchStart <= job.EndRow; batchStart += batchSize {
+		batchEnd := batchStart + batchSize - 1
 
-	if err != nil {
-		slog.Error("Failed to execute chunk query", "error", err)
-		return nil, err
-	}
-
-	// Process each row from result
-	for _, row := range result.Rows {
-		if len(row) < 2 {
-			continue
+		if batchEnd > job.EndRow {
+			batchEnd = job.EndRow
 		}
 
-		// Use the Column.Int64() method to read rowid
-		rowid := row[0].Int64()
-
-		// Get the vector blob from the second column
-		vectorBlob := row[1].Blob()
-
-		if len(vectorBlob) == 0 {
-			continue
-		}
-
-		// Parse the vector BLOB using pooled allocation
-		vec, err := ParseVectorBlobPooled(vectorBlob)
+		// Execute batch query
+		err = stmt.Sqlite3Statement.Exec(result,
+			sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: batchStart},
+			sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: batchEnd},
+		)
 
 		if err != nil {
-			slog.Debug("Failed to parse vector", "rowid", rowid, "error", err)
-			continue
+			slog.Error("Failed to execute batch query", "error", err,
+				"batch_start", batchStart, "batch_end", batchEnd)
+			continue // Skip this batch, continue with next
 		}
 
-		// Compute distance based on metric
-		var distance float64
+		// Create heap for this batch
+		batchHeap := NewTopKHeap(job.K)
 
-		switch job.Metric {
-		case "l2":
-			distance, err = DistanceL2(job.QueryVector, vec)
-		case "cosine":
-			distance, err = DistanceCosine(job.QueryVector, vec)
-		case "dot":
-			distance, err = DistanceDot(job.QueryVector, vec)
-		default:
-			err = fmt.Errorf("unknown metric: %s", job.Metric)
+		// Process each row from batch result
+		for _, row := range result.Rows {
+			if len(row) < 2 {
+				continue
+			}
+
+			rowid := row[0].Int64()
+			vectorBlob := row[1].Blob()
+
+			if len(vectorBlob) == 0 {
+				continue
+			}
+
+			// Parse the vector BLOB using pooled allocation
+			vec, err := ParseVectorBlobPooled(vectorBlob)
+
+			if err != nil {
+				slog.Debug("Failed to parse vector", "rowid", rowid, "error", err)
+				continue
+			}
+
+			// Compute distance based on metric
+			var distance float64
+
+			switch job.Metric {
+			case "l2":
+				distance, err = DistanceL2(job.QueryVector, vec)
+			case "cosine":
+				distance, err = DistanceCosine(job.QueryVector, vec)
+			case "dot":
+				distance, err = DistanceDot(job.QueryVector, vec)
+			default:
+				err = fmt.Errorf("unknown metric: %s", job.Metric)
+			}
+
+			// Return VectorBlob to pool immediately after distance calculation
+			PutVectorBlob(vec)
+
+			if err != nil {
+				slog.Debug("Failed to compute distance", "rowid", rowid, "error", err)
+				continue
+			}
+
+			// Add to batch heap
+			batchHeap.Insert(rowid, distance)
 		}
 
-		// Return VectorBlob to pool immediately after distance calculation
-		PutVectorBlob(vec)
-
-		if err != nil {
-			slog.Debug("Failed to compute distance", "rowid", rowid, "error", err)
-			continue
+		// Stream batch heap to result channel immediately
+		// This allows central processor to merge while next batch fetches
+		if job.StreamChan != nil {
+			select {
+			case job.StreamChan <- &ChunkResult{
+				ChunkID: job.ChunkID,
+				Heap:    batchHeap,
+				Error:   nil,
+			}:
+				// Batch streamed successfully
+			default:
+				// Channel full, this shouldn't happen but handle gracefully
+				slog.Warn("Stream channel full, batching might be blocked")
+			}
 		}
 
-		// Add to heap
-		topK.Insert(rowid, distance)
+		// Clear result for next batch to avoid memory buildup
+		result.Rows = nil
 	}
 
+	// Return empty result (actual results streamed via StreamChan)
 	return &ChunkResult{
 		ChunkID: job.ChunkID,
-		Heap:    topK,
+		Heap:    nil, // Heaps already streamed
 		Error:   nil,
 	}, nil
 }

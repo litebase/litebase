@@ -11,12 +11,12 @@ func BenchmarkParseVectorBlob(b *testing.B) {
 	for i := range data {
 		data[i] = float32(i) * 0.1
 	}
-	
+
 	blob, _ := EncodeFloat32(data)
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		_, err := ParseVectorBlob(blob)
 		if err != nil {
@@ -32,12 +32,12 @@ func BenchmarkParseVectorBlobPooled(b *testing.B) {
 	for i := range data {
 		data[i] = float32(i) * 0.1
 	}
-	
+
 	blob, _ := EncodeFloat32(data)
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		vb, err := ParseVectorBlobPooled(blob)
 		if err != nil {
@@ -52,21 +52,21 @@ func BenchmarkDistanceL2(b *testing.B) {
 	dims := 128
 	vec1 := make([]float32, dims)
 	vec2 := make([]float32, dims)
-	
+
 	for i := range vec1 {
 		vec1[i] = float32(i) * 0.1
 		vec2[i] = float32(i) * 0.2
 	}
-	
+
 	blob1, _ := EncodeFloat32(vec1)
 	blob2, _ := EncodeFloat32(vec2)
-	
+
 	vb1, _ := ParseVectorBlob(blob1)
 	vb2, _ := ParseVectorBlob(blob2)
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		_, err := DistanceL2(vb1, vb2)
 		if err != nil {
@@ -80,21 +80,21 @@ func BenchmarkDistanceCosine(b *testing.B) {
 	dims := 128
 	vec1 := make([]float32, dims)
 	vec2 := make([]float32, dims)
-	
+
 	for i := range vec1 {
 		vec1[i] = float32(i) * 0.1
 		vec2[i] = float32(i) * 0.2
 	}
-	
+
 	blob1, _ := EncodeFloat32(vec1)
 	blob2, _ := EncodeFloat32(vec2)
-	
+
 	vb1, _ := ParseVectorBlob(blob1)
 	vb2, _ := ParseVectorBlob(blob2)
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		_, err := DistanceCosine(vb1, vb2)
 		if err != nil {
@@ -108,21 +108,21 @@ func BenchmarkDistanceDot(b *testing.B) {
 	dims := 128
 	vec1 := make([]float32, dims)
 	vec2 := make([]float32, dims)
-	
+
 	for i := range vec1 {
 		vec1[i] = float32(i) * 0.1
 		vec2[i] = float32(i) * 0.2
 	}
-	
+
 	blob1, _ := EncodeFloat32(vec1)
 	blob2, _ := EncodeFloat32(vec2)
-	
+
 	vb1, _ := ParseVectorBlob(blob1)
 	vb2, _ := ParseVectorBlob(blob2)
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		_, err := DistanceDot(vb1, vb2)
 		if err != nil {
@@ -136,18 +136,18 @@ func BenchmarkParseAndDistance(b *testing.B) {
 	dims := 128
 	vec1 := make([]float32, dims)
 	vec2 := make([]float32, dims)
-	
+
 	for i := range vec1 {
 		vec1[i] = float32(i) * 0.1
 		vec2[i] = float32(i) * 0.2
 	}
-	
+
 	blob1, _ := EncodeFloat32(vec1)
 	blob2, _ := EncodeFloat32(vec2)
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		vb1, _ := ParseVectorBlob(blob1)
 		vb2, _ := ParseVectorBlob(blob2)
@@ -162,10 +162,10 @@ func BenchmarkParseAndDistance(b *testing.B) {
 func BenchmarkTopKHeapInsert(b *testing.B) {
 	k := 10
 	heap := NewTopKHeap(k)
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		heap.Insert(int64(i), float64(i%100))
 	}
@@ -175,7 +175,7 @@ func BenchmarkTopKHeapInsert(b *testing.B) {
 func BenchmarkMergeHeaps(b *testing.B) {
 	k := 10
 	numHeaps := 40 // Simulating 40 workers (2x20 CPUs)
-	
+
 	heaps := make([]*TopKHeap, numHeaps)
 	for i := range heaps {
 		heaps[i] = NewTopKHeap(k)
@@ -183,10 +183,10 @@ func BenchmarkMergeHeaps(b *testing.B) {
 			heaps[i].Insert(int64(i*100+j), float64(j))
 		}
 	}
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		_ = MergeHeaps(heaps, k)
 	}
