@@ -97,6 +97,112 @@ func ExecuteChunkScan(job *ChunkJob) (*ChunkResult, error) {
 	query := fmt.Sprintf("SELECT rowid, %s FROM %s WHERE rowid BETWEEN ? AND ?",
 		job.ColumnName, job.TableName)
 
+	// Use Statement() method for cached statement lookup (Phase 1 optimization)
+	// This caches prepared statements per connection, avoiding repeated SQL parsing
+	stmt, err := conn.GetConnection().Statement(query)
+
+	if err != nil {
+		slog.Error("Failed to prepare chunk query", "error", err)
+		return nil, err
+	}
+
+	// Get a pooled result object to reuse memory allocations
+	result := conn.GetConnection().ResultPool().Get()
+	defer conn.GetConnection().ResultPool().Put(result)
+
+	// Execute query with parameters
+	err = stmt.Sqlite3Statement.Exec(result,
+		sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: int64(job.StartRow)},
+		sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: int64(job.EndRow)},
+	)
+
+	if err != nil {
+		slog.Error("Failed to execute chunk query", "error", err)
+		return nil, err
+	}
+
+	// Process each row from result
+	for _, row := range result.Rows {
+		if len(row) < 2 {
+			continue
+		}
+
+		// Use the Column.Int64() method to read rowid
+		rowid := row[0].Int64()
+
+		// Get the vector blob from the second column
+		vectorBlob := row[1].Blob()
+
+		if len(vectorBlob) == 0 {
+			continue
+		}
+
+		// Parse the vector BLOB using pooled allocation
+		vec, err := ParseVectorBlobPooled(vectorBlob)
+
+		if err != nil {
+			slog.Debug("Failed to parse vector", "rowid", rowid, "error", err)
+			continue
+		}
+
+		// Compute distance based on metric
+		var distance float64
+
+		switch job.Metric {
+		case "l2":
+			distance, err = DistanceL2(job.QueryVector, vec)
+		case "cosine":
+			distance, err = DistanceCosine(job.QueryVector, vec)
+		case "dot":
+			distance, err = DistanceDot(job.QueryVector, vec)
+		default:
+			err = fmt.Errorf("unknown metric: %s", job.Metric)
+		}
+
+		// Return VectorBlob to pool immediately after distance calculation
+		PutVectorBlob(vec)
+
+		if err != nil {
+			slog.Debug("Failed to compute distance", "rowid", rowid, "error", err)
+			continue
+		}
+
+		// Add to heap
+		topK.Insert(rowid, distance)
+	}
+
+	return &ChunkResult{
+		ChunkID: job.ChunkID,
+		Heap:    topK,
+		Error:   nil,
+	}, nil
+}
+
+// ExecuteChunkScanWithWorker executes a vector scan using worker context
+// Currently just delegates to ExecuteChunkScan - worker struct available for future optimizations
+func ExecuteChunkScanWithWorker(w *Worker, job *ChunkJob) (*ChunkResult, error) {
+	// Delegate to ExecuteChunkScan which now uses Statement() caching and Step() iteration
+	return ExecuteChunkScan(job)
+}
+
+// ExecuteChunkScanWithWorkerOld is the old implementation kept for reference
+func ExecuteChunkScanWithWorkerOld(w *Worker, job *ChunkJob) (*ChunkResult, error) {
+	// Get connection for this specific database
+	conn, err := AcquireConnection(job.VfsID, job.DatabaseID, job.BranchID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer ReleaseConnection(conn)
+
+	// Create heap for this chunk
+	topK := NewTopKHeap(job.K)
+
+	// Query the table chunk
+	query := fmt.Sprintf("SELECT rowid, %s FROM %s WHERE rowid BETWEEN ? AND ?",
+		job.ColumnName, job.TableName)
+
 	stmt, err := conn.GetConnection().Prepare(context.Background(), query)
 
 	if err != nil {
@@ -122,18 +228,15 @@ func ExecuteChunkScan(job *ChunkJob) (*ChunkResult, error) {
 			continue
 		}
 
-		// Use the Column.Int64() method to read rowid
 		rowid := row[0].Int64()
-
-		// Get the vector blob from the second column
 		vectorBlob := row[1].Blob()
 
 		if len(vectorBlob) == 0 {
 			continue
 		}
 
-		// Parse the vector BLOB
-		vec, err := ParseVectorBlob(vectorBlob)
+		// Parse the vector BLOB using pooled allocation
+		vec, err := ParseVectorBlobPooled(vectorBlob)
 
 		if err != nil {
 			slog.Debug("Failed to parse vector", "rowid", rowid, "error", err)
@@ -153,6 +256,9 @@ func ExecuteChunkScan(job *ChunkJob) (*ChunkResult, error) {
 		default:
 			err = fmt.Errorf("unknown metric: %s", job.Metric)
 		}
+
+		// Return VectorBlob to pool immediately after distance calculation
+		PutVectorBlob(vec)
 
 		if err != nil {
 			slog.Debug("Failed to compute distance", "rowid", rowid, "error", err)

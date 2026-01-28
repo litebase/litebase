@@ -75,7 +75,9 @@ func (h *TopKHeap) Insert(rowid int64, distance float64) {
 }
 
 // Results returns the results sorted by distance ascending
+// Pre-allocates with exact capacity to minimize allocations
 func (h *TopKHeap) Results() []VectorResult {
+	// Pre-allocate with exact length (not capacity) to avoid slice growth
 	sorted := make([]VectorResult, len(h.results))
 	copy(sorted, h.results)
 
@@ -91,6 +93,7 @@ func (h *TopKHeap) Results() []VectorResult {
 }
 
 // MergeHeaps merges multiple heaps into a single sorted result list
+// Pre-allocates results slice to avoid allocations during merge (Phase 1 optimization)
 func MergeHeaps(heaps []*TopKHeap, k int) []VectorResult {
 	finalHeap := NewTopKHeap(k)
 

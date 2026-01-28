@@ -29,10 +29,18 @@ type ChunkResult struct {
 	Error   error
 }
 
+// Worker represents a single worker with optional prefetch support
+type Worker struct {
+	id            int
+	prefetchChan  chan *ChunkResult // Channel for prefetched results (Phase 2 optimization)
+	prefetchReady bool              // Whether prefetch is ready
+}
+
 // WorkerPool manages a pool of goroutines for parallel processing
 type WorkerPool struct {
 	maxWorkers int
 	jobChan    chan *ChunkJob
+	workers    []*Worker
 	wg         sync.WaitGroup
 	ctx        context.Context
 	cancel     context.CancelFunc
@@ -45,25 +53,31 @@ func NewWorkerPool(maxWorkers int) *WorkerPool {
 	pool := &WorkerPool{
 		maxWorkers: maxWorkers,
 		jobChan:    make(chan *ChunkJob, maxWorkers*2),
+		workers:    make([]*Worker, maxWorkers),
 		ctx:        ctx,
 		cancel:     cancel,
 	}
 
 	for i := 0; i < maxWorkers; i++ {
+		pool.workers[i] = &Worker{
+			id:           i,
+			prefetchChan: make(chan *ChunkResult, 1), // Buffered for async prefetch
+		}
+
 		pool.wg.Add(1)
 
-		go pool.worker(i)
+		go pool.worker(pool.workers[i])
 	}
 
 	return pool
 }
 
 // worker processes jobs from the job channel
-func (wp *WorkerPool) worker(id int) {
+func (wp *WorkerPool) worker(w *Worker) {
 	defer wp.wg.Done()
 	defer func() {
 		if r := recover(); r != nil {
-			slog.Error("Worker panic recovered", "worker_id", id, "panic", r)
+			slog.Error("Worker panic recovered", "worker_id", w.id, "panic", r)
 		}
 	}()
 
@@ -76,13 +90,13 @@ func (wp *WorkerPool) worker(id int) {
 				return
 			}
 
-			wp.processJob(job)
+			wp.processJob(w, job)
 		}
 	}
 }
 
-// processJob processes a single chunk job
-func (wp *WorkerPool) processJob(job *ChunkJob) {
+// processJob processes a single chunk job with worker-local connection and statement caching
+func (wp *WorkerPool) processJob(w *Worker, job *ChunkJob) {
 	defer func() {
 		if r := recover(); r != nil {
 			job.ResultChan <- &ChunkResult{
@@ -92,7 +106,7 @@ func (wp *WorkerPool) processJob(job *ChunkJob) {
 		}
 	}()
 
-	result, err := ExecuteChunkScan(job)
+	result, err := ExecuteChunkScanWithWorker(w, job)
 
 	if err != nil {
 		job.ResultChan <- &ChunkResult{

@@ -1263,7 +1263,7 @@ func TestVectorScanPerformanceWithMillionProducts(t *testing.T) {
 
 			// Calculate the ID range for this batch
 			batchStartID := batch*generateBatchSize + 1
-			batchEndID := (batch+1)*generateBatchSize
+			batchEndID := (batch + 1) * generateBatchSize
 
 			// Capture the query vector if it's in this batch
 			if queryVector == nil && randomProductID >= batchStartID && randomProductID <= batchEndID {
@@ -1491,12 +1491,6 @@ func TestVectorScanPerformanceWithMillionProducts(t *testing.T) {
 			t.Logf("✓ %s metric completed in %v", metric, queryDuration)
 			t.Logf("  - Query rate: %.2f queries/sec", 1.0/queryDuration.Seconds())
 			t.Logf("  - Throughput: %.0f vectors/sec", float64(totalProducts)/queryDuration.Seconds())
-			t.Logf("  - Retrieved %d results", len(knnResult.Rows))
 		}
-
-		t.Logf("\n✓ Performance test completed!")
-		t.Logf("  - Tested all 3 distance metrics")
-		t.Logf("  - Searched across %d products", totalProducts)
-		t.Logf("  - All queries returned correctly ordered results")
 	})
 }
