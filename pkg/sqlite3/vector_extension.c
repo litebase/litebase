@@ -2,6 +2,7 @@
 SQLITE_EXTENSION_INIT1
 
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -442,9 +443,18 @@ static void vector_quantize_bit_func(
 // vector_scan() Table-Valued Function
 // ============================================================================
 
+// Context passed to vector_scan virtual table
+typedef struct
+{
+	char *vfsID;
+	char *databaseID;
+	char *branchID;
+} VectorScanContext;
+
 typedef struct vector_scan_vtab
 {
 	sqlite3_vtab base;
+	void *pAux; // Connection context
 } vector_scan_vtab;
 
 typedef struct vector_scan_cursor
@@ -473,10 +483,14 @@ static int vector_scan_connect(
 	}
 
 	memset(pVTab, 0, sizeof(vector_scan_vtab));
+	pVTab->pAux = pAux; // Store connection context
 
-	// Declare the virtual table schema
+	// Declare the virtual table schema with hidden parameter columns
+	// Columns: rowid (0), distance (1), table_name (2 HIDDEN), column_name (3 HIDDEN), query_vector (4 HIDDEN), k (5 HIDDEN), metric (6 HIDDEN)
 	int rc = sqlite3_declare_vtab(db,
-								  "CREATE TABLE x(rowid INTEGER, distance REAL)");
+								  "CREATE TABLE x(rowid INTEGER, distance REAL, "
+								  "table_name TEXT HIDDEN, column_name TEXT HIDDEN, "
+								  "query_vector BLOB HIDDEN, k INTEGER HIDDEN, metric TEXT HIDDEN)");
 
 	if (rc != SQLITE_OK)
 	{
@@ -500,6 +514,52 @@ static int vector_scan_disconnect(sqlite3_vtab *pVTab)
 // xBestIndex - query planner
 static int vector_scan_best_index(sqlite3_vtab *pVTab, sqlite3_index_info *pInfo)
 {
+	// Hidden columns for parameters: table_name(2), column_name(3), query_vector(4), k(5), metric(6)
+	int hasTable = 0, hasColumn = 0, hasQueryVector = 0, hasK = 0, hasMetric = 0;
+	int argvIndex = 1;
+
+	for (int i = 0; i < pInfo->nConstraint; i++)
+	{
+		if (pInfo->aConstraint[i].usable && pInfo->aConstraint[i].op == SQLITE_INDEX_CONSTRAINT_EQ)
+		{
+			switch (pInfo->aConstraint[i].iColumn)
+			{
+			case 2: // table_name
+				hasTable = 1;
+				pInfo->aConstraintUsage[i].argvIndex = argvIndex++;
+				pInfo->aConstraintUsage[i].omit = 1;
+				break;
+			case 3: // column_name
+				hasColumn = 1;
+				pInfo->aConstraintUsage[i].argvIndex = argvIndex++;
+				pInfo->aConstraintUsage[i].omit = 1;
+				break;
+			case 4: // query_vector
+				hasQueryVector = 1;
+				pInfo->aConstraintUsage[i].argvIndex = argvIndex++;
+				pInfo->aConstraintUsage[i].omit = 1;
+				break;
+			case 5: // k
+				hasK = 1;
+				pInfo->aConstraintUsage[i].argvIndex = argvIndex++;
+				pInfo->aConstraintUsage[i].omit = 1;
+				break;
+			case 6: // metric
+				hasMetric = 1;
+				pInfo->aConstraintUsage[i].argvIndex = argvIndex++;
+				pInfo->aConstraintUsage[i].omit = 1;
+				break;
+			}
+		}
+	}
+
+	// All 5 parameters are required
+	if (!hasTable || !hasColumn || !hasQueryVector || !hasK || !hasMetric)
+	{
+		pVTab->zErrMsg = sqlite3_mprintf("vector_scan requires all parameters: table_name, column_name, query_vector, k, metric");
+		return SQLITE_CONSTRAINT;
+	}
+
 	pInfo->estimatedCost = 1000.0;
 	pInfo->estimatedRows = 10;
 
@@ -549,12 +609,16 @@ static int vector_scan_filter(
 	sqlite3_value **argv)
 {
 	vector_scan_cursor *pCur = (vector_scan_cursor *)pCursor;
+	vector_scan_vtab *pVTab = (vector_scan_vtab *)pCursor->pVtab;
 
-	// For now, use placeholder values for VFS context
-	// TODO: Extract these from the connection context
-	char *vfsID = "default";
-	char *databaseID = "default";
-	char *branchID = "main";
+	// Get connection context
+	VectorScanContext *ctx = (VectorScanContext *)pVTab->pAux;
+
+	if (ctx == NULL || ctx->vfsID == NULL || ctx->databaseID == NULL || ctx->branchID == NULL)
+	{
+		pCursor->pVtab->zErrMsg = sqlite3_mprintf("vector_scan: missing connection context");
+		return SQLITE_ERROR;
+	}
 
 	// Arguments: table_name, column_name, query_vector, k, metric
 	if (argc != 5)
@@ -576,9 +640,9 @@ static int vector_scan_filter(
 
 	// Call Go function to perform vector scan
 	long long handle = goVectorScan(
-		vfsID,
-		databaseID,
-		branchID,
+		ctx->vfsID,
+		ctx->databaseID,
+		ctx->branchID,
 		(char *)table_name,
 		(char *)column_name,
 		(void *)query_blob,
@@ -921,6 +985,9 @@ int sqlite3_vectorextension_init(
 		return rc;
 	}
 
+	// Note: vector_scan() function registration happens per-connection
+	// in registerVectorExtension() since it needs connection context
+
 	// Register vector_scan virtual table
 	rc = sqlite3_create_module(
 		db,
@@ -929,4 +996,62 @@ int sqlite3_vectorextension_init(
 		NULL);
 
 	return rc;
+}
+
+// ============================================================================
+// sqlite3_register_vector_scan - Per-connection registration
+// ============================================================================
+
+// Size of VectorScanContext struct for Go to allocate
+const int sizeof_VectorScanContext = sizeof(VectorScanContext);
+
+// Function destructor to free context
+static void vector_scan_context_destructor(void *pCtx)
+{
+	if (pCtx != NULL)
+	{
+		VectorScanContext *ctx = (VectorScanContext *)pCtx;
+
+		if (ctx->vfsID != NULL)
+		{
+			free(ctx->vfsID);
+		}
+
+		if (ctx->databaseID != NULL)
+		{
+			free(ctx->databaseID);
+		}
+
+		if (ctx->branchID != NULL)
+		{
+			free(ctx->branchID);
+		}
+
+		sqlite3_free(ctx);
+	}
+}
+
+// Register vector_scan virtual table for a specific connection with context
+int sqlite3_register_vector_scan(
+	sqlite3 *db,
+	void *ctx_ptr,
+	char *vfsID,
+	char *databaseID,
+	char *branchID)
+{
+	VectorScanContext *ctx = (VectorScanContext *)ctx_ptr;
+
+	// Set context fields (strings are already allocated by Go)
+	ctx->vfsID = vfsID;
+	ctx->databaseID = databaseID;
+	ctx->branchID = branchID;
+
+	// Register the virtual table module with the context
+	// The module will use this context for all table instances
+	return sqlite3_create_module_v2(
+		db,
+		"vector_scan",
+		&vector_scan_module,
+		ctx,
+		vector_scan_context_destructor);
 }

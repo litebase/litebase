@@ -263,6 +263,13 @@ func (s *SystemDatabase) broadcastMigrationsUpdated() {
 	}
 }
 
+func (s *SystemDatabase) IsShuttingDown() bool {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	return s.shutdown
+}
+
 // OnMigrationsUpdated handles promotion of node to primary or notification from
 //
 //	primary that migrations were updated. This should be called to reset the

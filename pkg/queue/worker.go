@@ -85,6 +85,10 @@ func (w *Worker) Start() {
 				slog.Info("Worker stopped", "worker_id", w.id)
 				return
 			case <-ticker.C:
+				if w.systemDB.IsShuttingDown() {
+					return
+				}
+
 				if err := w.processNextJob(); err != nil {
 					if err != sql.ErrNoRows {
 						slog.Error("Worker error processing job", "worker_id", w.id, "error", err)

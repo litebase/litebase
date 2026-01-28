@@ -3,7 +3,6 @@ package database_test
 import (
 	"context"
 	"encoding/binary"
-	"fmt"
 	"math"
 	"testing"
 
@@ -11,7 +10,6 @@ import (
 	"github.com/litebase/litebase/pkg/server"
 	"github.com/litebase/litebase/pkg/sqlite3"
 	"github.com/litebase/litebase/pkg/vector"
-	_ "github.com/litebase/litebase/pkg/vector" // Import for CGO exports
 )
 
 func TestVectorExtensionRegistered(t *testing.T) {
@@ -66,8 +64,8 @@ func TestVectorExtensionRegistered(t *testing.T) {
 			t.Errorf("Expected version byte 0x01, got 0x%02x", blob[0])
 		}
 
-		// Expected: 1 (version) + 4 (dimensions as uint32) + 12 (3 * 4 bytes for float32)
-		expectedLen := 1 + 4 + 12
+		// Expected: 1 (version) + 1 (type) + 4 (dimensions as uint32) + 12 (3 * 4 bytes for float32)
+		expectedLen := 1 + 1 + 4 + 12
 
 		if len(blob) != expectedLen {
 			t.Errorf("Expected blob length %d, got %d", expectedLen, len(blob))
@@ -316,8 +314,6 @@ func TestVectorDistanceCalculations(t *testing.T) {
 }
 
 func TestVectorScanVirtualTable(t *testing.T) {
-	t.Skip("vector_scan virtual table module not yet registered - requires additional implementation")
-	
 	test.RunWithApp(t, func(app *server.App) {
 		testDb := test.MockDatabase(app)
 
@@ -370,35 +366,20 @@ func TestVectorScanVirtualTable(t *testing.T) {
 			}
 		}
 
-		// Create virtual table for vector scanning
-		// The vector_scan virtual table expects:
-		// - table: source table name
-		// - column: vector column name
-		// - database_id: database identifier
-		// - branch_id: branch identifier
-		_, err = conn.GetConnection().Exec(fmt.Sprintf(`
-			CREATE VIRTUAL TABLE vec_search USING vector_scan(
-				table='items',
-				column='embedding',
-				database_id='%s',
-				branch_id='%s'
-			)`, testDb.DatabaseID, testDb.DatabaseBranchID), nil)
-
-		if err != nil {
-			t.Fatalf("Failed to create virtual table: %v", err)
-		}
-
 		// Perform a k-NN search for vectors similar to [1.0, 0.0, 0.0, 0.0]
 		// Should return item1, item2, item5 as they are closest
 		queryVector := "[1.0, 0.0, 0.0, 0.0]"
 		k := 3
 
+		// Call vector_scan virtual table directly using hidden columns
 		stmt, err := conn.GetConnection().Prepare(ctx, `
-			SELECT rowid, distance 
-			FROM vec_search 
-			WHERE query_vector = vector_f32(?) 
-				AND k = ? 
-				AND metric = 'l2'
+			SELECT rowid, distance
+			FROM vector_scan
+			WHERE table_name = 'items'
+			  AND column_name = 'embedding'
+			  AND query_vector = vector_f32(?)
+			  AND k = ?
+			  AND metric = 'l2'
 			ORDER BY distance
 		`)
 
@@ -462,4 +443,3 @@ func TestVectorScanVirtualTable(t *testing.T) {
 		t.Logf("  - Results properly ordered by distance")
 	})
 }
-

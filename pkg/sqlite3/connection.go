@@ -24,6 +24,16 @@ extern int go_progress_handler(uintptr_t connectionHandle);
 
 // Forward declaration for vector extension initialization
 extern int sqlite3_vectorextension_init(sqlite3 *db, char **pzErrMsg, const void *pApi);
+
+// Forward declaration for vector_scan registration
+typedef struct {
+	char *vfsID;
+	char *databaseID;
+	char *branchID;
+} VectorScanContext;
+
+extern int sqlite3_register_vector_scan(sqlite3 *db, void *ctx, char *vfsID, char *databaseID, char *branchID);
+extern int sizeof_VectorScanContext;
 */
 import "C"
 
@@ -391,6 +401,57 @@ func (c *Connection) registerVectorExtension() error {
 		defer C.sqlite3_free(unsafe.Pointer(errMsg))
 
 		return fmt.Errorf("vector extension initialization failed: %s", C.GoString(errMsg))
+	}
+
+	return nil
+}
+
+// RegisterVectorScanFunction registers the vector_scan function with connection context
+func (c *Connection) RegisterVectorScanFunction(vfsID, databaseID, branchID string) error {
+	// Create context structure
+	ctxSize := C.sizeof_VectorScanContext
+	ctxPtr := C.sqlite3_malloc(C.int(ctxSize))
+
+	if ctxPtr == nil {
+		return fmt.Errorf("failed to allocate vector_scan context")
+	}
+
+	// Convert strings to C strings (will be freed when function is destroyed)
+	cVfsID, err := utils.SafeCString(vfsID)
+	if err != nil {
+		C.sqlite3_free(ctxPtr)
+		return err
+	}
+
+	cDatabaseID, err := utils.SafeCString(databaseID)
+	if err != nil {
+		C.free(unsafe.Pointer(cVfsID))
+		C.sqlite3_free(ctxPtr)
+		return err
+	}
+
+	cBranchID, err := utils.SafeCString(branchID)
+	if err != nil {
+		C.free(unsafe.Pointer(cVfsID))
+		C.free(unsafe.Pointer(cDatabaseID))
+		C.sqlite3_free(ctxPtr)
+		return err
+	}
+
+	// Call C function to register with context
+	rc := C.sqlite3_register_vector_scan(
+		c.sqlite3,
+		ctxPtr,
+		(*C.char)(cVfsID),
+		(*C.char)(cDatabaseID),
+		(*C.char)(cBranchID))
+
+	if rc != SQLITE_OK {
+		C.free(unsafe.Pointer(cVfsID))
+		C.free(unsafe.Pointer(cDatabaseID))
+		C.free(unsafe.Pointer(cBranchID))
+		C.sqlite3_free(ctxPtr)
+		return fmt.Errorf("failed to register vector_scan function: %d", rc)
 	}
 
 	return nil

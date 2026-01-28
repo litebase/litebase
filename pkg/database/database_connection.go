@@ -572,6 +572,17 @@ func (con *DatabaseConnection) openSqliteConnection() error {
 
 	con.releaseTimestamps()
 
+	// Register vector_scan function with connection context
+	err = con.sqlite3.RegisterVectorScanFunction(
+		con.vfsHash,
+		con.branch.DatabaseID,
+		con.branch.DatabaseBranchID,
+	)
+
+	if err != nil {
+		slog.Warn("Failed to register vector_scan function", "error", err)
+	}
+
 	return nil
 }
 
