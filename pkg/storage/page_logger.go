@@ -243,7 +243,7 @@ type PageVersion int64
 type PageLogger struct {
 	BranchID        string
 	CompactedAt     time.Time
-	compactionMutex *sync.Mutex
+	compactionMutex *sync.RWMutex
 	DatabaseID      string
 	dataKey         []byte   // Optional: encryption key (32 bytes)
 	encrypted       bool     // Whether this PageLogger creates encrypted PageLogs
@@ -282,7 +282,7 @@ func NewPageLogger(
 
 	pl := &PageLogger{
 		BranchID:        branchId,
-		compactionMutex: &sync.Mutex{},
+		compactionMutex: &sync.RWMutex{},
 		DatabaseID:      databaseId,
 		memoryManager:   memoryManager,
 		NetworkFS:       networkFS,
@@ -583,6 +583,15 @@ func (pl *PageLogger) CompactionBarrier(f func() error) error {
 func (pl *PageLogger) CompactionPassiveBarrier(f func() error) error {
 	pl.compactionMutex.Lock()
 	defer pl.compactionMutex.Unlock()
+
+	return f()
+}
+
+// CompactionPassiveBarrierRead is used for read-only operations that can run concurrently
+// with other reads. It allows multiple readers while still blocking during actual compaction.
+func (pl *PageLogger) CompactionPassiveBarrierRead(f func() error) error {
+	pl.compactionMutex.RLock()
+	defer pl.compactionMutex.RUnlock()
 
 	return f()
 }

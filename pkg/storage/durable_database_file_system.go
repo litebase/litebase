@@ -106,6 +106,12 @@ func (dfs *DurableDatabaseFileSystem) CompactionBarrier(fn func() error) error {
 	return dfs.PageLogger.CompactionPassiveBarrier(fn)
 }
 
+// CompactionBarrierRead allows read operations to proceed concurrently while preventing compaction.
+// Multiple readers can execute simultaneously while still being blocked during actual compaction.
+func (dfs *DurableDatabaseFileSystem) CompactionBarrierRead(fn func() error) error {
+	return dfs.PageLogger.CompactionPassiveBarrierRead(fn)
+}
+
 // Compact data to the latest version of a range by creating a copy of the
 // latest range so the caller can make modifications with an atomic operation.
 func (dfs *DurableDatabaseFileSystem) compactToRange(rangeNumber int64, fn func(newRange *Range) error) error {

@@ -8,6 +8,7 @@ import (
 	"hash/crc32"
 	"log"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 	"unsafe"
@@ -375,8 +376,18 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 	var compactionBarrier func(func() error) error
 
 	if !con.inTransaction {
-		checkpointBarrier = con.walManager.CheckpointBarrier
-		compactionBarrier = con.fileSystem.CompactionBarrier
+		// Detect if this is a read-only query by checking if it starts with SELECT
+		// Use read barriers for SELECT to allow concurrent reads
+		trimmedSQL := strings.TrimSpace(sql)
+		isReadOnly := len(trimmedSQL) >= 6 && strings.EqualFold(trimmedSQL[:6], "SELECT")
+
+		if isReadOnly {
+			checkpointBarrier = con.walManager.CheckpointBarrierRead
+			compactionBarrier = con.fileSystem.CompactionBarrierRead
+		} else {
+			checkpointBarrier = con.walManager.CheckpointBarrier
+			compactionBarrier = con.fileSystem.CompactionBarrier
+		}
 	} else {
 		checkpointBarrier = func(fn func() error) error {
 			return fn()
@@ -844,53 +855,66 @@ func (con *DatabaseConnection) Transaction(
 		return ErrDatabaseConnectionClosed
 	}
 
-	return con.walManager.CheckpointBarrier(func() error {
-		var err error
+	var checkpointBarrier func(func() error) error
+	var compactionBarrier func(func() error) error
 
-		// Acquire timestamp inside the checkpoint barrier to ensure atomicity
-		con.setTimestamps()
+	if readOnly {
+		checkpointBarrier = con.walManager.CheckpointBarrierRead
+		compactionBarrier = con.fileSystem.CompactionBarrierRead
+	} else {
+		checkpointBarrier = con.walManager.CheckpointBarrier
+		compactionBarrier = con.fileSystem.CompactionBarrier
+	}
 
-		defer func() {
-			con.releaseTimestamps()
-		}()
+	return checkpointBarrier(func() error {
+		return compactionBarrier(func() error {
+			var err error
 
-		if !readOnly {
-			// Start the transaction with a write lock.
-			err = con.sqliteConnection().BeginImmediate()
-		} else {
-			err = con.sqliteConnection().BeginDeferred()
-		}
+			// Acquire timestamp inside the checkpoint barrier to ensure atomicity
+			con.setTimestamps()
 
-		if err != nil {
-			return err
-		}
+			defer func() {
+				con.releaseTimestamps()
+			}()
 
-		handlerError := handler(con)
+			if !readOnly {
+				// Start the transaction with a write lock.
+				err = con.sqliteConnection().BeginImmediate()
+			} else {
+				err = con.sqliteConnection().BeginDeferred()
+			}
 
-		if handlerError != nil {
-			err = con.sqliteConnection().Rollback()
+			if err != nil {
+				return err
+			}
+
+			handlerError := handler(con)
+
+			if handlerError != nil {
+				err = con.sqliteConnection().Rollback()
+
+				if err != nil {
+					log.Println("Transaction Error:", err)
+				}
+
+				return handlerError
+			}
+
+			err = con.sqliteConnection().Commit()
 
 			if err != nil {
 				log.Println("Transaction Error:", err)
+				return err
+			}
+
+			if !readOnly {
+				con.mutex.Lock()
+				con.committedAt = time.Now().UTC()
+				con.mutex.Unlock()
 			}
 
 			return handlerError
-		}
-
-		err = con.sqliteConnection().Commit()
-
-		if err != nil {
-			log.Println("Transaction Error:", err)
-			return err
-		}
-
-		if !readOnly {
-			con.mutex.Lock()
-			con.committedAt = time.Now().UTC()
-			con.mutex.Unlock()
-		}
-
-		return handlerError
+		})
 	})
 }
 

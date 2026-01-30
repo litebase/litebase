@@ -20,7 +20,7 @@ import (
 type DatabaseWALManager struct {
 	BranchID                string
 	checkpointing           bool
-	checkpointMutex         *sync.Mutex
+	checkpointMutex         *sync.RWMutex
 	checkpointingWAL        *DatabaseWAL
 	connectionManager       *ConnectionManager
 	databaseHash            string
@@ -56,7 +56,7 @@ func NewDatabaseWALManager(
 	walManager := &DatabaseWALManager{
 		BranchID:               branchId,
 		checkpointing:          false,
-		checkpointMutex:        &sync.Mutex{},
+		checkpointMutex:        &sync.RWMutex{},
 		connectionManager:      connectionManager,
 		databaseHash:           file.DatabaseHash(databaseId, branchId),
 		DatabaseID:             databaseId,
@@ -169,9 +169,19 @@ func (w *DatabaseWALManager) Checkpoint(fn func(wal *DatabaseWAL) error) error {
 // CheckpointBarrier is a convenience method to ensure that transactions are
 // operating in a consistent state around checkpoints to prevent database
 // corruption or other state inconsistencies
+// This acquires an exclusive lock - use CheckpointBarrierRead for read-only operations
 func (w *DatabaseWALManager) CheckpointBarrier(fn func() error) error {
 	w.checkpointMutex.Lock()
 	defer w.checkpointMutex.Unlock()
+
+	return fn()
+}
+
+// CheckpointBarrierRead is used for read-only operations that can run concurrently
+// It allows multiple readers while still blocking during checkpoint operations
+func (w *DatabaseWALManager) CheckpointBarrierRead(fn func() error) error {
+	w.checkpointMutex.RLock()
+	defer w.checkpointMutex.RUnlock()
 
 	return fn()
 }

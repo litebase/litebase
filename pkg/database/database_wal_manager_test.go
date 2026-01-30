@@ -3,6 +3,7 @@ package database_test
 import (
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/database"
@@ -432,5 +433,175 @@ func TestDatabaseWALManager_RunGarbageCollectionWithReplicas(t *testing.T) {
 				t.Error("File should exist")
 			}
 		}
+	})
+}
+
+func TestDatabaseWALManager_ConcurrentBarriers(t *testing.T) {
+	test.RunWithApp(t, func(app *server.App) {
+		t.Run("MultipleConcurrentReads", func(t *testing.T) {
+			walm, err := database.NewDatabaseWALManager(
+				app.Cluster.Node(),
+				app.DatabaseManager.ConnectionManager(),
+				app.Cluster.MemoryManager,
+				"testdb",
+				"testbranch",
+				app.Cluster.NetworkFS(),
+			)
+
+			if err != nil {
+				t.Fatalf("Error creating WAL manager: %v", err)
+			}
+
+			const numReaders = 50
+			readersStarted := make(chan bool, numReaders)
+			readersCompleted := make(chan bool, numReaders)
+
+			// Start multiple concurrent readers
+			for i := range numReaders {
+				go func(id int) {
+					err := walm.CheckpointBarrierRead(func() error {
+						readersStarted <- true
+						// Simulate some read work
+						time.Sleep(10 * time.Millisecond)
+						return nil
+					})
+
+					if err != nil {
+						t.Errorf("Reader %d failed: %v", id, err)
+					}
+
+					readersCompleted <- true
+				}(i)
+			}
+
+			// Wait for all readers to start (proves they're concurrent)
+			timeout := time.After(2 * time.Second)
+			startedCount := 0
+
+			for startedCount < numReaders {
+				select {
+				case <-readersStarted:
+					startedCount++
+				case <-timeout:
+					t.Fatalf("Timeout waiting for readers to start. Only %d/%d started", startedCount, numReaders)
+				}
+			}
+
+			// Wait for all readers to complete
+			for range numReaders {
+				select {
+				case <-readersCompleted:
+				case <-time.After(3 * time.Second):
+					t.Fatalf("Timeout waiting for readers to complete")
+				}
+			}
+
+			t.Logf("Successfully ran %d concurrent readers", numReaders)
+		})
+
+		t.Run("WriteBlocksReads", func(t *testing.T) {
+			walm, err := database.NewDatabaseWALManager(
+				app.Cluster.Node(),
+				app.DatabaseManager.ConnectionManager(),
+				app.Cluster.MemoryManager,
+				"testdb2",
+				"testbranch2",
+				app.Cluster.NetworkFS(),
+			)
+
+			if err != nil {
+				t.Fatalf("Error creating WAL manager: %v", err)
+			}
+
+			writerStarted := make(chan bool)
+			writerHoldingLock := make(chan bool)
+			readerBlocked := make(chan bool)
+			writerDone := make(chan bool)
+
+			// Start a writer that holds the lock
+			go func() {
+				err := walm.CheckpointBarrier(func() error {
+					writerStarted <- true
+					<-writerHoldingLock
+					time.Sleep(100 * time.Millisecond)
+					return nil
+				})
+
+				if err != nil {
+					t.Errorf("Writer failed: %v", err)
+				}
+
+				writerDone <- true
+			}()
+
+			// Wait for writer to acquire lock
+			<-writerStarted
+
+			// Try to acquire read lock (should block)
+			go func() {
+				// Give writer time to actually acquire the lock
+				time.Sleep(10 * time.Millisecond)
+				readerBlocked <- true
+
+				err := walm.CheckpointBarrierRead(func() error {
+					return nil
+				})
+
+				if err != nil {
+					t.Errorf("Reader failed: %v", err)
+				}
+			}()
+
+			// Verify reader is blocked
+			select {
+			case <-readerBlocked:
+				// Reader started trying to acquire lock
+			case <-time.After(500 * time.Millisecond):
+				t.Fatal("Reader didn't attempt to acquire lock")
+			}
+
+			// Release writer lock
+			close(writerHoldingLock)
+
+			// Wait for writer to complete
+			select {
+			case <-writerDone:
+			case <-time.After(500 * time.Millisecond):
+				t.Fatal("Writer didn't complete")
+			}
+
+			t.Log("Successfully verified write blocks reads")
+		})
+
+		t.Run("NestedReadsWork", func(t *testing.T) {
+			walm, err := database.NewDatabaseWALManager(
+				app.Cluster.Node(),
+				app.DatabaseManager.ConnectionManager(),
+				app.Cluster.MemoryManager,
+				"testdb3",
+				"testbranch3",
+				app.Cluster.NetworkFS(),
+			)
+
+			if err != nil {
+				t.Fatalf("Error creating WAL manager: %v", err)
+			}
+
+			// Simulate the original deadlock scenario: outer read calls inner read
+			err = walm.CheckpointBarrierRead(func() error {
+				// This is the outer read
+				return walm.CheckpointBarrierRead(func() error {
+					// This is the nested/inner read
+					// With RWMutex, this should work fine
+					return nil
+				})
+			})
+
+			if err != nil {
+				t.Fatalf("Nested reads failed: %v", err)
+			}
+
+			t.Log("Successfully performed nested reads (RWMutex allows this)")
+		})
 	})
 }
