@@ -594,6 +594,17 @@ func (con *DatabaseConnection) openSqliteConnection() error {
 		slog.Warn("Failed to register vector_scan function", "error", err)
 	}
 
+	// Register vector_index module with connection context
+	err = con.sqlite3.RegisterVectorIndexFunction(
+		con.vfsHash,
+		con.branch.DatabaseID,
+		con.branch.DatabaseBranchID,
+	)
+
+	if err != nil {
+		slog.Warn("Failed to register vector_index module", "error", err)
+	}
+
 	return nil
 }
 

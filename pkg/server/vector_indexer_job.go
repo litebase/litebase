@@ -37,7 +37,7 @@ func VectorIndexerJob(ctx context.Context, app *App, data map[string]interface{}
 		return fmt.Errorf("missing db_id or db_name")
 	}
 
-	// Extract branch ID - support both branch_name (old) and branch_id (new)  
+	// Extract branch ID - support both branch_name (old) and branch_id (new)
 	var branchID string
 
 	if id, ok := data["branch_id"].(string); ok {
@@ -133,6 +133,25 @@ func VectorIndexerJob(ctx context.Context, app *App, data map[string]interface{}
 		"branch_id", branchID,
 		"table", tableName,
 		"processed", processed)
+
+	// Check if there are more pending vectors to process
+	// If we processed a full batch, there might be more work to do
+	if processed >= VectorIndexerBatchSize {
+		// Query for remaining pending count
+		res, err := dbConn.Exec(
+			fmt.Sprintf(`SELECT COUNT(*) FROM %s_pending`, tableName),
+			nil,
+		)
+
+		if err == nil && len(res.Rows) > 0 && res.Rows[0][0].Int64() > 0 {
+			// There are more pending vectors, notify the manager
+			slog.Debug("More vectors pending after batch",
+				"table", tableName,
+				"remaining", res.Rows[0][0].Int64())
+
+			app.VectorIndexMgr.MarkPending(dbID, branchID, tableName)
+		}
+	}
 
 	return nil
 }

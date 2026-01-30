@@ -32,8 +32,17 @@ typedef struct {
 	char *branchID;
 } VectorScanContext;
 
+// Forward declaration for vector_index registration
+typedef struct {
+	char *vfsID;
+	char *databaseID;
+	char *branchID;
+} VectorIndexContext;
+
 extern int sqlite3_register_vector_scan(sqlite3 *db, void *ctx, char *vfsID, char *databaseID, char *branchID);
+extern int sqlite3_register_vector_index_with_context(sqlite3 *db, void *ctx, char *vfsID, char *databaseID, char *branchID);
 extern int sizeof_VectorScanContext;
+extern int sizeof_VectorIndexContext;
 */
 import "C"
 
@@ -401,6 +410,57 @@ func (c *Connection) registerVectorExtension() error {
 		defer C.sqlite3_free(unsafe.Pointer(errMsg))
 
 		return fmt.Errorf("vector extension initialization failed: %s", C.GoString(errMsg))
+	}
+
+	return nil
+}
+
+// RegisterVectorIndexFunction registers the vector_index virtual table with connection context
+func (c *Connection) RegisterVectorIndexFunction(vfsID, databaseID, branchID string) error {
+	// Create context structure
+	ctxSize := C.sizeof_VectorIndexContext
+	ctxPtr := C.sqlite3_malloc(C.int(ctxSize))
+
+	if ctxPtr == nil {
+		return fmt.Errorf("failed to allocate vector_index context")
+	}
+
+	// Convert strings to C strings (will be freed when module is destroyed)
+	cVfsID, err := utils.SafeCString(vfsID)
+	if err != nil {
+		C.sqlite3_free(ctxPtr)
+		return err
+	}
+
+	cDatabaseID, err := utils.SafeCString(databaseID)
+	if err != nil {
+		C.free(unsafe.Pointer(cVfsID))
+		C.sqlite3_free(ctxPtr)
+		return err
+	}
+
+	cBranchID, err := utils.SafeCString(branchID)
+	if err != nil {
+		C.free(unsafe.Pointer(cVfsID))
+		C.free(unsafe.Pointer(cDatabaseID))
+		C.sqlite3_free(ctxPtr)
+		return err
+	}
+
+	// Call C function to register with context
+	rc := C.sqlite3_register_vector_index_with_context(
+		c.sqlite3,
+		ctxPtr,
+		(*C.char)(cVfsID),
+		(*C.char)(cDatabaseID),
+		(*C.char)(cBranchID))
+
+	if rc != SQLITE_OK {
+		C.free(unsafe.Pointer(cVfsID))
+		C.free(unsafe.Pointer(cDatabaseID))
+		C.free(unsafe.Pointer(cBranchID))
+		C.sqlite3_free(ctxPtr)
+		return fmt.Errorf("failed to register vector_index module: %d", rc)
 	}
 
 	return nil

@@ -492,3 +492,18 @@ func goComputeHammingDistance(blobPtr1 unsafe.Pointer, blobLen1 C.int, blobPtr2 
 
 	return C.int(distance)
 }
+
+//export goVectorIndexStats
+func goVectorIndexStats(dbPtr unsafe.Pointer, tableName *C.char) *C.char {
+	// Stub implementation
+	return C.CString("{}")
+}
+
+//export goNotifyVectorInsert
+func goNotifyVectorInsert(databaseID, branchID, tableName *C.char) {
+	NotifyVectorInsert(
+		C.GoString(databaseID),
+		C.GoString(branchID),
+		C.GoString(tableName),
+	)
+}
