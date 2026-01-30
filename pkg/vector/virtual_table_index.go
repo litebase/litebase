@@ -685,17 +685,8 @@ int vector_index_update(
         }
     }
 
-    // Increment pending count in metadata
-    sql = sqlite3_mprintf(
-        "UPDATE %s_metadata SET value = CAST((CAST(value AS INTEGER) + 1) AS TEXT) WHERE key = 'pending_count'",
-        vtab->table_name
-    );
-    rc = sqlite3_exec(vtab->db, sql, NULL, NULL, &err_msg);
-    sqlite3_free(sql);
-    if (rc != SQLITE_OK) {
-        sqlite3_free(err_msg);
-        return rc;
-    }
+    // Skip metadata update during transaction - batch it in xSync instead
+    // This avoids updating metadata on every single insert
 
     // Notify VectorIndexManager about the insert
     VectorIndexContext *ctx = (VectorIndexContext *)vtab->pAux;
