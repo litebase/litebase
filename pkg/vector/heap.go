@@ -7,7 +7,7 @@ import (
 
 // VectorResult represents a single k-NN search result
 type VectorResult struct {
-	Rowid    int64
+	RowId    int64
 	Distance float64
 }
 
@@ -33,7 +33,7 @@ func (h *TopKHeap) Len() int {
 // Less implements heap.Interface (max heap - we want to remove largest distances)
 func (h *TopKHeap) Less(i, j int) bool {
 	if h.results[i].Distance == h.results[j].Distance {
-		return h.results[i].Rowid > h.results[j].Rowid
+		return h.results[i].RowId > h.results[j].RowId
 	}
 
 	return h.results[i].Distance > h.results[j].Distance
@@ -45,12 +45,12 @@ func (h *TopKHeap) Swap(i, j int) {
 }
 
 // Push implements heap.Interface
-func (h *TopKHeap) Push(x interface{}) {
+func (h *TopKHeap) Push(x any) {
 	h.results = append(h.results, x.(VectorResult))
 }
 
 // Pop implements heap.Interface
-func (h *TopKHeap) Pop() interface{} {
+func (h *TopKHeap) Pop() any {
 	old := h.results
 	n := len(old)
 	x := old[n-1]
@@ -61,14 +61,14 @@ func (h *TopKHeap) Pop() interface{} {
 
 // Insert adds a result to the heap, maintaining only top k
 func (h *TopKHeap) Insert(rowid int64, distance float64) {
-	result := VectorResult{Rowid: rowid, Distance: distance}
+	result := VectorResult{RowId: rowid, Distance: distance}
 
 	if len(h.results) < h.k {
 		heap.Push(h, result)
 		return
 	}
 
-	if distance < h.results[0].Distance || (distance == h.results[0].Distance && rowid < h.results[0].Rowid) {
+	if distance < h.results[0].Distance || (distance == h.results[0].Distance && rowid < h.results[0].RowId) {
 		heap.Pop(h)
 		heap.Push(h, result)
 	}
@@ -83,7 +83,7 @@ func (h *TopKHeap) Results() []VectorResult {
 
 	sort.Slice(sorted, func(i, j int) bool {
 		if sorted[i].Distance == sorted[j].Distance {
-			return sorted[i].Rowid < sorted[j].Rowid
+			return sorted[i].RowId < sorted[j].RowId
 		}
 
 		return sorted[i].Distance < sorted[j].Distance
@@ -93,13 +93,13 @@ func (h *TopKHeap) Results() []VectorResult {
 }
 
 // MergeHeaps merges multiple heaps into a single sorted result list
-// Pre-allocates results slice to avoid allocations during merge (Phase 1 optimization)
+// Pre-allocates results slice to avoid allocations during merge
 func MergeHeaps(heaps []*TopKHeap, k int) []VectorResult {
 	finalHeap := NewTopKHeap(k)
 
 	for _, h := range heaps {
 		for _, result := range h.results {
-			finalHeap.Insert(result.Rowid, result.Distance)
+			finalHeap.Insert(result.RowId, result.Distance)
 		}
 	}
 
@@ -107,21 +107,20 @@ func MergeHeaps(heaps []*TopKHeap, k int) []VectorResult {
 }
 
 // MergeWith merges another heap into this heap
-// Phase 2.5: Enables continuous merging during streaming
 func (h *TopKHeap) MergeWith(other *TopKHeap) {
 	if other == nil {
 		return
 	}
 
 	for _, result := range other.results {
-		h.Insert(result.Rowid, result.Distance)
+		h.Insert(result.RowId, result.Distance)
 	}
 }
 
 // CalculateChunkSize determines optimal chunk size based on vector dimensions
 func CalculateChunkSize(dimensions int) int {
-	const minChunkSize = 25000
-	const maxChunkSize = 250000
+	const minChunkSize = 10000
+	const maxChunkSize = 100000
 	const targetMemoryMB = 400
 
 	bytesPerVector := dimensions * 4
