@@ -167,7 +167,7 @@ func GoGetScanResult(handleID C.longlong, rowid *C.longlong, distance *C.double)
 	}
 
 	result := handle.Results[handle.Index]
-	*rowid = C.longlong(result.Rowid)
+	*rowid = C.longlong(result.RowId)
 	*distance = C.double(result.Distance)
 	handle.Index++
 
