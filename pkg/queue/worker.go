@@ -26,8 +26,9 @@ type Worker struct {
 	afterJob         func(jobID int64, status JobStatus, err error)
 	primaryOnly      bool
 	isPrimary        func() bool
-	runningJobKeys   *sync.Map   // Shared map to track running job keys across all workers
-	reservationMutex *sync.Mutex // Shared mutex to serialize job reservation and prevent DB locks
+	runningJobKeys   *sync.Map     // Shared map to track running job keys across all workers
+	reservationMutex *sync.Mutex   // Shared mutex to serialize job reservation and prevent DB locks
+	triggerChan      chan struct{} // Shared channel to wake worker when jobs are dispatched
 }
 
 // NewWorker creates a new worker instance.
@@ -71,6 +72,11 @@ func (w *Worker) SetReservationMutex(mutex *sync.Mutex) {
 	w.reservationMutex = mutex
 }
 
+// SetTriggerChannel sets the shared channel for waking the worker.
+func (w *Worker) SetTriggerChannel(ch chan struct{}) {
+	w.triggerChan = ch
+}
+
 // Start begins processing jobs from the queue.
 func (w *Worker) Start() {
 	w.wg.Go(func() {
@@ -85,6 +91,17 @@ func (w *Worker) Start() {
 				slog.Info("Worker stopped", "worker_id", w.id)
 				return
 			case <-ticker.C:
+				if w.systemDB.IsShuttingDown() {
+					return
+				}
+
+				if err := w.processNextJob(); err != nil {
+					if err != sql.ErrNoRows {
+						slog.Error("Worker error processing job", "worker_id", w.id, "error", err)
+					}
+				}
+			case <-w.triggerChan:
+				// Wake up immediately when a job is dispatched
 				if w.systemDB.IsShuttingDown() {
 					return
 				}

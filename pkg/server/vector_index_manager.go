@@ -8,9 +8,9 @@ import (
 )
 
 var (
-	IndexManagerTickInterval      = 1 * time.Second
+	IndexManagerTickInterval      = 100 * time.Millisecond
 	IndexManagerProcessingTimeout = 5 * time.Minute
-	IndexManagerBatchSize         = 5000
+	IndexManagerBatchSize         = 10000
 )
 
 // IndexInfo tracks pending state for a vector index
@@ -25,22 +25,24 @@ type IndexInfo struct {
 
 // VectorIndexManager monitors vector indexes and triggers indexing jobs
 type VectorIndexManager struct {
-	app     *App
-	context context.Context
-	cancel  context.CancelFunc
-	indexes map[string]*IndexInfo // key: "dbID:branchID:tableName"
-	mutex   *sync.RWMutex
+	app         *App
+	context     context.Context
+	cancel      context.CancelFunc
+	indexes     map[string]*IndexInfo // key: "dbID:branchID:tableName"
+	mutex       *sync.RWMutex
+	triggerChan chan struct{}
 }
 
 func NewVectorIndexManager(app *App) *VectorIndexManager {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &VectorIndexManager{
-		app:     app,
-		context: ctx,
-		cancel:  cancel,
-		indexes: make(map[string]*IndexInfo),
-		mutex:   &sync.RWMutex{},
+		app:         app,
+		context:     ctx,
+		cancel:      cancel,
+		indexes:     make(map[string]*IndexInfo),
+		mutex:       &sync.RWMutex{},
+		triggerChan: make(chan struct{}, 100),
 	}
 }
 
@@ -64,6 +66,13 @@ func (vm *VectorIndexManager) MarkPending(databaseID, branchID, tableName string
 			Processing:   false,
 		}
 	}
+
+	// Trigger immediate processing (non-blocking)
+	select {
+	case vm.triggerChan <- struct{}{}:
+	default:
+		// Channel full, processing already triggered
+	}
 }
 
 // Run starts the monitoring loop
@@ -75,7 +84,11 @@ func (vm *VectorIndexManager) Run() {
 		select {
 		case <-vm.context.Done():
 			return
+		case <-vm.triggerChan:
+			// Immediate trigger from MarkPending
+			vm.processIndexes()
 		case <-ticker.C:
+			// Periodic check for any missed updates
 			vm.processIndexes()
 		}
 	}

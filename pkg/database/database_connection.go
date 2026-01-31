@@ -176,27 +176,45 @@ func (con *DatabaseConnection) BusyTimeout(timeout time.Duration) error {
 }
 
 // Begin a transaction on the database connection
+// WARNING: This should only be called from Transaction() wrapper to ensure timestamps are set
 func (con *DatabaseConnection) Begin() error {
 	if con.Closed() {
 		return ErrDatabaseConnectionClosed
+	}
+
+	// Safeguard: Ensure setTimestamps was called before beginning transaction
+	if con.walTimestamp == 0 {
+		return fmt.Errorf("Begin() called without setTimestamps() - use Transaction() wrapper instead")
 	}
 
 	return con.sqliteConnection().Begin()
 }
 
 // Begin a transaction that will deffer the write lock until the first write operation.
+// WARNING: This should only be called from Transaction() wrapper to ensure timestamps are set
 func (con *DatabaseConnection) BeginDeferred() error {
 	if con.Closed() {
 		return ErrDatabaseConnectionClosed
+	}
+
+	// Safeguard: Ensure setTimestamps was called before beginning transaction
+	if con.walTimestamp == 0 {
+		return fmt.Errorf("BeginDeferred() called without setTimestamps() - use Transaction() wrapper instead")
 	}
 
 	return con.sqliteConnection().BeginDeferred()
 }
 
 // Begin a transaction that will immediately acquire the write lock.
+// WARNING: This should only be called from Transaction() wrapper to ensure timestamps are set
 func (con *DatabaseConnection) BeginImmediate() error {
 	if con.Closed() {
 		return ErrDatabaseConnectionClosed
+	}
+
+	// Safeguard: Ensure setTimestamps was called before beginning transaction
+	if con.walTimestamp == 0 {
+		return fmt.Errorf("BeginImmediate() called without setTimestamps() - use Transaction() wrapper instead")
 	}
 
 	return con.sqliteConnection().BeginImmediate()
@@ -377,13 +395,18 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 
 	if !con.inTransaction {
 		// Detect if this is a read-only query by checking if it starts with SELECT
-		// Use read barriers for SELECT to allow concurrent reads
+		// Reads don't need barriers - WAL/PageLogger reference counting provides safety
 		trimmedSQL := strings.TrimSpace(sql)
 		isReadOnly := len(trimmedSQL) >= 6 && strings.EqualFold(trimmedSQL[:6], "SELECT")
 
 		if isReadOnly {
-			checkpointBarrier = con.walManager.CheckpointBarrierRead
-			compactionBarrier = con.fileSystem.CompactionBarrierRead
+			// No barriers needed for reads - versioning ensures consistency
+			checkpointBarrier = func(fn func() error) error {
+				return fn()
+			}
+			compactionBarrier = func(fn func() error) error {
+				return fn()
+			}
 		} else {
 			checkpointBarrier = con.walManager.CheckpointBarrier
 			compactionBarrier = con.fileSystem.CompactionBarrier
@@ -870,8 +893,14 @@ func (con *DatabaseConnection) Transaction(
 	var compactionBarrier func(func() error) error
 
 	if readOnly {
-		checkpointBarrier = con.walManager.CheckpointBarrierRead
-		compactionBarrier = con.fileSystem.CompactionBarrierRead
+		// No barriers needed for read-only transactions
+		// WAL/PageLogger reference counting ensures data isn't deleted while in use
+		checkpointBarrier = func(fn func() error) error {
+			return fn()
+		}
+		compactionBarrier = func(fn func() error) error {
+			return fn()
+		}
 	} else {
 		checkpointBarrier = con.walManager.CheckpointBarrier
 		compactionBarrier = con.fileSystem.CompactionBarrier

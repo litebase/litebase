@@ -201,9 +201,23 @@ func (ts *TestServer) WithTokenClient(token *auth.Token) *TestClient {
 // This is useful when running multiple servers in a single test with persistent storage.
 // The shared fake S3 storage will be cleaned up by the test framework at the end of the test.
 func (ts *TestServer) Shutdown() {
+	// CRITICAL: Shutdown order matters to prevent database corruption and file access errors!
+	// 1. Stop accepting new work and wait for workers to complete
 	ts.App.Shutdown()
+
+	// 2. Close database connections (workers are stopped, safe to close)
 	ts.App.DatabaseManager.ConnectionManager().Shutdown()
-	err := ts.App.Cluster.Node().Shutdown()
+
+	// 3. Shutdown database resources (page loggers, file systems, etc.)
+	//    This MUST happen before cluster node shutdown to ensure files are released
+	err := ts.App.DatabaseManager.ShutdownResources()
+
+	if err != nil {
+		panic(err)
+	}
+
+	// 4. Shutdown cluster node (after database resources are released)
+	err = ts.App.Cluster.Node().Shutdown()
 
 	if err != nil {
 		panic(err)

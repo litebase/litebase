@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	VectorIndexerBatchSize = 5000
+	VectorIndexerBatchSize = 10000
 )
 
 // VectorIndexerJob processes pending vectors for a specific index
@@ -121,35 +121,46 @@ func VectorIndexerJob(ctx context.Context, app *App, data map[string]interface{}
 		return fmt.Errorf("failed to create vector indexer: %w", err)
 	}
 
-	// Process batch
-	processed, err := indexer.ProcessBatch(ctx, VectorIndexerBatchSize)
+	// Process batches continuously until all pending vectors are done
+	// This eliminates the pause between job dispatches
+	totalProcessed := 0
 
-	if err != nil {
-		return fmt.Errorf("failed to process batch: %w", err)
-	}
-
-	slog.Info("Processed vector indexing batch",
-		"db_id", dbID,
-		"branch_id", branchID,
-		"table", tableName,
-		"processed", processed)
-
-	// Check if there are more pending vectors to process
-	// If we processed a full batch, there might be more work to do
-	if processed >= VectorIndexerBatchSize {
-		// Query for remaining pending count
-		res, err := dbConn.Exec(
-			fmt.Sprintf(`SELECT COUNT(*) FROM %s_pending`, tableName),
-			nil,
-		)
-
-		if err == nil && len(res.Rows) > 0 && res.Rows[0][0].Int64() > 0 {
-			// There are more pending vectors, notify the manager
-			slog.Debug("More vectors pending after batch",
+	for {
+		// Check context before processing each batch
+		select {
+		case <-ctx.Done():
+			slog.Debug("VectorIndexer job cancelled",
+				"db_id", dbID,
+				"branch_id", branchID,
 				"table", tableName,
-				"remaining", res.Rows[0][0].Int64())
+				"processed", totalProcessed)
+			return ctx.Err()
+		default:
+		}
 
-			app.VectorIndexMgr.MarkPending(dbID, branchID, tableName)
+		processed, err := indexer.ProcessBatch(ctx, VectorIndexerBatchSize)
+
+		if err != nil {
+			return fmt.Errorf("failed to process batch: %w", err)
+		}
+
+		totalProcessed += processed
+
+		slog.Debug("Processed vector indexing batch",
+			"db_id", dbID,
+			"branch_id", branchID,
+			"table", tableName,
+			"batch_processed", processed,
+			"total_processed", totalProcessed)
+
+		// If we processed less than a full batch, we're done
+		if processed < VectorIndexerBatchSize {
+			slog.Info("VectorIndexer job completed",
+				"db_id", dbID,
+				"branch_id", branchID,
+				"table", tableName,
+				"total_processed", totalProcessed)
+			break
 		}
 	}
 

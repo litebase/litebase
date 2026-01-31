@@ -13,7 +13,7 @@ import (
 
 const (
 	// IndexerBatchSize is the number of vectors to process in one batch
-	IndexerBatchSize = 5000
+	IndexerBatchSize = 10000
 )
 
 // VectorIndexer processes pending vectors and assigns them to clusters
@@ -48,198 +48,220 @@ func NewVectorIndexer(db *database.DatabaseConnection, tableName string, dimensi
 
 // ProcessBatch processes a batch of pending vectors using a transaction and batched operations
 func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, error) {
-	// Begin transaction for better performance
-	if err := vi.DB.Begin(); err != nil {
-		return 0, fmt.Errorf("failed to begin transaction: %w", err)
-	}
-
-	// Get pending vectors - use rowid instead of id column since id may be NULL/0
-	res, err := vi.DB.Exec(
-		fmt.Sprintf(`SELECT rowid, vector_blob, operation FROM %s_pending ORDER BY created_at ASC LIMIT ?`, vi.TableName),
-		[]sqlite3.StatementParameter{
-			{Type: "INTEGER", Value: int64(batchSize)},
-		},
-	)
-
-	if err != nil {
-		return 0, fmt.Errorf("failed to query pending vectors: %w", err)
+	// Check if context is already cancelled before starting work
+	select {
+	case <-ctx.Done():
+		return 0, ctx.Err()
+	default:
 	}
 
 	var processed int
-	var idsToDelete []int64
-
-	// Collect batched operations
-	var inserts []insertOp
-	clusterSizeDeltas := make(map[int64]int) // cluster_id -> delta
-	centroidUpdates := make(map[int64][]struct {
-		vector    []float32
-		operation string
-	})
-
-	now := time.Now().UTC().Unix()
-
-	for _, row := range res.Rows {
-		if len(row) < 3 {
-			continue
+	err := vi.DB.Transaction(false, func(db *database.DatabaseConnection) error {
+		// Check context again inside transaction
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
 		}
 
-		id := row[0].Int64()
-		vectorBlob := row[1].Blob()
-		operation := string(row[2].Text())
+		// Get pending vectors - use rowid instead of id column since id may be NULL/0
+		res, err := db.Exec(
+			fmt.Sprintf(`SELECT rowid, vector_blob, operation FROM %s_pending ORDER BY created_at ASC LIMIT ?`, vi.TableName),
+			[]sqlite3.StatementParameter{
+				{Type: "INTEGER", Value: int64(batchSize)},
+			},
+		)
 
-		// Process based on operation type
-		switch operation {
-		case "INSERT":
-			// Parse vector
-			vb, err := ParseVectorBlob(vectorBlob)
+		if err != nil {
+			return fmt.Errorf("failed to query pending vectors: %w", err)
+		}
 
-			if err != nil {
-				slog.Error("Failed to parse vector blob", "id", id, "error", err)
+		var idsToDelete []int64
+
+		// Collect batched operations
+		var inserts []insertOp
+		clusterSizeDeltas := make(map[int64]int) // cluster_id -> delta
+		centroidUpdates := make(map[int64][]struct {
+			vector    []float32
+			operation string
+		})
+
+		now := time.Now().UTC().Unix()
+
+		for _, row := range res.Rows {
+			// Check context during loop processing
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
+			if len(row) < 3 {
 				continue
 			}
 
-			vector := vb.GetFloat32Slice()
+			id := row[0].Int64()
+			vectorBlob := row[1].Blob()
+			operation := string(row[2].Text())
 
-			if len(vector) != vi.Dimensions {
-				slog.Error("Vector dimension mismatch", "id", id, "expected", vi.Dimensions, "got", len(vector))
-				continue
-			}
+			// Process based on operation type
+			switch operation {
+			case "INSERT":
+				// Parse vector
+				vb, err := ParseVectorBlob(vectorBlob)
 
-			// Assign to cluster
-			clusterID, err := vi.clusterer.AssignToCluster(vector)
+				if err != nil {
+					slog.Error("Failed to parse vector blob", "id", id, "error", err)
+					continue
+				}
 
-			if err != nil {
-				slog.Error("Failed to assign to cluster", "id", id, "error", err)
-				continue
-			}
-
-			// Get cluster version
-			clusterRes, err := vi.DB.Exec(
-				fmt.Sprintf(`SELECT version FROM %s_clusters WHERE cluster_id = ?`, vi.TableName),
-				[]sqlite3.StatementParameter{
-					{Type: sqlite3.ParameterTypeInteger, Value: int64(clusterID)},
-				},
-			)
-
-			if err != nil || len(clusterRes.Rows) == 0 {
-				slog.Error("Cluster not found", "cluster_id", clusterID, "error", err)
-				continue
-			}
-
-			clusterVersion := clusterRes.Rows[0][0].Int64()
-
-			// Collect insert operation
-			inserts = append(inserts, insertOp{
-				id:             id,
-				clusterID:      clusterID,
-				clusterVersion: clusterVersion,
-				vectorBlob:     vectorBlob,
-				indexedAt:      now,
-			})
-
-			// Track cluster size delta
-			clusterSizeDeltas[clusterID]++
-
-			// Collect centroid update
-			centroidUpdates[clusterID] = append(centroidUpdates[clusterID], struct {
-				vector    []float32
-				operation string
-			}{vector, "INSERT"})
-
-		case "DELETE":
-			// Get vector data before deleting
-			delRes, err := vi.DB.Exec(
-				fmt.Sprintf(`SELECT cluster_id, vector_blob FROM %s_indexed WHERE id = ?`, vi.TableName),
-				[]sqlite3.StatementParameter{
-					{Type: sqlite3.ParameterTypeInteger, Value: id},
-				},
-			)
-
-			if err != nil || len(delRes.Rows) == 0 {
-				// Vector not in indexed table, nothing to delete
-				continue
-			}
-
-			clusterID := delRes.Rows[0][0].Int64()
-			vectorBlob := delRes.Rows[0][1].Blob()
-
-			// Delete from indexed table immediately (can't batch deletes easily)
-			_, err = vi.DB.Exec(
-				fmt.Sprintf(`DELETE FROM %s_indexed WHERE id = ?`, vi.TableName),
-				[]sqlite3.StatementParameter{
-					{Type: sqlite3.ParameterTypeInteger, Value: id},
-				},
-			)
-
-			if err != nil {
-				slog.Error("Failed to delete from indexed", "id", id, "error", err)
-				continue
-			}
-
-			// Track cluster size delta
-			clusterSizeDeltas[clusterID]--
-
-			// Collect centroid update
-			vb, _ := ParseVectorBlob(vectorBlob)
-
-			if vb != nil {
 				vector := vb.GetFloat32Slice()
+
+				if len(vector) != vi.Dimensions {
+					slog.Error("Vector dimension mismatch", "id", id, "expected", vi.Dimensions, "got", len(vector))
+					continue
+				}
+
+				// Assign to cluster
+				clusterID, err := vi.clusterer.AssignToCluster(vector)
+
+				if err != nil {
+					slog.Error("Failed to assign to cluster", "id", id, "error", err)
+					continue
+				}
+
+				// Get cluster version
+				clusterRes, err := db.Exec(
+					fmt.Sprintf(`SELECT version FROM %s_clusters WHERE cluster_id = ?`, vi.TableName),
+					[]sqlite3.StatementParameter{
+						{Type: sqlite3.ParameterTypeInteger, Value: int64(clusterID)},
+					},
+				)
+
+				if err != nil || len(clusterRes.Rows) == 0 {
+					slog.Error("Cluster not found", "cluster_id", clusterID, "error", err)
+					continue
+				}
+
+				clusterVersion := clusterRes.Rows[0][0].Int64()
+
+				// Collect insert operation
+				inserts = append(inserts, insertOp{
+					id:             id,
+					clusterID:      clusterID,
+					clusterVersion: clusterVersion,
+					vectorBlob:     vectorBlob,
+					indexedAt:      now,
+				})
+
+				// Track cluster size delta
+				clusterSizeDeltas[clusterID]++
+
+				// Collect centroid update
 				centroidUpdates[clusterID] = append(centroidUpdates[clusterID], struct {
 					vector    []float32
 					operation string
-				}{vector, "DELETE"})
+				}{vector, "INSERT"})
+
+			case "DELETE":
+				// Get vector data before deleting
+				delRes, err := db.Exec(
+					fmt.Sprintf(`SELECT cluster_id, vector_blob FROM %s_indexed WHERE id = ?`, vi.TableName),
+					[]sqlite3.StatementParameter{
+						{Type: sqlite3.ParameterTypeInteger, Value: id},
+					},
+				)
+
+				if err != nil || len(delRes.Rows) == 0 {
+					// Vector not in indexed table, nothing to delete
+					continue
+				}
+
+				clusterID := delRes.Rows[0][0].Int64()
+				vectorBlob := delRes.Rows[0][1].Blob()
+
+				// Delete from indexed table immediately (can't batch deletes easily)
+				_, err = db.Exec(
+					fmt.Sprintf(`DELETE FROM %s_indexed WHERE id = ?`, vi.TableName),
+					[]sqlite3.StatementParameter{
+						{Type: sqlite3.ParameterTypeInteger, Value: id},
+					},
+				)
+
+				if err != nil {
+					slog.Error("Failed to delete from indexed", "id", id, "error", err)
+					continue
+				}
+
+				// Track cluster size delta
+				clusterSizeDeltas[clusterID]--
+
+				// Collect centroid update
+				vb, _ := ParseVectorBlob(vectorBlob)
+
+				if vb != nil {
+					vector := vb.GetFloat32Slice()
+					centroidUpdates[clusterID] = append(centroidUpdates[clusterID], struct {
+						vector    []float32
+						operation string
+					}{vector, "DELETE"})
+				}
+			}
+
+			idsToDelete = append(idsToDelete, id)
+			processed++
+		}
+
+		// Batch insert into indexed table
+		if len(inserts) > 0 {
+			if err := vi.batchInsertIndexed(inserts); err != nil {
+				return fmt.Errorf("failed to batch insert: %w", err)
 			}
 		}
 
-		idsToDelete = append(idsToDelete, id)
-		processed++
-	}
-
-	// Batch insert into indexed table
-	if len(inserts) > 0 {
-		if err := vi.batchInsertIndexed(inserts); err != nil {
-			return 0, fmt.Errorf("failed to batch insert: %w", err)
-		}
-	}
-
-	// Batch update cluster sizes
-	if len(clusterSizeDeltas) > 0 {
-		if err := vi.batchUpdateClusterSizes(clusterSizeDeltas); err != nil {
-			return 0, fmt.Errorf("failed to batch update cluster sizes: %w", err)
-		}
-	}
-
-	// Update centroids
-	for clusterID, updates := range centroidUpdates {
-		for _, update := range updates {
-			if err := vi.clusterer.UpdateCentroid(clusterID, update.vector, update.operation); err != nil {
-				slog.Error("Failed to update centroid", "cluster_id", clusterID, "error", err)
+		// Batch update cluster sizes
+		if len(clusterSizeDeltas) > 0 {
+			if err := vi.batchUpdateClusterSizes(clusterSizeDeltas); err != nil {
+				return fmt.Errorf("failed to batch update cluster sizes: %w", err)
 			}
 		}
-	}
 
-	// Remove processed vectors from pending
-	if len(idsToDelete) > 0 {
-		if err := vi.deletePendingVectors(idsToDelete); err != nil {
-			return 0, fmt.Errorf("failed to delete pending vectors: %w", err)
+		// Update centroids
+		for clusterID, updates := range centroidUpdates {
+			for _, update := range updates {
+				if err := vi.clusterer.UpdateCentroid(clusterID, update.vector, update.operation); err != nil {
+					slog.Error("Failed to update centroid", "cluster_id", clusterID, "error", err)
+				}
+			}
 		}
-	}
 
-	// Update pending count in metadata
-	if err := vi.updatePendingCount(-processed); err != nil {
-		slog.Error("Failed to update pending count", "error", err)
-	}
-
-	// Commit transaction
-	if err := vi.DB.Commit(); err != nil {
-		return 0, fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	// Check if clusters need rebalancing (outside transaction)
-	if processed > 0 {
-		if err := vi.clusterer.CheckAndRebalance(); err != nil {
-			slog.Error("Failed to rebalance clusters", "error", err)
+		// Remove processed vectors from pending
+		if len(idsToDelete) > 0 {
+			if err := vi.deletePendingVectors(idsToDelete); err != nil {
+				return fmt.Errorf("failed to delete pending vectors: %w", err)
+			}
 		}
+
+		// Update pending count in metadata
+		if err := vi.updatePendingCount(-processed); err != nil {
+			slog.Error("Failed to update pending count", "error", err)
+		}
+
+		processed = len(idsToDelete)
+
+		// Check if clusters need rebalancing (inside transaction)
+		if processed > 0 {
+			if err := vi.clusterer.CheckAndRebalance(); err != nil {
+				slog.Error("Failed to rebalance clusters", "error", err)
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return 0, err
 	}
 
 	return processed, nil
@@ -255,35 +277,55 @@ type insertOp struct {
 }
 
 // batchInsertIndexed inserts multiple vectors into the indexed table in one operation
+// Splits large batches into chunks to avoid SQLite variable limit (999 or 32766)
 func (vi *VectorIndexer) batchInsertIndexed(inserts []insertOp) error {
 	if len(inserts) == 0 {
 		return nil
 	}
 
-	// Build multi-value INSERT statement
-	valuesParts := make([]string, len(inserts))
-	params := make([]sqlite3.StatementParameter, 0, len(inserts)*5)
+	// SQLite has a limit on bind parameters (default 999, can be up to 32766)
+	// With 5 params per row, we can safely do ~1500 rows per statement
+	const maxRowsPerInsert = 1500
 
-	for i, ins := range inserts {
-		valuesParts[i] = "(?, ?, ?, ?, ?)"
-		params = append(params,
-			sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: ins.id},
-			sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: ins.clusterID},
-			sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: ins.clusterVersion},
-			sqlite3.StatementParameter{Type: sqlite3.ParameterTypeBlob, Value: ins.vectorBlob},
-			sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: ins.indexedAt},
+	// Process in chunks
+	for i := 0; i < len(inserts); i += maxRowsPerInsert {
+		end := i + maxRowsPerInsert
+
+		if end > len(inserts) {
+			end = len(inserts)
+		}
+
+		chunk := inserts[i:end]
+
+		// Build multi-value INSERT statement for this chunk
+		valuesParts := make([]string, len(chunk))
+		params := make([]sqlite3.StatementParameter, 0, len(chunk)*5)
+
+		for j, ins := range chunk {
+			valuesParts[j] = "(?, ?, ?, ?, ?)"
+			params = append(params,
+				sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: ins.id},
+				sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: ins.clusterID},
+				sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: ins.clusterVersion},
+				sqlite3.StatementParameter{Type: sqlite3.ParameterTypeBlob, Value: ins.vectorBlob},
+				sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: ins.indexedAt},
+			)
+		}
+
+		query := fmt.Sprintf(
+			`INSERT OR REPLACE INTO %s_indexed (id, cluster_id, cluster_version, vector_blob, indexed_at) VALUES %s`,
+			vi.TableName,
+			strings.Join(valuesParts, ", "),
 		)
+
+		_, err := vi.DB.Exec(query, params)
+
+		if err != nil {
+			return fmt.Errorf("failed to insert chunk %d-%d: %w", i, end, err)
+		}
 	}
 
-	query := fmt.Sprintf(
-		`INSERT OR REPLACE INTO %s_indexed (id, cluster_id, cluster_version, vector_blob, indexed_at) VALUES %s`,
-		vi.TableName,
-		strings.Join(valuesParts, ", "),
-	)
-
-	_, err := vi.DB.Exec(query, params)
-
-	return err
+	return nil
 }
 
 // batchUpdateClusterSizes updates cluster sizes for multiple clusters in one operation

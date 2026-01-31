@@ -42,8 +42,14 @@ func Unique() DispatchOption {
 // Dispatcher is responsible for dispatching jobs to the queue.
 // It handles job persistence, deduplication, and scheduling.
 type Dispatcher struct {
-	systemDB *database.SystemDatabase
-	registry *JobRegistry
+	systemDB   *database.SystemDatabase
+	registry   *JobRegistry
+	workerPool WorkerPoolTriggerer // Optional: for waking workers immediately
+}
+
+// WorkerPoolTriggerer interface allows dispatcher to wake workers without circular dependency
+type WorkerPoolTriggerer interface {
+	TriggerWorkers()
 }
 
 // NewDispatcher creates a new Dispatcher instance with the system database and job registry.
@@ -52,6 +58,11 @@ func NewDispatcher(systemDB *database.SystemDatabase, registry *JobRegistry) *Di
 		systemDB: systemDB,
 		registry: registry,
 	}
+}
+
+// SetWorkerPool sets the worker pool reference for triggering workers.
+func (d *Dispatcher) SetWorkerPool(pool WorkerPoolTriggerer) {
+	d.workerPool = pool
 }
 
 // DispatchJob dispatches a job by type with the given data.
@@ -147,6 +158,11 @@ func (d *Dispatcher) DispatchWithDelay(job Job, delay time.Duration) (int64, err
 
 	if err != nil {
 		return 0, fmt.Errorf("failed to get inserted job ID: %w", err)
+	}
+
+	// Wake workers immediately if no delay (instant jobs)
+	if delay == 0 && d.workerPool != nil {
+		d.workerPool.TriggerWorkers()
 	}
 
 	return id, nil

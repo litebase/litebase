@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/litebase/litebase/pkg/database"
@@ -319,28 +320,97 @@ func (c *SPFreshClusterer) SplitCluster(clusterID int64) error {
 	}
 
 	// Reassign vectors to nearest cluster
+	// Batch UPDATEs to avoid overwhelming CGO boundary with thousands of individual calls
+	const updateBatchSize = 500
+	var clusterIDUpdates = make([]int64, 0, updateBatchSize)
+	var newClusterIDUpdates = make([]int64, 0, updateBatchSize)
+
 	for i, vector := range vectors {
 		dist1 := c.distanceFunc(vector, centroid1)
 		dist2 := c.distanceFunc(vector, centroid2)
 
-		var targetCluster int64
-
 		if dist1 < dist2 {
-			targetCluster = clusterID
+			clusterIDUpdates = append(clusterIDUpdates, vectorIDs[i])
 		} else {
-			targetCluster = newClusterID
+			newClusterIDUpdates = append(newClusterIDUpdates, vectorIDs[i])
+		}
+	}
+
+	// Batch update vectors staying in original cluster
+	for i := 0; i < len(clusterIDUpdates); i += updateBatchSize {
+		end := i + updateBatchSize
+
+		if end > len(clusterIDUpdates) {
+			end = len(clusterIDUpdates)
+		}
+
+		batch := clusterIDUpdates[i:end]
+
+		if len(batch) == 0 {
+			continue
+		}
+
+		// Build IN clause with placeholders
+		placeholders := make([]string, len(batch))
+
+		for j := range placeholders {
+			placeholders[j] = "?"
+		}
+
+		inClause := strings.Join(placeholders, ", ")
+		params := make([]sqlite3.StatementParameter, len(batch)+1)
+		params[0] = sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: clusterID}
+
+		for j, id := range batch {
+			params[j+1] = sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: id}
 		}
 
 		_, err := c.DB.Exec(
-			fmt.Sprintf(`UPDATE %s_indexed SET cluster_id = ?, cluster_version = cluster_version + 1 WHERE id = ?`, c.TableName),
-			[]sqlite3.StatementParameter{
-				{Type: sqlite3.ParameterTypeInteger, Value: targetCluster},
-				{Type: sqlite3.ParameterTypeInteger, Value: vectorIDs[i]},
-			},
+			fmt.Sprintf(`UPDATE %s_indexed SET cluster_id = ?, cluster_version = cluster_version + 1 WHERE id IN (%s)`, c.TableName, inClause),
+			params,
 		)
 
 		if err != nil {
-			slog.Error("Failed to reassign vector during split", "vector_id", vectorIDs[i], "error", err)
+			slog.Error("Failed to reassign vectors to original cluster during split", "batch_size", len(batch), "error", err)
+		}
+	}
+
+	// Batch update vectors moving to new cluster
+	for i := 0; i < len(newClusterIDUpdates); i += updateBatchSize {
+		end := i + updateBatchSize
+
+		if end > len(newClusterIDUpdates) {
+			end = len(newClusterIDUpdates)
+		}
+
+		batch := newClusterIDUpdates[i:end]
+
+		if len(batch) == 0 {
+			continue
+		}
+
+		// Build IN clause with placeholders
+		placeholders := make([]string, len(batch))
+
+		for j := range placeholders {
+			placeholders[j] = "?"
+		}
+
+		inClause := strings.Join(placeholders, ", ")
+		params := make([]sqlite3.StatementParameter, len(batch)+1)
+		params[0] = sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: newClusterID}
+
+		for j, id := range batch {
+			params[j+1] = sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: id}
+		}
+
+		_, err := c.DB.Exec(
+			fmt.Sprintf(`UPDATE %s_indexed SET cluster_id = ?, cluster_version = cluster_version + 1 WHERE id IN (%s)`, c.TableName, inClause),
+			params,
+		)
+
+		if err != nil {
+			slog.Error("Failed to reassign vectors to new cluster during split", "batch_size", len(batch), "error", err)
 		}
 	}
 

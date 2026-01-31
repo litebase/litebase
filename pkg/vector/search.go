@@ -249,7 +249,7 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName string, qu
 		WHERE is_active = 1
 	`, indexTableName)
 
-	// Use Exec which will use CheckpointBarrierRead for read-only queries (allows concurrency)
+	// Use Exec for query execution (reads don't need barriers - versioning provides safety)
 	clustersResult, err := dbConn.Exec(clustersQuery, nil)
 
 	if err != nil {

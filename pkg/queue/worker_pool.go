@@ -22,8 +22,9 @@ type WorkerPool struct {
 	workerCount      int
 	started          bool
 	primaryOnly      bool
-	runningJobKeys   sync.Map   // Tracks currently running job keys to prevent overlap
-	reservationMutex sync.Mutex // Serializes job reservation to prevent DB locks
+	runningJobKeys   sync.Map      // Tracks currently running job keys to prevent overlap
+	reservationMutex sync.Mutex    // Serializes job reservation to prevent DB locks
+	triggerChan      chan struct{} // Wakes workers immediately when jobs are dispatched
 }
 
 // WorkerPoolConfig configures the worker pool.
@@ -50,6 +51,7 @@ func NewWorkerPool(systemDB *database.SystemDatabase, cluster *cluster.Cluster, 
 		registry:    NewJobRegistry(),
 		workerCount: workerCount,
 		primaryOnly: config.PrimaryOnly,
+		triggerChan: make(chan struct{}, 100), // Buffered to prevent blocking dispatchers
 	}
 
 	// Create batch manager (dispatcher will be set when NewDispatcher is called)
@@ -113,6 +115,7 @@ func (p *WorkerPool) Start() error {
 		})
 		p.workers[i].SetRunningJobKeys(&p.runningJobKeys)
 		p.workers[i].SetReservationMutex(&p.reservationMutex)
+		p.workers[i].SetTriggerChannel(p.triggerChan)
 		p.workers[i].Start()
 	}
 
@@ -158,8 +161,25 @@ func (p *WorkerPool) NewDispatcher() *Dispatcher {
 	dispatcher := NewDispatcher(p.systemDB, p.registry)
 	// Update batch manager's dispatcher reference
 	p.batchManager.dispatcher = dispatcher
+	// Set the worker pool reference so dispatcher can trigger workers
+	dispatcher.SetWorkerPool(p)
 
 	return dispatcher
+}
+
+// TriggerWorkers wakes up workers to check for new jobs immediately.
+// This is called by the Dispatcher after jobs are enqueued to eliminate polling delays.
+func (p *WorkerPool) TriggerWorkers() {
+	if !p.started {
+		return
+	}
+
+	// Non-blocking send to wake workers
+	select {
+	case p.triggerChan <- struct{}{}:
+	default:
+		// Channel full, workers already triggered
+	}
 }
 
 // NewBatchManager returns a BatchManager that can create batches of jobs.
