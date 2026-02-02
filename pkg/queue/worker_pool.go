@@ -93,6 +93,7 @@ func (p *WorkerPool) RegisterJob(name string, handler JobHandler, opts ...JobOpt
 	}
 
 	p.registry.Register(prototype)
+
 	return nil
 }
 

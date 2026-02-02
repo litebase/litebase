@@ -119,7 +119,23 @@ func (w *Worker) Start() {
 // Stop gracefully stops the worker.
 func (w *Worker) Stop() {
 	w.cancel()
-	w.wg.Wait()
+
+	// Wait for workers to finish with a timeout
+	done := make(chan struct{})
+
+	go func() {
+		w.wg.Wait()
+		close(done)
+	}()
+
+	// Wait up to 5 seconds for graceful shutdown
+	select {
+	case <-done:
+		// Worker stopped gracefully
+	case <-time.After(5 * time.Second):
+		// Timeout - worker may have jobs stuck in CGO calls
+		// This is acceptable during shutdown as the context has been cancelled
+	}
 }
 
 // processNextJob attempts to reserve and process the next available job.
@@ -144,8 +160,20 @@ func (w *Worker) processNextJob() error {
 	// reserve jobs concurrently. The mutex is held only during reservation,
 	// not during job execution, so workers can still process jobs in parallel.
 	if w.reservationMutex != nil {
+		// Check context again before acquiring mutex to avoid race condition during shutdown
+		select {
+		case <-w.ctx.Done():
+			return nil
+		default:
+		}
+
 		w.reservationMutex.Lock()
 		defer w.reservationMutex.Unlock()
+
+		// Check again after acquiring lock - if shutdown happened while we were waiting
+		if w.systemDB.IsShuttingDown() {
+			return nil
+		}
 	}
 
 	db, err := w.systemDB.DB()
@@ -277,7 +305,8 @@ func (w *Worker) processNextJob() error {
 
 	// Execute the job
 	// Create a context with timeout if specified
-	ctx := context.Background()
+	// Use worker's context as base so jobs can detect shutdown
+	ctx := w.ctx
 	timeout := job.Timeout()
 
 	if timeout > 0 {

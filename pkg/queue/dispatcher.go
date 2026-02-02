@@ -80,6 +80,7 @@ func (d *Dispatcher) DispatchJob(name string, data map[string]any, opts ...Dispa
 
 	// Get the job prototype from the registry and create a new instance
 	job, err := d.registry.Get(name, data)
+
 	if err != nil {
 		return 0, fmt.Errorf("failed to get job from registry: %w", err)
 	}
@@ -93,6 +94,7 @@ func (d *Dispatcher) DispatchJob(name string, data map[string]any, opts ...Dispa
 
 	if config.unique {
 		id, _, err := d.DispatchUnique(job)
+
 		return id, err
 	}
 

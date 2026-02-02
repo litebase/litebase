@@ -182,6 +182,11 @@ func (con *DatabaseConnection) Begin() error {
 		return ErrDatabaseConnectionClosed
 	}
 
+	// Check if context is cancelled before beginning transaction
+	if con.context.Err() != nil {
+		return con.context.Err()
+	}
+
 	// Safeguard: Ensure setTimestamps was called before beginning transaction
 	if con.walTimestamp == 0 {
 		return fmt.Errorf("Begin() called without setTimestamps() - use Transaction() wrapper instead")
@@ -195,6 +200,11 @@ func (con *DatabaseConnection) Begin() error {
 func (con *DatabaseConnection) BeginDeferred() error {
 	if con.Closed() {
 		return ErrDatabaseConnectionClosed
+	}
+
+	// Check if context is cancelled before beginning transaction
+	if con.context.Err() != nil {
+		return con.context.Err()
 	}
 
 	// Safeguard: Ensure setTimestamps was called before beginning transaction
@@ -212,6 +222,11 @@ func (con *DatabaseConnection) BeginImmediate() error {
 		return ErrDatabaseConnectionClosed
 	}
 
+	// Check if context is cancelled before beginning transaction
+	if con.context.Err() != nil {
+		return con.context.Err()
+	}
+
 	// Safeguard: Ensure setTimestamps was called before beginning transaction
 	if con.walTimestamp == 0 {
 		return fmt.Errorf("BeginImmediate() called without setTimestamps() - use Transaction() wrapper instead")
@@ -224,6 +239,11 @@ func (con *DatabaseConnection) BeginImmediate() error {
 func (con *DatabaseConnection) Commit() error {
 	if con.Closed() {
 		return ErrDatabaseConnectionClosed
+	}
+
+	// Check if context is cancelled before committing
+	if con.context.Err() != nil {
+		return con.context.Err()
 	}
 
 	defer func() {
@@ -246,6 +266,11 @@ func (con *DatabaseConnection) Changes() int64 {
 func (con *DatabaseConnection) Checkpoint() error {
 	if con == nil {
 		return nil
+	}
+
+	// Check if context is cancelled before checkpoint
+	if con.context.Err() != nil {
+		return con.context.Err()
 	}
 
 	if con.Closed() {
@@ -381,6 +406,11 @@ func (con *DatabaseConnection) Context() context.Context {
 func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementParameter) (result *sqlite3.Result, err error) {
 	if con.Closed() {
 		return nil, ErrDatabaseConnectionClosed
+	}
+
+	// Check if context is cancelled before executing
+	if con.context.Err() != nil {
+		return nil, con.context.Err()
 	}
 
 	// Check if this is a litebase PRAGMA statement
@@ -651,6 +681,11 @@ func (con *DatabaseConnection) Prepare(ctx context.Context, command string) (Sta
 
 // Execute a query on the database using a transaction.
 func (con *DatabaseConnection) Query(result *sqlite3.Result, statement *sqlite3.Statement, parameters []sqlite3.StatementParameter) error {
+	// Check if context is cancelled before executing query
+	if con.context.Err() != nil {
+		return con.context.Err()
+	}
+
 	if con.Closed() {
 		return ErrDatabaseConnectionClosed
 	}
@@ -887,6 +922,11 @@ func (con *DatabaseConnection) Transaction(
 
 	if con.Closed() {
 		return ErrDatabaseConnectionClosed
+	}
+
+	// Check if context is cancelled before starting transaction
+	if con.context.Err() != nil {
+		return con.context.Err()
 	}
 
 	var checkpointBarrier func(func() error) error

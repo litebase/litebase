@@ -142,6 +142,9 @@ func SetupWithoutApp(t testing.TB, callbacks ...func()) (string, error) {
 func Teardown(t testing.TB, dataPath string, app *server.App, callbacks ...func()) {
 	t.Cleanup(func() {
 		if app != nil {
+			// Shutdown app first to stop VectorIndexMgr, WorkerPool, and Scheduler
+			app.Shutdown()
+
 			app.DatabaseManager.ConnectionManager().Shutdown()
 			err := app.DatabaseManager.ShutdownResources()
 

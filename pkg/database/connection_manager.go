@@ -79,7 +79,7 @@ func (c *ConnectionManager) CheckpointAll() {
 
 	// Don't checkpoint if the connection manager is being drained/shutdown
 	c.mutex.RLock()
-	if c.state == ConnectionManagerStateDraining {
+	if c.state == ConnectionManagerStateDraining || c.state == ConnectionManagerStateShutdown {
 		c.mutex.RUnlock()
 		return
 	}
@@ -535,6 +535,11 @@ func (c *ConnectionManager) Shutdown() {
 		c.connectionTicker.Stop()
 	}
 
+	// Set state to shutdown BEFORE closing connections to prevent checkpoints
+	c.mutex.Lock()
+	c.state = ConnectionManagerStateShutdown
+	c.mutex.Unlock()
+
 	if c.databaseManager.systemDatabase != nil {
 		err := c.databaseManager.SystemDatabase().Close()
 
@@ -564,8 +569,6 @@ func (c *ConnectionManager) Shutdown() {
 	}
 
 	c.databases = map[string]*DatabaseGroup{}
-
-	c.state = ConnectionManagerStateShutdown
 }
 
 // Return a state error if the connection manager is not running.

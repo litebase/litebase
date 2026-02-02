@@ -270,6 +270,14 @@ func (s *SystemDatabase) IsShuttingDown() bool {
 	return s.shutdown
 }
 
+// MarkShuttingDown marks the system database as shutting down to prevent new operations
+func (s *SystemDatabase) MarkShuttingDown() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.shutdown = true
+}
+
 // OnMigrationsUpdated handles promotion of node to primary or notification from
 //
 //	primary that migrations were updated. This should be called to reset the

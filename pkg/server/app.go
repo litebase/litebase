@@ -226,6 +226,12 @@ func (app *App) IsInitialized() bool {
 }
 
 func (app *App) Shutdown() {
+	// Mark system database as shutting down FIRST to allow workers to detect shutdown
+	// This must happen before stopping the worker pool
+	if app.DatabaseManager != nil && app.DatabaseManager.SystemDatabase() != nil {
+		app.DatabaseManager.SystemDatabase().MarkShuttingDown()
+	}
+
 	// Record shutdown timestamp if this is the primary node
 	if app.Cluster.Node().IsPrimary() {
 		if app.DatabaseManager.SystemDatabase() != nil {

@@ -135,6 +135,13 @@ func NewStartCmd() *cobra.Command {
 				},
 				// Shutdown hook
 				func(app *server.App) {
+					// Shutdown app first to stop VectorIndexMgr, WorkerPool, and Scheduler
+					app.Shutdown()
+
+					// Shutdown database connections
+					app.DatabaseManager.ConnectionManager().Shutdown()
+
+					// Shutdown the cluster node
 					err := app.Cluster.Node().Shutdown()
 
 					if err != nil {
