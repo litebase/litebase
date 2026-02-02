@@ -199,44 +199,54 @@ func (c *SPFreshClusterer) UpdateCentroid(clusterID int64, vector []float32, ope
 	if err != nil {
 		return fmt.Errorf("failed to parse centroid blob: %w", err)
 	}
-	currentCentroid := centroidVec.GetFloat32Slice()
+	centroid := centroidVec.GetFloat32Slice()
 
-	// Update centroid based on operation
-	var newCentroid []float32
+	// Update centroid in-place and determine size delta
+	var sizeDelta int64
 
 	switch operation {
 	case "INSERT":
 		// Incremental update: C_new = (C_old * n + v) / (n + 1)
-		newCentroid = make([]float32, len(currentCentroid))
+		divisor := float32(size + 1)
 
-		for i := range currentCentroid {
-			newCentroid[i] = (currentCentroid[i]*float32(size) + vector[i]) / float32(size+1)
+		for i := range centroid {
+			centroid[i] = (centroid[i]*float32(size) + vector[i]) / divisor
 		}
+
+		sizeDelta = 1
 	case "DELETE":
 		// Incremental removal: C_new = (C_old * n - v) / (n - 1)
 		if size <= 1 {
 			// If this was the last vector, reset to zero centroid
-			newCentroid = make([]float32, len(currentCentroid))
+			for i := range centroid {
+				centroid[i] = 0
+			}
 		} else {
-			newCentroid = make([]float32, len(currentCentroid))
+			divisor := float32(size - 1)
 
-			for i := range currentCentroid {
-				newCentroid[i] = (currentCentroid[i]*float32(size) - vector[i]) / float32(size-1)
+			for i := range centroid {
+				centroid[i] = (centroid[i]*float32(size) - vector[i]) / divisor
 			}
 		}
+
+		sizeDelta = -1
+	default:
+		return fmt.Errorf("invalid operation: %s", operation)
 	}
 
-	newCentroidBlob, err := EncodeFloat32(newCentroid)
+	newCentroidBlob, err := EncodeFloat32(centroid)
 
 	if err != nil {
 		return fmt.Errorf("failed to encode new centroid: %w", err)
 	}
 
+	// Update centroid and size in a single query
 	_, err = c.DB.Exec(
-		fmt.Sprintf(`UPDATE %s_clusters SET centroid_blob = ?, version = version + 1 
+		fmt.Sprintf(`UPDATE %s_clusters SET centroid_blob = ?, cluster_size = cluster_size + ?, version = version + 1 
 		WHERE cluster_id = ?`, c.TableName),
 		[]sqlite3.StatementParameter{
 			{Type: sqlite3.ParameterTypeBlob, Value: newCentroidBlob},
+			{Type: sqlite3.ParameterTypeInteger, Value: sizeDelta},
 			{Type: sqlite3.ParameterTypeInteger, Value: clusterID},
 		},
 	)

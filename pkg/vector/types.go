@@ -67,7 +67,7 @@ func CosineDistance(a, b []float32) float32 {
 		return 1.0
 	}
 
-	similarity := dotProduct / (float32(math.Sqrt(float64(normA))) * float32(math.Sqrt(float64(normB))))
+	similarity := dotProduct / float32(math.Sqrt(float64(normA*normB)))
 
 	return 1.0 - similarity
 }
