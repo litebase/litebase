@@ -489,6 +489,12 @@ void logCallback(void *pArg, int iErrCode, const char *zMsg)
     return;
   }
 
+  // Skip interrupt errors
+  if (iErrCode == SQLITE_INTERRUPT)
+  {
+    return;
+  }
+
   fprintf(stderr, "SQLITE_LOG: (%d) %s\n", iErrCode, zMsg);
 }
 

@@ -298,9 +298,15 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 	// Rebalance clusters OUTSIDE transaction to avoid blocking batch processing
 	// This allows splits to happen asynchronously without affecting indexing throughput
 	if processed > 0 && len(modifiedClusters) > 0 {
-		if err := vi.clusterer.CheckAndRebalanceClusters(modifiedClusters); err != nil {
-			slog.Error("Failed to rebalance clusters", "error", err)
-			// Don't fail the batch if rebalancing fails - it can be retried later
+		// Check context before rebalancing - skip if shutting down
+		select {
+		case <-ctx.Done():
+			slog.Debug("Skipping cluster rebalancing due to shutdown", "table", vi.TableName)
+		default:
+			if err := vi.clusterer.CheckAndRebalanceClusters(ctx, modifiedClusters); err != nil {
+				slog.Error("Failed to rebalance clusters", "error", err)
+				// Don't fail the batch if rebalancing fails - it can be retried later
+			}
 		}
 	}
 

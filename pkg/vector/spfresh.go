@@ -1,6 +1,7 @@
 package vector
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"math"
@@ -262,6 +263,57 @@ func (c *SPFreshClusterer) CheckAndRebalance() error {
 	return nil
 }
 
+// CheckAndRebalanceClusters checks if specific clusters need rebalancing
+// This is more efficient than CheckAndRebalance when you know which clusters were modified
+func (c *SPFreshClusterer) CheckAndRebalanceClusters(ctx context.Context, clusterIDs []int64) error {
+	if len(clusterIDs) == 0 {
+		return nil
+	}
+
+	// Get cluster sizes for the specified clusters
+	placeholders := make([]string, len(clusterIDs))
+	params := make([]sqlite3.StatementParameter, len(clusterIDs))
+
+	for i, id := range clusterIDs {
+		placeholders[i] = "?"
+		params[i] = sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: id}
+	}
+
+	query := fmt.Sprintf(`SELECT cluster_id, cluster_size FROM %s_clusters WHERE cluster_id IN (%s)`,
+		c.TableName, strings.Join(placeholders, ","))
+
+	res, err := c.DB.Exec(query, params)
+
+	if err != nil {
+		return err
+	}
+
+	// Check each cluster and split if needed
+	for _, row := range res.Rows {
+		if len(row) < 2 {
+			continue
+		}
+
+		clusterID := row[0].Int64()
+		size := int(row[1].Int64())
+
+		if size > c.MaxClusterSize {
+			// Check context before expensive split operation
+			select {
+			case <-ctx.Done():
+				slog.Debug("Skipping cluster split due to shutdown", "cluster_id", clusterID)
+				return ctx.Err()
+			default:
+				if err := c.SplitCluster(clusterID); err != nil {
+					slog.Error("Failed to split cluster", "cluster_id", clusterID, "error", err)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 // SplitCluster splits an oversized cluster into two clusters
 func (c *SPFreshClusterer) SplitCluster(clusterID int64) error {
 	// Get all vectors from the cluster
@@ -338,11 +390,7 @@ func (c *SPFreshClusterer) SplitCluster(clusterID int64) error {
 
 	// Batch update vectors staying in original cluster
 	for i := 0; i < len(clusterIDUpdates); i += updateBatchSize {
-		end := i + updateBatchSize
-
-		if end > len(clusterIDUpdates) {
-			end = len(clusterIDUpdates)
-		}
+		end := min(i+updateBatchSize, len(clusterIDUpdates))
 
 		batch := clusterIDUpdates[i:end]
 
@@ -371,7 +419,15 @@ func (c *SPFreshClusterer) SplitCluster(clusterID int64) error {
 		)
 
 		if err != nil {
+			// Ignore interrupt errors during shutdown - split will be retried later
+			if strings.Contains(strings.ToLower(err.Error()), "interrupt") {
+				slog.Debug("Cluster split interrupted during shutdown, will retry later", "cluster_id", clusterID)
+
+				return nil // Treat interrupt as non-fatal
+			}
+
 			slog.Error("Failed to reassign vectors to original cluster during split", "batch_size", len(batch), "error", err)
+			return err
 		}
 	}
 
@@ -410,7 +466,15 @@ func (c *SPFreshClusterer) SplitCluster(clusterID int64) error {
 		)
 
 		if err != nil {
+			// Ignore interrupt errors during shutdown - split will be retried later
+			if strings.Contains(strings.ToLower(err.Error()), "interrupt") {
+				slog.Debug("Cluster split interrupted during shutdown, will retry later", "cluster_id", newClusterID)
+
+				return nil // Treat interrupt as non-fatal
+			}
+
 			slog.Error("Failed to reassign vectors to new cluster during split", "batch_size", len(batch), "error", err)
+			return err
 		}
 	}
 
