@@ -2,14 +2,16 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/litebase/litebase/pkg/vector"
 )
 
 const (
-	VectorIndexerBatchSize = 10000
+	VectorIndexerBatchSize = 100000
 )
 
 // VectorIndexerJob processes pending vectors for a specific index
@@ -77,8 +79,6 @@ func VectorIndexerJob(ctx context.Context, app *App, data map[string]interface{}
 		return fmt.Errorf("failed to get connection: %w", err)
 	}
 
-	defer app.DatabaseManager.ConnectionManager().Release(conn)
-
 	dbConn := conn.GetConnection()
 
 	// Get index configuration from metadata key-value store
@@ -120,10 +120,12 @@ func VectorIndexerJob(ctx context.Context, app *App, data map[string]interface{}
 	if err != nil {
 		return fmt.Errorf("failed to create vector indexer: %w", err)
 	}
-
 	// Process batches continuously until all pending vectors are done
 	// This eliminates the pause between job dispatches
 	totalProcessed := 0
+
+	// Ensure connection is always released
+	defer app.DatabaseManager.ConnectionManager().Release(conn)
 
 	for {
 		// Check context before processing each batch
@@ -141,6 +143,17 @@ func VectorIndexerJob(ctx context.Context, app *App, data map[string]interface{}
 		processed, err := indexer.ProcessBatch(ctx, VectorIndexerBatchSize)
 
 		if err != nil {
+			// Check if this is a SQLite interrupt error (expected during shutdown)
+			// SQLite returns errors with string messages, so check for "interrupt"
+			if strings.Contains(strings.ToLower(err.Error()), "interrupt") || errors.Is(err, context.Canceled) {
+				slog.Debug("VectorIndexer job interrupted during shutdown",
+					"db_id", dbID,
+					"branch_id", branchID,
+					"table", tableName,
+					"processed", totalProcessed)
+				return nil // Treat interrupt as graceful shutdown
+			}
+
 			return fmt.Errorf("failed to process batch: %w", err)
 		}
 
@@ -160,9 +173,7 @@ func VectorIndexerJob(ctx context.Context, app *App, data map[string]interface{}
 				"branch_id", branchID,
 				"table", tableName,
 				"total_processed", totalProcessed)
-			break
+			return nil
 		}
 	}
-
-	return nil
 }

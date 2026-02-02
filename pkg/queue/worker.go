@@ -96,7 +96,7 @@ func (w *Worker) Start() {
 				}
 
 				if err := w.processNextJob(); err != nil {
-					if err != sql.ErrNoRows {
+					if err != sql.ErrNoRows && err != context.Canceled {
 						slog.Error("Worker error processing job", "worker_id", w.id, "error", err)
 					}
 				}
@@ -107,7 +107,7 @@ func (w *Worker) Start() {
 				}
 
 				if err := w.processNextJob(); err != nil {
-					if err != sql.ErrNoRows {
+					if err != sql.ErrNoRows && err != context.Canceled {
 						slog.Error("Worker error processing job", "worker_id", w.id, "error", err)
 					}
 				}
@@ -128,14 +128,6 @@ func (w *Worker) Stop() {
 		close(done)
 	}()
 
-	// Wait up to 5 seconds for graceful shutdown
-	select {
-	case <-done:
-		// Worker stopped gracefully
-	case <-time.After(5 * time.Second):
-		// Timeout - worker may have jobs stuck in CGO calls
-		// This is acceptable during shutdown as the context has been cancelled
-	}
 }
 
 // processNextJob attempts to reserve and process the next available job.
@@ -183,6 +175,7 @@ func (w *Worker) processNextJob() error {
 		if errors.Is(err, database.ErrorConnectionManagerShutdown) {
 			return nil
 		}
+
 		return fmt.Errorf("failed to get system database: %w", err)
 	}
 
@@ -318,7 +311,10 @@ func (w *Worker) processNextJob() error {
 	err = job.Handle(ctx)
 
 	if err != nil {
-		slog.Error("Job failed", "worker_id", w.id, "job_id", queuedJob.ID, "error", err)
+		// Don't log context.Canceled as error - it's expected during shutdown
+		if err != context.Canceled {
+			slog.Error("Job failed", "worker_id", w.id, "job_id", queuedJob.ID, "error", err)
+		}
 
 		// Increment attempts
 		queuedJob.Attempts++
@@ -339,7 +335,10 @@ func (w *Worker) processNextJob() error {
 			// Update batch status if this job is part of a batch
 			if w.batchManager != nil {
 				if batchErr := w.batchManager.UpdateJobStatus(w.ctx, queuedJob.ID); batchErr != nil {
-					slog.Error("Failed to update batch status", "job_id", queuedJob.ID, "error", batchErr)
+					// Don't log errors during shutdown
+					if w.ctx.Err() == nil {
+						slog.Error("Failed to update batch status", "job_id", queuedJob.ID, "error", batchErr)
+					}
 				}
 			}
 
@@ -358,7 +357,10 @@ func (w *Worker) processNextJob() error {
 	// Update batch status if this job is part of a batch
 	if w.batchManager != nil {
 		if err := w.batchManager.UpdateJobStatus(w.ctx, queuedJob.ID); err != nil {
-			slog.Error("Failed to update batch status", "job_id", queuedJob.ID, "error", err)
+			// Don't log errors during shutdown
+			if w.ctx.Err() == nil {
+				slog.Error("Failed to update batch status", "job_id", queuedJob.ID, "error", err)
+			}
 		}
 	}
 
@@ -379,7 +381,11 @@ func (w *Worker) markJobCompleted(jobID int64) {
 	db, err := w.systemDB.DB()
 
 	if err != nil {
-		slog.Error("Failed to get database for job completion", "job_id", jobID, "error", err)
+		// Don't log errors during shutdown
+		if w.ctx.Err() == nil {
+			slog.Error("Failed to get database for job completion", "job_id", jobID, "error", err)
+		}
+
 		return
 	}
 
@@ -436,7 +442,10 @@ func (w *Worker) markJobForRetry(jobID int64, attempts int, availableAt time.Tim
 	db, err := w.systemDB.DB()
 
 	if err != nil {
-		slog.Error("Failed to get database for job retry", "job_id", jobID, "error", err)
+		// Don't log errors during shutdown
+		if w.ctx.Err() == nil {
+			slog.Error("Failed to get database for job retry", "job_id", jobID, "error", err)
+		}
 
 		return
 	}
@@ -466,7 +475,11 @@ func (w *Worker) markJobForThrottle(jobID int64, availableAt time.Time) {
 	db, err := w.systemDB.DB()
 
 	if err != nil {
-		slog.Error("Failed to get database for job throttle", "job_id", jobID, "error", err)
+		// Don't log errors during shutdown
+		if w.ctx.Err() == nil {
+			slog.Error("Failed to get database for job failure", "job_id", jobID, "error", err)
+		}
+
 		return
 	}
 

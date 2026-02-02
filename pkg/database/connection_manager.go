@@ -213,6 +213,17 @@ func (c *ConnectionManager) Drain(databaseId string, branchId string, drained fu
 		return drained()
 	}
 
+	// Interrupt all SQLite connections to abort any running queries
+	for _, branchConnection := range databaseGroup.branches[branchId] {
+		if branchConnection.connection != nil {
+			dbConn := branchConnection.connection.GetConnection()
+
+			if dbConn != nil && dbConn.sqlite3 != nil {
+				dbConn.sqlite3.Interrupt()
+			}
+		}
+	}
+
 	wg := sync.WaitGroup{}
 
 	for i := range databaseGroup.branches[branchId] {
@@ -231,9 +242,9 @@ func (c *ConnectionManager) Drain(databaseId string, branchId string, drained fu
 		}(databaseGroup.branches[branchId][i], i)
 	}
 
-	wg.Wait()
-
 	c.mutex.Unlock()
+
+	wg.Wait()
 
 	// Remove the branch from the database group
 	databaseGroup.mutex.Lock()

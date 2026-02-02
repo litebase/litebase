@@ -400,11 +400,7 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName string, qu
 		}
 
 		// Also query pending vectors in parallel
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			conn, err := AcquireConnection(vfsID, databaseID, branchID)
 
 			if err != nil {
@@ -486,7 +482,7 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName string, qu
 			}
 
 			resultsChan <- clusterResult{vectors: pendingVectors}
-		}()
+		})
 
 		// Close channel when all goroutines complete
 		go func() {

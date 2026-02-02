@@ -107,6 +107,19 @@ static int create_shadow_tables(sqlite3 *db, const char *table_name, char **pzEr
         return rc;
     }
 
+    // Create index on created_at for fast batch fetches (ORDER BY created_at ASC)
+    sql = sqlite3_mprintf(
+        "CREATE INDEX IF NOT EXISTS %s_pending_created_idx ON %s_pending(created_at ASC)",
+        table_name, table_name
+    );
+    rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
+    sqlite3_free(sql);
+    if (rc != SQLITE_OK) {
+        *pzErr = sqlite3_mprintf("Failed to create pending table index: %s", err_msg);
+        sqlite3_free(err_msg);
+        return rc;
+    }
+
     // Create _clusters table for cluster metadata
     sql = sqlite3_mprintf(
         "CREATE TABLE IF NOT EXISTS %s_clusters ("

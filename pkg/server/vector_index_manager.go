@@ -10,7 +10,6 @@ import (
 var (
 	IndexManagerTickInterval      = 100 * time.Millisecond
 	IndexManagerProcessingTimeout = 5 * time.Minute
-	IndexManagerBatchSize         = 10000
 )
 
 // IndexInfo tracks pending state for a vector index

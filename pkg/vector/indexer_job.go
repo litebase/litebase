@@ -124,19 +124,19 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 					continue
 				}
 
-			// Check context before expensive clustering operation
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-			}
+				// Check context before expensive clustering operation
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				default:
+				}
 
-			// Assign to cluster
-			clusterID, err := vi.clusterer.AssignToCluster(vector)
+				// Assign to cluster
+				clusterID, err := vi.clusterer.AssignToCluster(vector)
 
-			if err != nil {
-				slog.Error("Failed to assign to cluster", "id", id, "error", err)
-				continue
+				if err != nil {
+					slog.Error("Failed to assign to cluster", "id", id, "error", err)
+					continue
 				}
 
 				// Get cluster version
@@ -421,24 +421,47 @@ func (vi *VectorIndexer) batchUpdateClusterSizes(ctx context.Context, deltas map
 }
 
 // deletePendingVectors removes processed vectors from the pending table
+// Splits large batches into chunks to avoid SQLite's parameter limit (32766)
 func (vi *VectorIndexer) deletePendingVectors(ids []int64) error {
-	// Build placeholders for IN clause
-	placeholders := make([]string, len(ids))
-	params := make([]sqlite3.StatementParameter, len(ids))
+	if len(ids) == 0 {
+		return nil
+	}
 
-	for i, id := range ids {
-		placeholders[i] = "?"
-		params[i] = sqlite3.StatementParameter{
-			Type:  sqlite3.ParameterTypeInteger,
-			Value: int64(id),
+	// SQLite has a limit of 32766 bind parameters
+	const maxParamsPerDelete = 32766
+
+	// Process in chunks
+	for i := 0; i < len(ids); i += maxParamsPerDelete {
+		end := i + maxParamsPerDelete
+
+		if end > len(ids) {
+			end = len(ids)
+		}
+
+		chunk := ids[i:end]
+
+		// Build placeholders for IN clause
+		placeholders := make([]string, len(chunk))
+		params := make([]sqlite3.StatementParameter, len(chunk))
+
+		for j, id := range chunk {
+			placeholders[j] = "?"
+			params[j] = sqlite3.StatementParameter{
+				Type:  sqlite3.ParameterTypeInteger,
+				Value: int64(id),
+			}
+		}
+
+		query := fmt.Sprintf(`DELETE FROM %s_pending WHERE id IN (%s)`, vi.TableName, strings.Join(placeholders, ","))
+
+		_, err := vi.DB.Exec(query, params)
+
+		if err != nil {
+			return fmt.Errorf("failed to delete chunk %d-%d: %w", i, end, err)
 		}
 	}
 
-	query := fmt.Sprintf(`DELETE FROM %s_pending WHERE id IN (%s)`, vi.TableName, strings.Join(placeholders, ","))
-
-	_, err := vi.DB.Exec(query, params)
-
-	return err
+	return nil
 }
 
 // updatePendingCount updates the pending_count in metadata
