@@ -31,10 +31,11 @@ type VectorIndexManager struct {
 	indexes     map[string]*IndexInfo // key: "dbID:branchID:tableName"
 	mutex       *sync.RWMutex
 	triggerChan chan struct{}
+	wg          sync.WaitGroup
 }
 
 func NewVectorIndexManager(app *App) *VectorIndexManager {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(app.Cluster.Node().Context())
 
 	return &VectorIndexManager{
 		app:         app,
@@ -77,6 +78,9 @@ func (vm *VectorIndexManager) MarkPending(databaseID, branchID, tableName string
 
 // Run starts the monitoring loop
 func (vm *VectorIndexManager) Run() {
+	vm.wg.Add(1)
+	defer vm.wg.Done()
+
 	ticker := time.NewTicker(IndexManagerTickInterval)
 	defer ticker.Stop()
 
@@ -134,6 +138,11 @@ func (vm *VectorIndexManager) processIndexes() {
 			"table_name": info.TableName,
 		}
 
+		if vm.app.Cluster.Node().Context().Err() != nil {
+			// App is shutting down, skip dispatching new jobs
+			continue
+		}
+
 		_, err := vm.app.QueueDispatcher.DispatchJob("VectorIndexer", jobData)
 
 		if err != nil {
@@ -181,6 +190,7 @@ func (vm *VectorIndexManager) MarkProcessed(databaseID, branchID, tableName stri
 // Shutdown stops the manager
 func (vm *VectorIndexManager) Shutdown() {
 	vm.cancel()
+	vm.wg.Wait()
 }
 
 func (vm *VectorIndexManager) getKey(databaseID, branchID, tableName string) string {

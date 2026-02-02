@@ -56,6 +56,8 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 	}
 
 	var processed int
+	var modifiedClusters []int64
+
 	err := vi.DB.Transaction(false, func(db *database.DatabaseConnection) error {
 		// Check context again inside transaction
 		select {
@@ -122,12 +124,19 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 					continue
 				}
 
-				// Assign to cluster
-				clusterID, err := vi.clusterer.AssignToCluster(vector)
+			// Check context before expensive clustering operation
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
 
-				if err != nil {
-					slog.Error("Failed to assign to cluster", "id", id, "error", err)
-					continue
+			// Assign to cluster
+			clusterID, err := vi.clusterer.AssignToCluster(vector)
+
+			if err != nil {
+				slog.Error("Failed to assign to cluster", "id", id, "error", err)
+				continue
 				}
 
 				// Get cluster version
@@ -214,20 +223,41 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 
 		// Batch insert into indexed table
 		if len(inserts) > 0 {
-			if err := vi.batchInsertIndexed(inserts); err != nil {
+			// Check context before database operation
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
+			if err := vi.batchInsertIndexed(ctx, inserts); err != nil {
 				return fmt.Errorf("failed to batch insert: %w", err)
 			}
 		}
 
 		// Batch update cluster sizes
 		if len(clusterSizeDeltas) > 0 {
-			if err := vi.batchUpdateClusterSizes(clusterSizeDeltas); err != nil {
+			// Check context before database operation
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
+			if err := vi.batchUpdateClusterSizes(ctx, clusterSizeDeltas); err != nil {
 				return fmt.Errorf("failed to batch update cluster sizes: %w", err)
 			}
 		}
 
 		// Update centroids
 		for clusterID, updates := range centroidUpdates {
+			// Check context before processing cluster updates
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
 			for _, update := range updates {
 				if err := vi.clusterer.UpdateCentroid(clusterID, update.vector, update.operation); err != nil {
 					slog.Error("Failed to update centroid", "cluster_id", clusterID, "error", err)
@@ -249,11 +279,12 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 
 		processed = len(idsToDelete)
 
-		// Check if clusters need rebalancing (inside transaction)
-		if processed > 0 {
-			if err := vi.clusterer.CheckAndRebalance(); err != nil {
-				slog.Error("Failed to rebalance clusters", "error", err)
-				return err
+		// Collect modified clusters for rebalancing outside transaction
+		if len(clusterSizeDeltas) > 0 {
+			modifiedClusters = make([]int64, 0, len(clusterSizeDeltas))
+
+			for clusterID := range clusterSizeDeltas {
+				modifiedClusters = append(modifiedClusters, clusterID)
 			}
 		}
 
@@ -262,6 +293,15 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 
 	if err != nil {
 		return 0, err
+	}
+
+	// Rebalance clusters OUTSIDE transaction to avoid blocking batch processing
+	// This allows splits to happen asynchronously without affecting indexing throughput
+	if processed > 0 && len(modifiedClusters) > 0 {
+		if err := vi.clusterer.CheckAndRebalanceClusters(modifiedClusters); err != nil {
+			slog.Error("Failed to rebalance clusters", "error", err)
+			// Don't fail the batch if rebalancing fails - it can be retried later
+		}
 	}
 
 	return processed, nil
@@ -278,7 +318,7 @@ type insertOp struct {
 
 // batchInsertIndexed inserts multiple vectors into the indexed table in one operation
 // Splits large batches into chunks to avoid SQLite variable limit (999 or 32766)
-func (vi *VectorIndexer) batchInsertIndexed(inserts []insertOp) error {
+func (vi *VectorIndexer) batchInsertIndexed(ctx context.Context, inserts []insertOp) error {
 	if len(inserts) == 0 {
 		return nil
 	}
@@ -289,6 +329,12 @@ func (vi *VectorIndexer) batchInsertIndexed(inserts []insertOp) error {
 
 	// Process in chunks
 	for i := 0; i < len(inserts); i += maxRowsPerInsert {
+		// Check context before each chunk
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		end := i + maxRowsPerInsert
 
 		if end > len(inserts) {
@@ -329,9 +375,16 @@ func (vi *VectorIndexer) batchInsertIndexed(inserts []insertOp) error {
 }
 
 // batchUpdateClusterSizes updates cluster sizes for multiple clusters in one operation
-func (vi *VectorIndexer) batchUpdateClusterSizes(deltas map[int64]int) error {
+func (vi *VectorIndexer) batchUpdateClusterSizes(ctx context.Context, deltas map[int64]int) error {
 	if len(deltas) == 0 {
 		return nil
+	}
+
+	// Check context before database operation
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
 	}
 
 	// Use a CASE statement to update multiple clusters efficiently
