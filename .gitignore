@@ -9,3 +9,4 @@
 .env.*
 *.prof
 litebase
+coverage_types.out
