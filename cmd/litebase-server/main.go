@@ -68,6 +68,9 @@ func main() {
 		},
 		// Shutdown hook
 		func(app *server.App) {
+			// Shutdown app first to stop VectorIndexMgr, WorkerPool, and Scheduler
+			app.Shutdown()
+
 			// Shutdown all connections
 			app.DatabaseManager.ConnectionManager().Shutdown()
 
