@@ -139,7 +139,7 @@ func TestWorker_ProcessJobSuccess(t *testing.T) {
 		}
 
 		// Create and start worker with hook
-		worker := queue.NewWorker("worker-1", systemDB, registry)
+		worker := queue.NewWorker(t.Context(), "worker-1", systemDB, registry)
 
 		// Use a channel to wait for job completion
 		done := make(chan error, 1)
@@ -233,7 +233,7 @@ func TestWorker_ProcessJobFailure(t *testing.T) {
 		}
 
 		// Create and start worker with hook
-		worker := queue.NewWorker("worker-1", systemDB, registry)
+		worker := queue.NewWorker(t.Context(), "worker-1", systemDB, registry)
 
 		done := make(chan error, 1)
 
@@ -335,7 +335,7 @@ func TestWorker_ProcessJobRetry(t *testing.T) {
 		}
 
 		// Create and start worker with hook
-		worker := queue.NewWorker("worker-1", systemDB, registry)
+		worker := queue.NewWorker(t.Context(), "worker-1", systemDB, registry)
 
 		done := make(chan error, 1)
 		worker.SetAfterJobHook(func(jobID int64, status queue.JobStatus, err error) {
@@ -428,7 +428,7 @@ func TestWorker_ProcessJobMaxRetries(t *testing.T) {
 		}
 
 		// Create and start worker with hook
-		worker := queue.NewWorker("worker-1", systemDB, registry)
+		worker := queue.NewWorker(t.Context(), "worker-1", systemDB, registry)
 
 		done := make(chan error, 1)
 
@@ -516,7 +516,7 @@ func TestWorker_JobTypeNotRegistered(t *testing.T) {
 		}
 
 		// Create and start worker with hook
-		worker := queue.NewWorker("worker-1", systemDB, registry)
+		worker := queue.NewWorker(t.Context(), "worker-1", systemDB, registry)
 
 		done := make(chan error, 1)
 
@@ -608,7 +608,7 @@ func TestWorker_DelayedJob(t *testing.T) {
 		}
 
 		// Create and start worker with hook
-		worker := queue.NewWorker("worker-1", systemDB, registry)
+		worker := queue.NewWorker(t.Context(), "worker-1", systemDB, registry)
 
 		done := make(chan error, 1)
 
@@ -692,7 +692,7 @@ func TestWorker_StopGracefully(t *testing.T) {
 		})
 
 		// Create and start worker
-		worker := queue.NewWorker("worker-1", systemDB, registry)
+		worker := queue.NewWorker(t.Context(), "worker-1", systemDB, registry)
 		worker.Start()
 
 		// Give worker time to start
@@ -912,7 +912,7 @@ func TestWorker_RetryDelayTiming(t *testing.T) {
 			t.Fatalf("Failed to dispatch job: %v", err)
 		}
 
-		worker := queue.NewWorker("worker-1", systemDB, registry)
+		worker := queue.NewWorker(t.Context(), "worker-1", systemDB, registry)
 
 		var attemptTimesMu sync.Mutex
 		done := make(chan bool, 1)
@@ -1018,7 +1018,7 @@ func TestWorker_PartialRetries(t *testing.T) {
 			t.Fatalf("Failed to dispatch job: %v", err)
 		}
 
-		worker := queue.NewWorker("worker-1", systemDB, registry)
+		worker := queue.NewWorker(t.Context(), "worker-1", systemDB, registry)
 		done := make(chan bool, 1)
 
 		worker.SetAfterJobHook(func(jobID int64, status queue.JobStatus, err error) {

@@ -109,7 +109,7 @@ func (p *WorkerPool) Start() error {
 
 	for i := 0; i < p.workerCount; i++ {
 		workerID := fmt.Sprintf("worker-%d", i+1)
-		p.workers[i] = NewWorker(workerID, p.systemDB, p.registry)
+		p.workers[i] = NewWorker(p.cluster.Node().Context(), workerID, p.systemDB, p.registry)
 		p.workers[i].SetBatchManager(p.batchManager)
 		p.workers[i].SetPrimaryOnlyMode(p.primaryOnly, func() bool {
 			return p.cluster.Node().IsPrimary()

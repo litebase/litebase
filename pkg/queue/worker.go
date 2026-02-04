@@ -32,8 +32,8 @@ type Worker struct {
 }
 
 // NewWorker creates a new worker instance.
-func NewWorker(id string, systemDB *database.SystemDatabase, registry *JobRegistry) *Worker {
-	ctx, cancel := context.WithCancel(context.Background())
+func NewWorker(ctx context.Context, id string, systemDB *database.SystemDatabase, registry *JobRegistry) *Worker {
+	ctx, cancel := context.WithCancel(ctx)
 
 	return &Worker{
 		id:           id,
