@@ -355,6 +355,18 @@ func (f *TieredFile) ShouldBeWrittenToDurableStorage() bool {
 		(time.Since(f.WrittenToDurableStorageAt) >= f.TieredFileSystemDriver.WriteInterval)
 }
 
+// HasPendingWrites returns true if the file has been updated but not yet written to durable storage
+func (f *TieredFile) HasPendingWrites() bool {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
+	if f.UpdatedAt.IsZero() {
+		return false
+	}
+
+	return f.UpdatedAt.After(f.WrittenToDurableStorageAt)
+}
+
 // SetBeingFlushed marks the file as currently being flushed to prevent race conditions
 func (f *TieredFile) SetBeingFlushed(flushing bool) {
 	f.mutex.Lock()
@@ -376,6 +388,8 @@ func (f *TieredFile) CanBeReleased() bool {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 
+	// File can be released if it's not being flushed and has no pending writes
+	// Having open descriptors is fine - they will reopen the file when accessed
 	return !f.isBeingFlushed && (!f.UpdatedAt.After(f.WrittenToDurableStorageAt) ||
 		time.Since(f.WrittenToDurableStorageAt) < f.TieredFileSystemDriver.WriteInterval)
 }

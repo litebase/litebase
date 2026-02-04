@@ -766,9 +766,10 @@ func (fsd *TieredFileSystemDriver) ReadFile(path string) ([]byte, error) {
 func (fsd *TieredFileSystemDriver) releaseFile(file *TieredFile) error {
 	descriptorCount := file.GetDescriptorCount()
 
-	// If file needs flushing, flush it first before release (regardless of open descriptors)
-	if file.ShouldBeWrittenToDurableStorage() {
-		fsd.flushFileToDurableStorage(file, true) // force=true to flush even if interval hasn't passed
+	// CRITICAL: Always flush if file has ANY pending writes before releasing
+	// This prevents data loss when file is reopened from low tier storage
+	if file.HasPendingWrites() {
+		fsd.flushFileToDurableStorage(file, true) // force=true to flush immediately
 	}
 
 	// Always close and clean up the actual file handle when releasing - descriptors will reopen if needed

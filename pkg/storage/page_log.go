@@ -356,7 +356,23 @@ func (pl *PageLog) File() storage.File {
 		return nil
 	}
 
+	// Check if file needs to be opened or reopened
+	needsReopen := false
+	
 	if pl.file == nil {
+		needsReopen = true
+	} else {
+		// CRITICAL: Check if file handle is still valid (not released by TieredFS)
+		// Try a simple Stat() operation to verify the handle is alive
+		if _, err := pl.file.Stat(); err != nil {
+			// File handle is stale (released by TieredFS), need to reopen
+			slog.Debug("PageLog file handle is stale, reopening", "path", pl.Path, "error", err)
+			pl.file = nil
+			needsReopen = true
+		}
+	}
+
+	if needsReopen {
 		err := pl.openFile()
 
 		if err != nil {
