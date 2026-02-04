@@ -188,9 +188,6 @@ func TestVectorIndexManagerProcessingTimeout(t *testing.T) {
 			// Wait for timeout
 			time.Sleep(150 * time.Millisecond)
 
-			// Process again
-			mgr.ProcessIndexesForTest()
-
 			// Should have been reset and processed again
 			info = getIndexInfo(mgr, key)
 

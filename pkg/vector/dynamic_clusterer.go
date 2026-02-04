@@ -12,7 +12,7 @@ import (
 	"github.com/litebase/litebase/pkg/sqlite3"
 )
 
-// SPFresh clustering parameters
+// Dynamic clustering parameters
 const (
 	DefaultMaxClusterSize = 5000
 	DefaultMinClusterSize = 200
@@ -30,8 +30,8 @@ type ClusterInfo struct {
 	DistanceMetric int
 }
 
-// SPFreshClusterer manages SPFresh clustering operations
-type SPFreshClusterer struct {
+// DynamicClusterer manages dynamic clustering operations with automatic splitting
+type DynamicClusterer struct {
 	DB             *database.DatabaseConnection
 	TableName      string
 	Dimensions     int
@@ -41,9 +41,9 @@ type SPFreshClusterer struct {
 	distanceFunc   DistanceFunc
 }
 
-// NewSPFreshClusterer creates a new SPFresh clusterer
-func NewSPFreshClusterer(db *database.DatabaseConnection, tableName string, dimensions, distanceMetric, maxClusterSize, minClusterSize int) (*SPFreshClusterer, error) {
-	clusterer := &SPFreshClusterer{
+// NewDynamicClusterer creates a new dynamic clusterer
+func NewDynamicClusterer(db *database.DatabaseConnection, tableName string, dimensions, distanceMetric, maxClusterSize, minClusterSize int) (*DynamicClusterer, error) {
+	clusterer := &DynamicClusterer{
 		DB:             db,
 		TableName:      tableName,
 		Dimensions:     dimensions,
@@ -59,7 +59,7 @@ func NewSPFreshClusterer(db *database.DatabaseConnection, tableName string, dime
 }
 
 // AssignToCluster assigns a vector to the best cluster
-func (c *SPFreshClusterer) AssignToCluster(vector []float32) (int64, error) {
+func (c *DynamicClusterer) AssignToCluster(vector []float32) (int64, error) {
 	clusters, err := c.GetAllClusters()
 
 	if err != nil {
@@ -97,7 +97,7 @@ func (c *SPFreshClusterer) AssignToCluster(vector []float32) (int64, error) {
 }
 
 // GetAllClusters retrieves all clusters with their centroids
-func (c *SPFreshClusterer) GetAllClusters() ([]*ClusterInfo, error) {
+func (c *DynamicClusterer) GetAllClusters() ([]*ClusterInfo, error) {
 	res, err := c.DB.Exec(
 		fmt.Sprintf(`SELECT cluster_id, centroid_blob, cluster_size, version 
 		FROM %s_clusters ORDER BY cluster_id`, c.TableName),
@@ -143,7 +143,7 @@ func (c *SPFreshClusterer) GetAllClusters() ([]*ClusterInfo, error) {
 }
 
 // CreateCluster creates a new cluster with the given centroid
-func (c *SPFreshClusterer) CreateCluster(centroid []float32) (int64, error) {
+func (c *DynamicClusterer) CreateCluster(centroid []float32) (int64, error) {
 	centroidBlob, err := EncodeFloat32(centroid)
 
 	if err != nil {
@@ -178,7 +178,7 @@ func (c *SPFreshClusterer) CreateCluster(centroid []float32) (int64, error) {
 }
 
 // UpdateCentroid updates a cluster's centroid incrementally
-func (c *SPFreshClusterer) UpdateCentroid(clusterID int64, vector []float32, operation string) error {
+func (c *DynamicClusterer) UpdateCentroid(clusterID int64, vector []float32, operation string) error {
 	// Get current cluster info
 	res, err := c.DB.Exec(
 		fmt.Sprintf(`SELECT centroid_blob, cluster_size FROM %s_clusters WHERE cluster_id = ?`, c.TableName),
@@ -255,7 +255,7 @@ func (c *SPFreshClusterer) UpdateCentroid(clusterID int64, vector []float32, ope
 }
 
 // CheckAndRebalance checks if any clusters need rebalancing
-func (c *SPFreshClusterer) CheckAndRebalance() error {
+func (c *DynamicClusterer) CheckAndRebalance() error {
 	clusters, err := c.GetAllClusters()
 
 	if err != nil {
@@ -275,7 +275,7 @@ func (c *SPFreshClusterer) CheckAndRebalance() error {
 
 // CheckAndRebalanceClusters checks if specific clusters need rebalancing
 // This is more efficient than CheckAndRebalance when you know which clusters were modified
-func (c *SPFreshClusterer) CheckAndRebalanceClusters(ctx context.Context, clusterIDs []int64) error {
+func (c *DynamicClusterer) CheckAndRebalanceClusters(ctx context.Context, clusterIDs []int64) error {
 	if len(clusterIDs) == 0 {
 		return nil
 	}
@@ -325,10 +325,17 @@ func (c *SPFreshClusterer) CheckAndRebalanceClusters(ctx context.Context, cluste
 }
 
 // SplitCluster splits an oversized cluster into two clusters
-func (c *SPFreshClusterer) SplitCluster(clusterID int64) error {
+func (c *DynamicClusterer) SplitCluster(clusterID int64) error {
+	// Get the vector column name from metadata
+	vectorColumn, err := getVectorColumnName(c.DB, c.TableName)
+
+	if err != nil {
+		return fmt.Errorf("failed to get vector column name: %w", err)
+	}
+
 	// Get all vectors from the cluster
 	res, err := c.DB.Exec(
-		fmt.Sprintf(`SELECT id, vector_blob FROM %s_indexed WHERE cluster_id = ?`, c.TableName),
+		fmt.Sprintf(`SELECT id, %s FROM %s_indexed WHERE cluster_id = ?`, vectorColumn, c.TableName),
 		[]sqlite3.StatementParameter{
 			{Type: sqlite3.ParameterTypeInteger, Value: clusterID},
 		},

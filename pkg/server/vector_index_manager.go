@@ -101,6 +101,7 @@ func (vm *VectorIndexManager) Run() {
 func (vm *VectorIndexManager) processIndexes() {
 	// Only process on primary node
 	if !vm.app.Cluster.Node().IsPrimary() {
+		slog.Debug("Skipping processIndexes - not primary node")
 		return
 	}
 
@@ -109,7 +110,13 @@ func (vm *VectorIndexManager) processIndexes() {
 
 	now := time.Now().UTC()
 
-	for _, info := range vm.indexes {
+	for key, info := range vm.indexes {
+		slog.Debug("Processing index",
+			"key", key,
+			"processing", info.Processing,
+			"pending_count", info.PendingCount,
+			"last_updated", info.LastUpdated)
+
 		// Skip if already processing
 		if info.Processing {
 			// Check for stuck processing (timeout after 5 minutes)
@@ -121,12 +128,16 @@ func (vm *VectorIndexManager) processIndexes() {
 					"elapsed", now.Sub(info.LastUpdated))
 				info.Processing = false
 			} else {
+				slog.Debug("Skipping index - already processing",
+					"key", key,
+					"elapsed", now.Sub(info.LastUpdated))
 				continue
 			}
 		}
 
 		// Skip if no pending vectors
 		if info.PendingCount == 0 {
+			slog.Debug("Skipping index - no pending vectors", "key", key)
 			continue
 		}
 
@@ -139,8 +150,15 @@ func (vm *VectorIndexManager) processIndexes() {
 
 		if vm.app.Cluster.Node().Context().Err() != nil {
 			// App is shutting down, skip dispatching new jobs
+			slog.Debug("Skipping job dispatch - app shutting down")
 			continue
 		}
+
+		slog.Info("Dispatching VectorIndexer job",
+			"database", info.DatabaseID,
+			"branch", info.BranchID,
+			"table", info.TableName,
+			"pending_count", info.PendingCount)
 
 		_, err := vm.app.QueueDispatcher.DispatchJob("VectorIndexer", jobData)
 
@@ -212,12 +230,12 @@ func (vm *VectorIndexManager) GetIndexes() map[string]*IndexInfo {
 	return copy
 }
 
-// ProcessIndexesForTest exposes processIndexes for testing
-func (vm *VectorIndexManager) ProcessIndexesForTest() {
-	vm.processIndexes()
-}
-
 // GetContext returns the context for testing
 func (vm *VectorIndexManager) GetContext() context.Context {
 	return vm.context
+}
+
+// ProcessIndexesForTest manually triggers index processing for testing
+func (vm *VectorIndexManager) ProcessIndexesForTest() {
+	vm.processIndexes()
 }

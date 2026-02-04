@@ -28,8 +28,7 @@ func TestVectorIndexInsert(t *testing.T) {
 		// Create a vector index table with 3 dimensions for testing
 		_, err = db.Exec(`
 			CREATE VIRTUAL TABLE product_vectors USING vector_index(
-				id,
-				vector,
+				vector BLOB,
 				dimensions=3,
 				distance_metric='l2'
 			)
@@ -41,23 +40,21 @@ func TestVectorIndexInsert(t *testing.T) {
 
 		// Insert some test vectors
 		testVectors := []struct {
-			id     int64
 			vector string
 		}{
-			{1, "[1.0, 2.0, 3.0]"},
-			{2, "[4.0, 5.0, 6.0]"},
-			{3, "[7.0, 8.0, 9.0]"},
+			{"[1.0, 2.0, 3.0]"},
+			{"[4.0, 5.0, 6.0]"},
+			{"[7.0, 8.0, 9.0]"},
 		}
 
-		for _, tv := range testVectors {
+		for i, tv := range testVectors {
 			_, err = db.Exec(
-				"INSERT INTO product_vectors(id, vector) VALUES(?, ?)",
-				tv.id,
+				"INSERT INTO product_vectors(vector) VALUES(?)",
 				tv.vector,
 			)
 
 			if err != nil {
-				t.Fatalf("Failed to insert vector %d: %v", tv.id, err)
+				t.Fatalf("Failed to insert vector %d: %v", i+1, err)
 			}
 		}
 
@@ -140,8 +137,7 @@ func TestVectorIndexUpdate(t *testing.T) {
 		// Create index
 		_, err = db.Exec(`
 			CREATE VIRTUAL TABLE product_vectors USING vector_index(
-				id,
-				vector,
+				vector BLOB,
 				dimensions=3,
 				distance_metric='l2'
 			)
@@ -151,22 +147,22 @@ func TestVectorIndexUpdate(t *testing.T) {
 			t.Fatalf("Failed to create vector index: %v", err)
 		}
 
-		// Insert a vector
-		_, err = db.Exec(
-			"INSERT INTO product_vectors(id, vector) VALUES(?, ?)",
-			1,
+		// Insert a vector and capture its auto-generated rowid
+		var rowid int64
+		err = db.QueryRow(
+			"INSERT INTO product_vectors(vector) VALUES(?) RETURNING rowid",
 			"[1.0, 2.0, 3.0]",
-		)
+		).Scan(&rowid)
 
 		if err != nil {
 			t.Fatalf("Failed to insert vector: %v", err)
 		}
 
-		// Update the vector
+		// Update the vector using the rowid
 		_, err = db.Exec(
-			"UPDATE product_vectors SET vector = ? WHERE id = ?",
+			"UPDATE product_vectors SET vector = ? WHERE rowid = ?",
 			"[4.0, 5.0, 6.0]",
-			1,
+			rowid,
 		)
 
 		if err != nil {
@@ -205,8 +201,7 @@ func TestVectorIndexDelete(t *testing.T) {
 		// Create index
 		_, err = db.Exec(`
 			CREATE VIRTUAL TABLE product_vectors USING vector_index(
-				id,
-				vector,
+				vector BLOB,
 				dimensions=3,
 				distance_metric='l2'
 			)
@@ -217,20 +212,20 @@ func TestVectorIndexDelete(t *testing.T) {
 		}
 
 		// Insert vectors
-		_, err = db.Exec("INSERT INTO product_vectors(id, vector) VALUES(1, '[1.0, 2.0, 3.0]')")
+		_, err = db.Exec("INSERT INTO product_vectors(vector) VALUES('[1.0, 2.0, 3.0]')")
 
 		if err != nil {
 			t.Fatalf("Failed to insert vector 1: %v", err)
 		}
 
-		_, err = db.Exec("INSERT INTO product_vectors(id, vector) VALUES(2, '[4.0, 5.0, 6.0]')")
+		_, err = db.Exec("INSERT INTO product_vectors(vector) VALUES( '[4.0, 5.0, 6.0]')")
 
 		if err != nil {
 			t.Fatalf("Failed to insert vector 2: %v", err)
 		}
 
 		// Delete a vector
-		_, err = db.Exec("DELETE FROM product_vectors WHERE id = 1")
+		_, err = db.Exec("DELETE FROM product_vectors WHERE rowid = 1")
 
 		if err != nil {
 			t.Fatalf("Failed to delete vector: %v", err)

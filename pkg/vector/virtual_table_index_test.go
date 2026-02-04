@@ -23,8 +23,7 @@ func TestVectorIndexCreate(t *testing.T) {
 		// Create a vector index table
 		_, err = conn.GetConnection().Exec(`
 			CREATE VIRTUAL TABLE test_vectors USING vector_index(
-				id,
-				vector,
+				vector BLOB,
 				dimensions=128,
 				distance_metric='cosine'
 			)
