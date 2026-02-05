@@ -30,14 +30,11 @@ typedef struct
 } ColumnDef;
 
 // Buffer for batching inserts
-// TODO: Migrate to full column_values array for multi-vector and user-defined column support
 typedef struct
 {
-    void *vector_data; // Temporary: single vector for backward compatibility
-    int vector_size;   // Temporary: vector size in bytes
+    sqlite3_value **column_values; // Array of sqlite3_value* for all columns (owned, must be freed)
+    int num_columns;               // Number of columns
     sqlite3_int64 created_at;
-    // Future: sqlite3_value **column_values; // Array of values for all columns
-    // Future: int num_columns;               // Number of columns
 } PendingInsert;
 
 // SQLite has a parameter limit of 32766 (SQLITE_MAX_VARIABLE_NUMBER)
@@ -1002,9 +999,13 @@ int vector_index_disconnect(sqlite3_vtab *pVtab)
     {
         for (int i = 0; i < vtab->buffer_size; i++)
         {
-            if (vtab->insert_buffer[i].vector_data)
+            if (vtab->insert_buffer[i].column_values)
             {
-                sqlite3_free(vtab->insert_buffer[i].vector_data);
+                for (int j = 0; j < vtab->insert_buffer[i].num_columns; j++)
+                {
+                    sqlite3_value_free(vtab->insert_buffer[i].column_values[j]);
+                }
+                sqlite3_free(vtab->insert_buffer[i].column_values);
             }
         }
         sqlite3_free(vtab->insert_buffer);
@@ -1099,30 +1100,33 @@ static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr)
     char *sql = NULL;
     char *err_msg = NULL;
 
-    // Build multi-row INSERT for _vectors table
-    // For now: INSERT using first vector column only (backward compatible)
-    // Future: Support all columns from column_values array
-
-    // Find first vector column name
-    const char *vector_col_name = "vector"; // default
+    // Build multi-row INSERT for _vectors table with all user-defined columns
+    // Build column list from vtab->columns
+    char *col_list = sqlite3_mprintf("");
     for (int i = 0; i < vtab->num_columns; i++)
     {
-        if (vtab->columns[i].is_vector)
+        char *new_col_list = sqlite3_mprintf("%s%s%s",
+                                             col_list,
+                                             (i > 0 ? ", " : ""),
+                                             vtab->columns[i].name);
+        sqlite3_free(col_list);
+        col_list = new_col_list;
+        if (!col_list)
         {
-            vector_col_name = vtab->columns[i].name;
-            break;
+            *pzErr = sqlite3_mprintf("Out of memory building column list");
+            return SQLITE_NOMEM;
         }
     }
 
-    int param_count = vtab->buffer_size * 2; // 2 params per row (vector + created_at)
-
-    // Build VALUES clause - allocate enough space
-    // Each (?,?) is 5 chars, plus comma = 6 chars per row (except first)
-    int values_size = vtab->buffer_size * 10; // Conservative estimate
+    // Build VALUES clause: (?,?,...,?),(?,?,...,?),...
+    // Each row has num_columns + 1 parameters (columns + created_at)
+    int params_per_row = vtab->num_columns + 1;
+    int values_size = vtab->buffer_size * (params_per_row * 3 + 4); // Conservative: "(?,...,?)," per row
     char *values_clause = (char *)sqlite3_malloc(values_size);
     if (!values_clause)
     {
-        *pzErr = sqlite3_mprintf("Out of memory building INSERT statement");
+        sqlite3_free(col_list);
+        *pzErr = sqlite3_mprintf("Out of memory building VALUES clause");
         return SQLITE_NOMEM;
     }
 
@@ -1133,12 +1137,22 @@ static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr)
         {
             ptr += sprintf(ptr, ",");
         }
-        ptr += sprintf(ptr, "(?,?)");
+        ptr += sprintf(ptr, "(");
+        for (int j = 0; j < params_per_row; j++)
+        {
+            if (j > 0)
+            {
+                ptr += sprintf(ptr, ",");
+            }
+            ptr += sprintf(ptr, "?");
+        }
+        ptr += sprintf(ptr, ")");
     }
 
     sql = sqlite3_mprintf(
         "INSERT INTO %s_vectors (%s, created_at) VALUES %s",
-        vtab->table_name, vector_col_name, values_clause);
+        vtab->table_name, col_list, values_clause);
+    sqlite3_free(col_list);
     sqlite3_free(values_clause);
 
     sqlite3_stmt *stmt;
@@ -1150,14 +1164,24 @@ static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr)
         return rc;
     }
 
-    // Bind all parameters
+    // Bind all parameters for all rows
     int param_idx = 1;
     for (int i = 0; i < vtab->buffer_size; i++)
     {
-        sqlite3_bind_blob(stmt, param_idx++,
-                          vtab->insert_buffer[i].vector_data,
-                          vtab->insert_buffer[i].vector_size,
-                          SQLITE_TRANSIENT);
+        // Bind column values
+        for (int j = 0; j < vtab->num_columns; j++)
+        {
+            if (j < vtab->insert_buffer[i].num_columns)
+            {
+                sqlite3_bind_value(stmt, param_idx++, vtab->insert_buffer[i].column_values[j]);
+            }
+            else
+            {
+                // Column not provided, bind NULL
+                sqlite3_bind_null(stmt, param_idx++);
+            }
+        }
+        // Bind created_at
         sqlite3_bind_int64(stmt, param_idx++, vtab->insert_buffer[i].created_at);
     }
 
@@ -1249,11 +1273,18 @@ static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr)
         goNotifyVectorInsert(ctx->databaseID, ctx->branchID, vtab->table_name);
     }
 
-    // Free buffered vector data
+    // Free buffered column values
     for (int i = 0; i < vtab->buffer_size; i++)
     {
-        sqlite3_free(vtab->insert_buffer[i].vector_data);
-        vtab->insert_buffer[i].vector_data = NULL;
+        if (vtab->insert_buffer[i].column_values)
+        {
+            for (int j = 0; j < vtab->insert_buffer[i].num_columns; j++)
+            {
+                sqlite3_value_free(vtab->insert_buffer[i].column_values[j]);
+            }
+            sqlite3_free(vtab->insert_buffer[i].column_values);
+            vtab->insert_buffer[i].column_values = NULL;
+        }
     }
 
     vtab->buffer_size = 0;
@@ -1308,13 +1339,17 @@ int vector_index_rollback(sqlite3_vtab *pVtab)
 {
     vector_index_vtab *vtab = (vector_index_vtab *)pVtab;
 
-    // Free buffered vector data without flushing
+    // Free buffered column values without flushing
     for (int i = 0; i < vtab->buffer_size; i++)
     {
-        if (vtab->insert_buffer[i].vector_data)
+        if (vtab->insert_buffer[i].column_values)
         {
-            sqlite3_free(vtab->insert_buffer[i].vector_data);
-            vtab->insert_buffer[i].vector_data = NULL;
+            for (int j = 0; j < vtab->insert_buffer[i].num_columns; j++)
+            {
+                sqlite3_value_free(vtab->insert_buffer[i].column_values[j]);
+            }
+            sqlite3_free(vtab->insert_buffer[i].column_values);
+            vtab->insert_buffer[i].column_values = NULL;
         }
     }
 
@@ -1488,12 +1523,9 @@ int vector_index_update(
     }
     else if (argc > 1 && sqlite3_value_type(argv[0]) == SQLITE_NULL)
     {
-        // INSERT: argv[0] = NULL, argv[1] = new rowid (might be NULL for auto-rowid), argv[2] = id, argv[3] = vector
-        const void *vector_data = sqlite3_value_blob(argv[3]);
-        int vector_size = sqlite3_value_bytes(argv[3]);
-
-        // Buffer the insert instead of executing immediately
-        // This allows batching multiple inserts into a single multi-row INSERT statement
+        // INSERT: argv[0] = NULL, argv[1] = new rowid, argv[2..argc-1] = column values
+        // argc = 2 + num_columns (argv[0] is NULL, argv[1] is rowid, rest are columns)
+        int num_cols = argc - 2;
 
         // Check if buffer is full - flush if needed
         if (vtab->buffer_size >= vtab->buffer_capacity)
@@ -1507,22 +1539,37 @@ int vector_index_update(
             }
         }
 
-        // Add to buffer (make a copy of vector data since it may be freed by SQLite)
-        void *vector_copy = sqlite3_malloc(vector_size);
-        if (!vector_copy)
+        // Allocate array to hold column values
+        sqlite3_value **col_vals = (sqlite3_value **)sqlite3_malloc(num_cols * sizeof(sqlite3_value *));
+        if (!col_vals)
         {
             pVtab->zErrMsg = sqlite3_mprintf("Out of memory buffering insert");
             return SQLITE_NOMEM;
         }
-        memcpy(vector_copy, vector_data, vector_size);
 
-        vtab->insert_buffer[vtab->buffer_size].vector_data = vector_copy;
-        vtab->insert_buffer[vtab->buffer_size].vector_size = vector_size;
+        // Copy all column values (sqlite3_value_dup makes owned copies)
+        for (int i = 0; i < num_cols; i++)
+        {
+            col_vals[i] = sqlite3_value_dup(argv[2 + i]);
+            if (!col_vals[i])
+            {
+                // Clean up already duplicated values
+                for (int j = 0; j < i; j++)
+                {
+                    sqlite3_value_free(col_vals[j]);
+                }
+                sqlite3_free(col_vals);
+                pVtab->zErrMsg = sqlite3_mprintf("Out of memory duplicating column value");
+                return SQLITE_NOMEM;
+            }
+        }
+
+        vtab->insert_buffer[vtab->buffer_size].column_values = col_vals;
+        vtab->insert_buffer[vtab->buffer_size].num_columns = num_cols;
         vtab->insert_buffer[vtab->buffer_size].created_at = (sqlite3_int64)time(NULL);
         vtab->buffer_size++;
 
         // Set pRowid to a temporary value (will be corrected on flush)
-        // SQLite requires us to set *something* here
         *pRowid = 0;
         sql = NULL;
     }
