@@ -29,9 +29,11 @@ func makeZeroVectorBlob(dim int) []byte {
 	return b
 }
 
-// TestTxnInsertSearch verifies inserting into a vector index inside a DB
-// transaction using a connection from the connection manager and attempts
-// to run a vector search from within that transaction.
+// TestTxnInsertSearch verifies that:
+//  1. Inserting into a vector index inside a DB transaction works correctly
+//  2. Querying the virtual table directly (via xFilter) works and triggers buffer flush
+//  3. vector_search (which queries shadow tables directly) doesn't see buffered data
+//     until the transaction commits, since it bypasses xFilter
 func TestTxnInsertSearch(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
 		mock := test.MockDatabase(app)
@@ -119,19 +121,26 @@ func TestTxnInsertSearch(t *testing.T) {
 
 			queryVector := makeZeroVectorBlob(4)
 
-			t.Log("Attempting vector_search within transaction (expecting an error)...")
-			_, err = txConn.Exec(
+			t.Log("Attempting vector_search within transaction (buffered data not yet flushed)...")
+
+			result, err = txConn.Exec(
 				"SELECT rowid, distance FROM vector_search('embeddings', 'vector', ?, 1)",
 				[]sqlite3.StatementParameter{
 					{Type: sqlite3.ParameterTypeBlob, Value: queryVector},
 				},
 			)
 
-			if err == nil {
-				t.Fatalf("Expected vector_search to return an error when executed inside a transaction, but it succeeded")
+			if err != nil {
+				t.Fatalf("vector_search failed: %v", err)
 			}
 
-			t.Logf("✓ vector_search returned expected error inside transaction: %v", err)
+			// Vector search queries shadow tables directly, not through xFilter,
+			// so buffered inserts aren't visible until transaction commits
+			if len(result.Rows) != 0 {
+				t.Errorf("Expected 0 results from vector_search (data still buffered), got %d", len(result.Rows))
+			} else {
+				t.Log("✓ vector_search correctly returned 0 results (buffered data not yet flushed to shadow tables)")
+			}
 
 			return nil
 		})
@@ -139,6 +148,5 @@ func TestTxnInsertSearch(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Transaction failed: %v", err)
 		}
-
 	})
 }

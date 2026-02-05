@@ -22,11 +22,12 @@ typedef struct
 // Column definition for user-defined columns
 typedef struct
 {
-    char *name;     // Column name
-    char *type;     // Column type (INTEGER, TEXT, BLOB, REAL, etc.)
-    int affinity;   // SQLite type affinity (SQLITE_INTEGER, SQLITE_TEXT, etc.)
-    int is_vector;  // 1 if this is a vector column (BLOB type), 0 otherwise
-    int dimensions; // For vector columns: number of dimensions (0 for non-vector columns)
+    char *name;          // Column name
+    char *type;          // Column type (INTEGER, TEXT, BLOB, REAL, etc.)
+    int affinity;        // SQLite type affinity (SQLITE_INTEGER, SQLITE_TEXT, etc.)
+    int is_vector;       // 1 if this is a vector column (BLOB type), 0 otherwise
+    int dimensions;      // For vector columns: number of dimensions (0 for non-vector columns)
+    int distance_metric; // For vector columns: distance metric (DISTANCE_METRIC_*, -1 if not set)
 } ColumnDef;
 
 // Buffer for batching inserts
@@ -179,42 +180,20 @@ static int prepare_vtab_statements(vector_index_vtab *vtab, char **pzErr)
         return rc;
     }
 
-    // upsert_map_stmt (insert or update mapping)
-    sql = sqlite3_mprintf(
-        "INSERT INTO %s_cluster_vector_map (vector_id, cluster_id, indexed_at) VALUES (?1, ?2, ?3) "
-        "ON CONFLICT(vector_id) DO UPDATE SET cluster_id=excluded.cluster_id, indexed_at=excluded.indexed_at",
-        vtab->table_name);
-    rc = sqlite3_prepare_v2(vtab->db, sql, -1, &vtab->upsert_map_stmt, NULL);
-    sqlite3_free(sql);
-    if (rc != SQLITE_OK)
-    {
-        *pzErr = sqlite3_mprintf("Failed to prepare upsert_map_stmt: %s", sqlite3_errmsg(vtab->db));
-        return rc;
-    }
+    // upsert_map_stmt - DISABLED for multi-column support
+    // Each column has its own {table}_{column}_cluster_vector_map table
+    // We use dynamic SQL in flush_insert_buffer instead
+    vtab->upsert_map_stmt = NULL;
 
-    // delete_map_stmt
-    sql = sqlite3_mprintf(
-        "DELETE FROM %s_cluster_vector_map WHERE vector_id = ?1",
-        vtab->table_name);
-    rc = sqlite3_prepare_v2(vtab->db, sql, -1, &vtab->delete_map_stmt, NULL);
-    sqlite3_free(sql);
-    if (rc != SQLITE_OK)
-    {
-        *pzErr = sqlite3_mprintf("Failed to prepare delete_map_stmt: %s", sqlite3_errmsg(vtab->db));
-        return rc;
-    }
+    // delete_map_stmt - DISABLED for multi-column support
+    // Each column has its own {table}_{column}_cluster_vector_map table
+    // We use dynamic SQL in xDelete instead
+    vtab->delete_map_stmt = NULL;
 
-    // inc_cluster_size_stmt
-    sql = sqlite3_mprintf(
-        "UPDATE %s_cluster_tree SET cluster_size = cluster_size + 1 WHERE cluster_id = 0",
-        vtab->table_name);
-    rc = sqlite3_prepare_v2(vtab->db, sql, -1, &vtab->inc_cluster_size_stmt, NULL);
-    sqlite3_free(sql);
-    if (rc != SQLITE_OK)
-    {
-        *pzErr = sqlite3_mprintf("Failed to prepare inc_cluster_size_stmt: %s", sqlite3_errmsg(vtab->db));
-        return rc;
-    }
+    // inc_cluster_size_stmt - DISABLED for multi-column support
+    // Each column has its own {table}_{column}_cluster_tree table
+    // We increment cluster size dynamically per column
+    vtab->inc_cluster_size_stmt = NULL;
 
     return SQLITE_OK;
 }
@@ -266,83 +245,143 @@ static int create_shadow_tables(sqlite3 *db, const char *table_name, ColumnDef *
         return rc;
     }
 
-    // Create _cluster_tree table: Hierarchical cluster structure
-    sql = sqlite3_mprintf(
-        "CREATE TABLE IF NOT EXISTS %s_cluster_tree ("
-        "cluster_id INTEGER PRIMARY KEY,"
-        "parent_id INTEGER DEFAULT NULL,"
-        "centroid_blob BLOB NOT NULL,"
-        "is_leaf INTEGER NOT NULL DEFAULT 1,"
-        "cluster_size INTEGER DEFAULT 0,"
-        "radius REAL DEFAULT 0.0,"
-        "created_at INTEGER NOT NULL"
-        ")",
-        table_name);
-    rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
-    sqlite3_free(sql);
-    if (rc != SQLITE_OK)
+    // Create per-column cluster tables for each vector column
+    for (int i = 0; i < num_columns; i++)
     {
-        *pzErr = sqlite3_mprintf("Failed to create cluster_tree table: %s", err_msg);
-        sqlite3_free(err_msg);
-        return rc;
-    }
+        if (!columns[i].is_vector)
+        {
+            continue;
+        }
 
-    // Create index on parent_id for tree traversal
-    sql = sqlite3_mprintf(
-        "CREATE INDEX IF NOT EXISTS %s_cluster_tree_parent_idx ON %s_cluster_tree(parent_id)",
-        table_name, table_name);
-    rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
-    sqlite3_free(sql);
-    if (rc != SQLITE_OK)
-    {
-        *pzErr = sqlite3_mprintf("Failed to create cluster_tree parent index: %s", err_msg);
-        sqlite3_free(err_msg);
-        return rc;
-    }
+        const char *col_name = columns[i].name;
+        int dimensions = columns[i].dimensions;
 
-    // Create index on is_leaf for finding leaf clusters
-    sql = sqlite3_mprintf(
-        "CREATE INDEX IF NOT EXISTS %s_cluster_tree_leaf_idx ON %s_cluster_tree(is_leaf) WHERE is_leaf = 1",
-        table_name, table_name);
-    rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
-    sqlite3_free(sql);
-    if (rc != SQLITE_OK)
-    {
-        *pzErr = sqlite3_mprintf("Failed to create cluster_tree leaf index: %s", err_msg);
-        sqlite3_free(err_msg);
-        return rc;
-    }
+        // Create {table}_{column}_cluster_tree table
+        sql = sqlite3_mprintf(
+            "CREATE TABLE IF NOT EXISTS %s_%s_cluster_tree ("
+            "cluster_id INTEGER PRIMARY KEY,"
+            "parent_id INTEGER DEFAULT NULL,"
+            "centroid_blob BLOB NOT NULL,"
+            "is_leaf INTEGER NOT NULL DEFAULT 1,"
+            "cluster_size INTEGER DEFAULT 0,"
+            "radius REAL DEFAULT 0.0,"
+            "created_at INTEGER NOT NULL"
+            ")",
+            table_name, col_name);
+        rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
+        sqlite3_free(sql);
 
-    // Create _cluster_vector_map table: Skinny mapping table (avoids updating large vector rows)
-    sql = sqlite3_mprintf(
-        "CREATE TABLE IF NOT EXISTS %s_cluster_vector_map ("
-        "vector_id INTEGER NOT NULL,"
-        "cluster_id INTEGER NOT NULL,"
-        "distance REAL,"
-        "indexed_at INTEGER NOT NULL,"
-        "PRIMARY KEY (vector_id)"
-        ")",
-        table_name);
-    rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
-    sqlite3_free(sql);
-    if (rc != SQLITE_OK)
-    {
-        *pzErr = sqlite3_mprintf("Failed to create cluster_vector_map table: %s", err_msg);
-        sqlite3_free(err_msg);
-        return rc;
-    }
+        if (rc != SQLITE_OK)
+        {
+            *pzErr = sqlite3_mprintf("Failed to create %s_%s_cluster_tree table: %s", table_name, col_name, err_msg);
+            sqlite3_free(err_msg);
+            return rc;
+        }
 
-    // Create B-tree index on cluster_id for fast retrieval of cluster members
-    sql = sqlite3_mprintf(
-        "CREATE INDEX IF NOT EXISTS %s_cluster_vector_map_cluster_idx ON %s_cluster_vector_map(cluster_id)",
-        table_name, table_name);
-    rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
-    sqlite3_free(sql);
-    if (rc != SQLITE_OK)
-    {
-        *pzErr = sqlite3_mprintf("Failed to create cluster_vector_map cluster index: %s", err_msg);
-        sqlite3_free(err_msg);
-        return rc;
+        // Create index on parent_id for tree traversal
+        sql = sqlite3_mprintf(
+            "CREATE INDEX IF NOT EXISTS %s_%s_cluster_tree_parent_idx ON %s_%s_cluster_tree(parent_id)",
+            table_name, col_name, table_name, col_name);
+
+        rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
+
+        sqlite3_free(sql);
+
+        if (rc != SQLITE_OK)
+        {
+            *pzErr = sqlite3_mprintf("Failed to create %s_%s_cluster_tree parent index: %s", table_name, col_name, err_msg);
+            sqlite3_free(err_msg);
+            return rc;
+        }
+
+        // Create index on is_leaf for finding leaf clusters
+        sql = sqlite3_mprintf(
+            "CREATE INDEX IF NOT EXISTS %s_%s_cluster_tree_leaf_idx ON %s_%s_cluster_tree(is_leaf) WHERE is_leaf = 1",
+            table_name, col_name, table_name, col_name);
+        rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
+        sqlite3_free(sql);
+        if (rc != SQLITE_OK)
+        {
+            *pzErr = sqlite3_mprintf("Failed to create %s_%s_cluster_tree leaf index: %s", table_name, col_name, err_msg);
+            sqlite3_free(err_msg);
+            return rc;
+        }
+
+        // Create {table}_{column}_cluster_vector_map table
+        sql = sqlite3_mprintf(
+            "CREATE TABLE IF NOT EXISTS %s_%s_cluster_vector_map ("
+            "vector_id INTEGER NOT NULL,"
+            "cluster_id INTEGER NOT NULL,"
+            "distance REAL,"
+            "indexed_at INTEGER NOT NULL,"
+            "PRIMARY KEY (vector_id)"
+            ")",
+            table_name, col_name);
+        rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
+
+        sqlite3_free(sql);
+
+        if (rc != SQLITE_OK)
+        {
+            *pzErr = sqlite3_mprintf("Failed to create %s_%s_cluster_vector_map table: %s", table_name, col_name, err_msg);
+            sqlite3_free(err_msg);
+            return rc;
+        }
+
+        // Create B-tree index on cluster_id for fast retrieval of cluster members
+        sql = sqlite3_mprintf(
+            "CREATE INDEX IF NOT EXISTS %s_%s_cluster_vector_map_cluster_idx ON %s_%s_cluster_vector_map(cluster_id)",
+            table_name, col_name, table_name, col_name);
+        rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
+        sqlite3_free(sql);
+        if (rc != SQLITE_OK)
+        {
+            *pzErr = sqlite3_mprintf("Failed to create %s_%s_cluster_vector_map cluster index: %s", table_name, col_name, err_msg);
+            sqlite3_free(err_msg);
+            return rc;
+        }
+
+        // Initialize root cluster (cluster_id = 1) with zero centroid
+        // Create zero vector of appropriate dimensions
+        int blob_size = 2 + 4 + (dimensions * 4); // version + type + dims + data
+        unsigned char *zero_blob = (unsigned char *)sqlite3_malloc(blob_size);
+        if (!zero_blob)
+        {
+            *pzErr = sqlite3_mprintf("Out of memory creating zero centroid");
+            return SQLITE_NOMEM;
+        }
+
+        zero_blob[0] = 0x01; // version
+        zero_blob[1] = 0x01; // type: float32
+        // dimensions (little-endian uint32)
+        zero_blob[2] = (unsigned char)(dimensions & 0xFF);
+        zero_blob[3] = (unsigned char)((dimensions >> 8) & 0xFF);
+        zero_blob[4] = (unsigned char)((dimensions >> 16) & 0xFF);
+        zero_blob[5] = (unsigned char)((dimensions >> 24) & 0xFF);
+        // Zero the vector data
+        memset(&zero_blob[6], 0, dimensions * 4);
+
+        sql = sqlite3_mprintf(
+            "INSERT OR IGNORE INTO %s_%s_cluster_tree (cluster_id, parent_id, centroid_blob, is_leaf, cluster_size, created_at) "
+            "VALUES (1, NULL, ?, 1, 0, %lld)",
+            table_name, col_name, (sqlite3_int64)time(NULL));
+
+        sqlite3_stmt *stmt;
+        rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+        sqlite3_free(sql);
+        if (rc == SQLITE_OK)
+        {
+            sqlite3_bind_blob(stmt, 1, zero_blob, blob_size, SQLITE_TRANSIENT);
+            rc = sqlite3_step(stmt);
+            sqlite3_finalize(stmt);
+        }
+        sqlite3_free(zero_blob);
+
+        if (rc != SQLITE_DONE)
+        {
+            *pzErr = sqlite3_mprintf("Failed to initialize root cluster for %s: %s", col_name, sqlite3_errmsg(db));
+            return rc;
+        }
     }
 
     // Create _metadata table for configuration and state
@@ -511,6 +550,57 @@ static int parse_index_params(
                         return SQLITE_ERROR;
                     }
                 }
+                // Check if this is a column-specific distance_metric parameter: {column_name}_distance_metric='metric'
+                else if (key_len > 16 && strncmp(arg + key_len - 16, "_distance_metric", 16) == 0)
+                {
+                    // Extract column name (everything before "_distance_metric")
+                    char col_name[256];
+                    size_t col_name_len = key_len - 16;
+
+                    if (col_name_len >= sizeof(col_name))
+                    {
+                        col_name_len = sizeof(col_name) - 1;
+                    }
+
+                    strncpy(col_name, arg, col_name_len);
+                    col_name[col_name_len] = '\0';
+
+                    // Parse metric value
+                    int metric = -1;
+                    if (strcmp(value, "'l2'") == 0 || strcmp(value, "l2") == 0)
+                        metric = DISTANCE_METRIC_L2;
+                    else if (strcmp(value, "'cosine'") == 0 || strcmp(value, "cosine") == 0)
+                        metric = DISTANCE_METRIC_COSINE;
+                    else if (strcmp(value, "'dot'") == 0 || strcmp(value, "dot") == 0)
+                        metric = DISTANCE_METRIC_DOT;
+                    else if (strcmp(value, "'hamming'") == 0 || strcmp(value, "hamming") == 0)
+                        metric = DISTANCE_METRIC_HAMMING;
+                    else
+                    {
+                        *pzErr = sqlite3_mprintf("Invalid distance_metric value for column '%s': %s", col_name, value);
+                        sqlite3_free(columns);
+                        return SQLITE_ERROR;
+                    }
+
+                    // Find the column and set its distance metric
+                    int found = 0;
+                    for (int j = 0; j < col_count; j++)
+                    {
+                        if (strcmp(columns[j].name, col_name) == 0)
+                        {
+                            columns[j].distance_metric = metric;
+                            found = 1;
+                            break;
+                        }
+                    }
+
+                    if (!found)
+                    {
+                        *pzErr = sqlite3_mprintf("Column '%s' not found for distance_metric parameter", col_name);
+                        sqlite3_free(columns);
+                        return SQLITE_ERROR;
+                    }
+                }
             }
             continue;
         }
@@ -549,17 +639,25 @@ static int parse_index_params(
         columns[col_count].type = col_type;
         columns[col_count].affinity = get_type_affinity(col_type);
         columns[col_count].is_vector = (columns[col_count].affinity == SQLITE_BLOB);
-        columns[col_count].dimensions = 0; // Will be set later if specified
+        columns[col_count].dimensions = 0;       // Will be set later if specified
+        columns[col_count].distance_metric = -1; // Will be set later if specified
 
         col_count++;
     }
 
-    // Second pass: apply default dimensions to vector columns that don't have specific dimensions
+    // Second pass: apply default dimensions and distance_metric to vector columns that don't have specific values
     for (int i = 0; i < col_count; i++)
     {
-        if (columns[i].is_vector && columns[i].dimensions == 0)
+        if (columns[i].is_vector)
         {
-            columns[i].dimensions = default_dimensions;
+            if (columns[i].dimensions == 0)
+            {
+                columns[i].dimensions = default_dimensions;
+            }
+            if (columns[i].distance_metric == -1)
+            {
+                columns[i].distance_metric = *distance_metric;
+            }
         }
     }
 
@@ -747,42 +845,18 @@ int vector_index_create(
         return rc;
     }
 
-    // Store metadata (using first vector column's dimensions for backward compatibility)
-    // Also store the first vector column name for dynamic SQL generation in Go code
-    const char *first_vector_col = NULL;
-
-    for (int i = 0; i < num_columns; i++)
-    {
-        if (columns[i].is_vector)
-        {
-            first_vector_col = columns[i].name;
-            break;
-        }
-    }
-
-    if (!first_vector_col)
-    {
-        *pzErr = sqlite3_mprintf("No vector column found in column definitions");
-        sqlite3_free(vtab->table_name);
-        sqlite3_free(vtab);
-        return SQLITE_ERROR;
-    }
-
+    // Store metadata - persist all column definitions so they can be restored on xConnect
+    // Store column count first
     char *sql = sqlite3_mprintf(
         "INSERT OR REPLACE INTO %s_metadata (key, value) VALUES "
-        "('dimensions', '%d'), "
-        "('distance_metric', '%d'), "
+        "('column_count', '%d'), "
         "('max_cluster_size', '%d'), "
-        "('min_cluster_size', '%d'), "
-        "('pending_count', '0'), "
-        "('last_indexed_at', '0'), "
-        "('vector_column', '%q')",
+        "('min_cluster_size', '%d')",
         vtab->table_name,
-        vtab->dimensions,
-        distance_metric,
+        num_columns,
         max_cluster_size,
-        min_cluster_size,
-        first_vector_col);
+        min_cluster_size);
+
     char *err_msg = NULL;
     rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
     sqlite3_free(sql);
@@ -795,22 +869,59 @@ int vector_index_create(
         return rc;
     }
 
-    // Create root cluster (cluster 0) for fast initial assignments
-    // All vectors start in cluster 0, then background job reassigns to proper clusters
-    sql = sqlite3_mprintf(
-        "INSERT OR IGNORE INTO %s_cluster_tree (cluster_id, parent_id, centroid_blob, is_leaf, cluster_size, created_at) "
-        "SELECT 0, NULL, X'00000000', 1, 0, %lld "
-        "WHERE NOT EXISTS (SELECT 1 FROM %s_cluster_tree WHERE cluster_id = 0)",
-        vtab->table_name, (long long)time(NULL), vtab->table_name);
-    rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
-    sqlite3_free(sql);
-    if (rc != SQLITE_OK)
+    // Store each column's metadata
+    for (int i = 0; i < num_columns; i++)
     {
-        *pzErr = sqlite3_mprintf("Failed to create root cluster: %s", err_msg);
-        sqlite3_free(err_msg);
-        sqlite3_free(vtab->table_name);
-        sqlite3_free(vtab);
-        return rc;
+        sql = sqlite3_mprintf(
+            "INSERT OR REPLACE INTO %s_metadata (key, value) VALUES "
+            "('column_%d_name', '%q'), "
+            "('column_%d_type', '%q'), "
+            "('column_%d_dimensions', '%d'), "
+            "('column_%d_distance_metric', '%d')",
+            vtab->table_name,
+            i, columns[i].name,
+            i, columns[i].type,
+            i, columns[i].dimensions,
+            i, columns[i].distance_metric);
+
+        rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
+        sqlite3_free(sql);
+        if (rc != SQLITE_OK)
+        {
+            *pzErr = sqlite3_mprintf("Failed to store column %d metadata: %s", i, err_msg);
+            sqlite3_free(err_msg);
+            sqlite3_free(vtab->table_name);
+            sqlite3_free(vtab);
+            return rc;
+        }
+    }
+
+    // Create root cluster (cluster 0) for each vector column for fast initial assignments
+    // All vectors start in cluster 0, then background job reassigns to proper clusters
+    for (int i = 0; i < num_columns; i++)
+    {
+        // Only create root cluster for BLOB columns (vector columns)
+        if (strcmp(columns[i].type, "BLOB") != 0)
+        {
+            continue;
+        }
+
+        sql = sqlite3_mprintf(
+            "INSERT OR IGNORE INTO %s_%s_cluster_tree (cluster_id, parent_id, centroid_blob, is_leaf, cluster_size, created_at) "
+            "SELECT 0, NULL, X'00000000', 1, 0, %lld "
+            "WHERE NOT EXISTS (SELECT 1 FROM %s_%s_cluster_tree WHERE cluster_id = 0)",
+            vtab->table_name, columns[i].name, (long long)time(NULL), vtab->table_name, columns[i].name);
+        rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
+        sqlite3_free(sql);
+
+        if (rc != SQLITE_OK)
+        {
+            *pzErr = sqlite3_mprintf("Failed to create root cluster for column %s: %s", columns[i].name, err_msg);
+            sqlite3_free(err_msg);
+            sqlite3_free(vtab->table_name);
+            sqlite3_free(vtab);
+            return rc;
+        }
     }
 
     // Prepare cached statements for hot paths
@@ -878,15 +989,111 @@ int vector_index_connect(
     vtab->db = db;
     vtab->table_name = sqlite3_mprintf("%s", argv[2]);
 
-    // Load metadata
+    // Load metadata - first get column count
     char *sql = sqlite3_mprintf(
-        "SELECT value FROM %s_metadata WHERE key = 'dimensions' "
-        "UNION ALL SELECT value FROM %s_metadata WHERE key = 'distance_metric' "
-        "UNION ALL SELECT value FROM %s_metadata WHERE key = 'max_cluster_size' "
-        "UNION ALL SELECT value FROM %s_metadata WHERE key = 'min_cluster_size'",
-        vtab->table_name, vtab->table_name, vtab->table_name, vtab->table_name);
+        "SELECT value FROM %s_metadata WHERE key = 'column_count'",
+        vtab->table_name);
 
     sqlite3_stmt *stmt;
+    rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    sqlite3_free(sql);
+    if (rc != SQLITE_OK)
+    {
+        sqlite3_free(vtab->table_name);
+        sqlite3_free(vtab);
+        return rc;
+    }
+
+    int num_columns = 0;
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        num_columns = atoi((const char *)sqlite3_column_text(stmt, 0));
+    }
+    sqlite3_finalize(stmt);
+
+    if (num_columns == 0)
+    {
+        *pzErr = sqlite3_mprintf("No column metadata found for table %s", vtab->table_name);
+        sqlite3_free(vtab->table_name);
+        sqlite3_free(vtab);
+        return SQLITE_ERROR;
+    }
+
+    // Allocate columns array
+    vtab->columns = (ColumnDef *)sqlite3_malloc(sizeof(ColumnDef) * num_columns);
+    if (!vtab->columns)
+    {
+        sqlite3_free(vtab->table_name);
+        sqlite3_free(vtab);
+        return SQLITE_NOMEM;
+    }
+    memset(vtab->columns, 0, sizeof(ColumnDef) * num_columns);
+    vtab->num_columns = num_columns;
+
+    // Load each column's metadata
+    for (int i = 0; i < num_columns; i++)
+    {
+        // Load column name
+        sql = sqlite3_mprintf("SELECT value FROM %s_metadata WHERE key = 'column_%d_name'",
+                              vtab->table_name, i);
+        rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+        sqlite3_free(sql);
+        if (rc == SQLITE_OK && sqlite3_step(stmt) == SQLITE_ROW)
+        {
+            vtab->columns[i].name = sqlite3_mprintf("%s", sqlite3_column_text(stmt, 0));
+        }
+        sqlite3_finalize(stmt);
+
+        // Load column type
+        sql = sqlite3_mprintf("SELECT value FROM %s_metadata WHERE key = 'column_%d_type'",
+                              vtab->table_name, i);
+        rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+        sqlite3_free(sql);
+        if (rc == SQLITE_OK && sqlite3_step(stmt) == SQLITE_ROW)
+        {
+            vtab->columns[i].type = sqlite3_mprintf("%s", sqlite3_column_text(stmt, 0));
+            vtab->columns[i].affinity = get_type_affinity(vtab->columns[i].type);
+            vtab->columns[i].is_vector = (vtab->columns[i].affinity == SQLITE_BLOB);
+        }
+        sqlite3_finalize(stmt);
+
+        // Load column dimensions
+        sql = sqlite3_mprintf("SELECT value FROM %s_metadata WHERE key = 'column_%d_dimensions'",
+                              vtab->table_name, i);
+        rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+        sqlite3_free(sql);
+        if (rc == SQLITE_OK && sqlite3_step(stmt) == SQLITE_ROW)
+        {
+            vtab->columns[i].dimensions = atoi((const char *)sqlite3_column_text(stmt, 0));
+        }
+        sqlite3_finalize(stmt);
+
+        // Load column distance_metric
+        sql = sqlite3_mprintf("SELECT value FROM %s_metadata WHERE key = 'column_%d_distance_metric'",
+                              vtab->table_name, i);
+        rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+        sqlite3_free(sql);
+        if (rc == SQLITE_OK && sqlite3_step(stmt) == SQLITE_ROW)
+        {
+            vtab->columns[i].distance_metric = atoi((const char *)sqlite3_column_text(stmt, 0));
+        }
+        sqlite3_finalize(stmt);
+
+        // Set first vector column for backward compatibility
+        if (vtab->columns[i].is_vector && vtab->vector_col_index == -1)
+        {
+            vtab->vector_col_index = i;
+            vtab->dimensions = vtab->columns[i].dimensions;
+            vtab->distance_metric = vtab->columns[i].distance_metric;
+        }
+    }
+
+    // Load max_cluster_size and min_cluster_size
+    sql = sqlite3_mprintf(
+        "SELECT value FROM %s_metadata WHERE key = 'max_cluster_size' "
+        "UNION ALL SELECT value FROM %s_metadata WHERE key = 'min_cluster_size'",
+        vtab->table_name, vtab->table_name);
+
     rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
     sqlite3_free(sql);
     if (rc != SQLITE_OK)
@@ -900,27 +1107,27 @@ int vector_index_connect(
     while (sqlite3_step(stmt) == SQLITE_ROW)
     {
         const char *value = (const char *)sqlite3_column_text(stmt, 0);
-        switch (row)
-        {
-        case 0:
-            vtab->dimensions = atoi(value);
-            break;
-        case 1:
-            vtab->distance_metric = atoi(value);
-            break;
-        case 2:
+        if (row == 0)
             vtab->max_cluster_size = atoi(value);
-            break;
-        case 3:
+        else if (row == 1)
             vtab->min_cluster_size = atoi(value);
-            break;
-        }
         row++;
     }
     sqlite3_finalize(stmt);
 
-    // Declare virtual table schema
-    rc = sqlite3_declare_vtab(db, "CREATE TABLE x(id INTEGER PRIMARY KEY, vector BLOB)");
+    // Build dynamic schema for sqlite3_declare_vtab
+    char *schema = sqlite3_mprintf("CREATE TABLE x(id INTEGER PRIMARY KEY");
+    for (int i = 0; i < num_columns; i++)
+    {
+        char *new_schema = sqlite3_mprintf("%s, %s %s", schema, vtab->columns[i].name, vtab->columns[i].type);
+        sqlite3_free(schema);
+        schema = new_schema;
+    }
+    char *final_schema = sqlite3_mprintf("%s)", schema);
+    sqlite3_free(schema);
+
+    rc = sqlite3_declare_vtab(db, final_schema);
+    sqlite3_free(final_schema);
     if (rc != SQLITE_OK)
     {
         sqlite3_free(vtab->table_name);
@@ -1169,11 +1376,15 @@ static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr)
     for (int i = 0; i < vtab->buffer_size; i++)
     {
         // Bind column values
+        // Note: column_values[0] is the id column (from argv[2]), skip it
+        // column_values[1..n] are the user columns (from argv[3..n+2])
         for (int j = 0; j < vtab->num_columns; j++)
         {
-            if (j < vtab->insert_buffer[i].num_columns)
+            int col_values_idx = j + 1; // +1 to skip id column at index 0
+
+            if (col_values_idx < vtab->insert_buffer[i].num_columns)
             {
-                sqlite3_bind_value(stmt, param_idx++, vtab->insert_buffer[i].column_values[j]);
+                sqlite3_bind_value(stmt, param_idx++, vtab->insert_buffer[i].column_values[col_values_idx]);
             }
             else
             {
@@ -1214,56 +1425,49 @@ static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr)
         sqlite3_finalize(max_stmt);
     }
 
-    // Build multi-row INSERT for _cluster_vector_map
-    // INSERT INTO table_cluster_vector_map (vector_id, cluster_id, indexed_at) VALUES (?,0,?),(?,0,?),...
-    // Each row is approximately: (vector_id,cluster_id,timestamp) = ~30 chars worst case
-    // Plus comma separator = ~31 chars per row
-    // Allocate 40 bytes per row to be safe
-    values_clause = (char *)sqlite3_malloc(vtab->buffer_size * 40 + 1);
-    if (!values_clause)
+    // Build multi-row INSERT for each vector column's cluster_vector_map table
+    // INSERT INTO {table}_{column}_cluster_vector_map (vector_id, cluster_id, distance, indexed_at) VALUES (?,0,0.0,?),(?,0,0.0,?),...
+    for (int col_idx = 0; col_idx < vtab->num_columns; col_idx++)
     {
-        *pzErr = sqlite3_mprintf("Out of memory building map INSERT");
-        return SQLITE_NOMEM;
-    }
+        if (!vtab->columns[col_idx].is_vector)
+            continue;
 
-    ptr = values_clause;
-    for (int i = 0; i < vtab->buffer_size; i++)
-    {
-        if (i > 0)
+        const char *col_name = vtab->columns[col_idx].name;
+
+        // Build VALUES clause for this column
+        values_clause = (char *)sqlite3_malloc(vtab->buffer_size * 50 + 1); // ~50 chars per row
+        if (!values_clause)
         {
-            ptr += sprintf(ptr, ",");
+            *pzErr = sqlite3_mprintf("Out of memory building map INSERT for column %s", col_name);
+            return SQLITE_NOMEM;
         }
-        ptr += sprintf(ptr, "(%lld,0,%lld)",
-                       (long long)(first_rowid + i),
-                       (long long)vtab->insert_buffer[i].created_at);
-    }
-    *ptr = '\0'; // Ensure null termination
 
-    sql = sqlite3_mprintf(
-        "INSERT INTO %s_cluster_vector_map (vector_id, cluster_id, indexed_at) VALUES %s",
-        vtab->table_name, values_clause);
-    sqlite3_free(values_clause);
+        ptr = values_clause;
+        for (int i = 0; i < vtab->buffer_size; i++)
+        {
+            if (i > 0)
+            {
+                ptr += sprintf(ptr, ",");
+            }
+            ptr += sprintf(ptr, "(%lld,0,0.0,%lld)",
+                           (long long)(first_rowid + i),
+                           (long long)vtab->insert_buffer[i].created_at);
+        }
+        *ptr = '\0'; // Ensure null termination
 
-    rc = sqlite3_exec(vtab->db, sql, NULL, NULL, &err_msg);
-    sqlite3_free(sql);
-    if (rc != SQLITE_OK)
-    {
-        *pzErr = sqlite3_mprintf("Batch map insert failed: %s", err_msg);
-        sqlite3_free(err_msg);
-        return rc;
-    }
+        sql = sqlite3_mprintf(
+            "INSERT INTO %s_%s_cluster_vector_map (vector_id, cluster_id, distance, indexed_at) VALUES %s",
+            vtab->table_name, col_name, values_clause);
+        sqlite3_free(values_clause);
 
-    // Update cluster_size once for entire batch
-    sql = sqlite3_mprintf(
-        "UPDATE %s_cluster_tree SET cluster_size = cluster_size + %d WHERE cluster_id = 0",
-        vtab->table_name, vtab->buffer_size);
-    rc = sqlite3_exec(vtab->db, sql, NULL, NULL, &err_msg);
-    sqlite3_free(sql);
-    if (rc != SQLITE_OK)
-    {
-        *pzErr = sqlite3_mprintf("Batch cluster_size update failed: %s", err_msg);
-        sqlite3_free(err_msg);
-        return rc;
+        rc = sqlite3_exec(vtab->db, sql, NULL, NULL, &err_msg);
+        sqlite3_free(sql);
+        if (rc != SQLITE_OK)
+        {
+            *pzErr = sqlite3_mprintf("Batch map insert failed for column %s: %s", col_name, err_msg);
+            sqlite3_free(err_msg);
+            return rc;
+        }
     }
 
     // Notify Go once for the entire batch (not per vector)
@@ -1408,7 +1612,7 @@ int vector_index_filter(
     }
 
     // Query vectors via JOIN with cluster_vector_map (Hierarchical IVF v2 schema)
-    // Use first vector column name dynamically
+    // Use first vector column name dynamically for the JOIN
     const char *vector_col_name = "vector"; // default
     for (int i = 0; i < vtab->num_columns; i++)
     {
@@ -1419,10 +1623,24 @@ int vector_index_filter(
         }
     }
 
+    // Build column list: "v.id, v.col1, v.col2, ..." to select ALL user-defined columns
+    char *column_list = sqlite3_mprintf("v.id");
+    for (int i = 0; i < vtab->num_columns; i++)
+    {
+        char *new_list = sqlite3_mprintf("%s, v.%s", column_list, vtab->columns[i].name);
+        sqlite3_free(column_list);
+        column_list = new_list;
+        if (!column_list)
+        {
+            return SQLITE_NOMEM;
+        }
+    }
+
     char *sql = sqlite3_mprintf(
-        "SELECT v.id, v.%s FROM %s_vectors v "
-        "INNER JOIN %s_cluster_vector_map m ON v.id = m.vector_id",
-        vector_col_name, vtab->table_name, vtab->table_name);
+        "SELECT %s FROM %s_vectors v "
+        "INNER JOIN %s_%s_cluster_vector_map m ON v.id = m.vector_id",
+        column_list, vtab->table_name, vtab->table_name, vector_col_name);
+    sqlite3_free(column_list);
 
     int rc = sqlite3_prepare_v2(vtab->db, sql, -1, &cursor->stmt, NULL);
     sqlite3_free(sql);
@@ -1489,36 +1707,67 @@ int vector_index_update(
     {
         // DELETE: argc == 1, argv[0] = rowid (vector_id)
         sqlite3_int64 vector_id = sqlite3_value_int64(argv[0]);
+        sqlite3_stmt *stmt;
 
-        // Use prepared delete statement
-        if (vtab->delete_map_stmt)
+        // Multi-column support: Delete from all column-specific cluster_vector_map tables
+        // For each vector column, delete the mapping entry
+        for (int i = 0; i < vtab->num_columns; i++)
         {
-            sqlite3_bind_int64(vtab->delete_map_stmt, 1, vector_id);
-            rc = sqlite3_step(vtab->delete_map_stmt);
-            sqlite3_reset(vtab->delete_map_stmt);
-            sqlite3_clear_bindings(vtab->delete_map_stmt);
+            if (!vtab->columns[i].is_vector)
+            {
+                continue;
+            }
+
+            sql = sqlite3_mprintf(
+                "DELETE FROM %s_%s_cluster_vector_map WHERE vector_id = ?",
+                vtab->table_name, vtab->columns[i].name);
+
+            rc = sqlite3_prepare_v2(vtab->db, sql, -1, &stmt, NULL);
+            sqlite3_free(sql);
+
+            if (rc != SQLITE_OK)
+            {
+                pVtab->zErrMsg = sqlite3_mprintf("Failed to prepare DELETE for %s_%s_cluster_vector_map: %s",
+                                                 vtab->table_name, vtab->columns[i].name, sqlite3_errmsg(vtab->db));
+                return rc;
+            }
+
+            sqlite3_bind_int64(stmt, 1, vector_id);
+            rc = sqlite3_step(stmt);
+            sqlite3_finalize(stmt);
 
             if (rc != SQLITE_DONE && rc != SQLITE_OK)
             {
-                pVtab->zErrMsg = sqlite3_mprintf("DELETE failed: %s", sqlite3_errmsg(vtab->db));
+                pVtab->zErrMsg = sqlite3_mprintf("DELETE from %s_%s_cluster_vector_map failed: %s",
+                                                 vtab->table_name, vtab->columns[i].name, sqlite3_errmsg(vtab->db));
                 return rc;
             }
         }
-        else
-        {
-            // Fallback to exec
-            sql = sqlite3_mprintf(
-                "DELETE FROM %s_cluster_vector_map WHERE vector_id = %lld",
-                vtab->table_name, vector_id);
 
-            rc = sqlite3_exec(vtab->db, sql, NULL, NULL, &err_msg);
-            sqlite3_free(sql);
-            if (rc != SQLITE_OK)
-            {
-                pVtab->zErrMsg = sqlite3_mprintf("DELETE failed: %s", err_msg);
-                sqlite3_free(err_msg);
-                return rc;
-            }
+        // Also delete from the _vectors shadow table
+        sql = sqlite3_mprintf(
+            "DELETE FROM %s_vectors WHERE id = ?",
+            vtab->table_name);
+
+        rc = sqlite3_prepare_v2(vtab->db, sql, -1, &stmt, NULL);
+        sqlite3_free(sql);
+
+        if (rc != SQLITE_OK)
+        {
+            pVtab->zErrMsg = sqlite3_mprintf("Failed to prepare DELETE for %s_vectors: %s",
+                                             vtab->table_name, sqlite3_errmsg(vtab->db));
+            return rc;
+        }
+
+        sqlite3_bind_int64(stmt, 1, vector_id);
+        rc = sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+
+        if (rc != SQLITE_DONE && rc != SQLITE_OK)
+        {
+            pVtab->zErrMsg = sqlite3_mprintf("DELETE from %s_vectors failed: %s",
+                                             vtab->table_name, sqlite3_errmsg(vtab->db));
+            return rc;
         }
     }
     else if (argc > 1 && sqlite3_value_type(argv[0]) == SQLITE_NULL)
@@ -1536,6 +1785,51 @@ int vector_index_update(
             {
                 pVtab->zErrMsg = flush_err;
                 return rc;
+            }
+        }
+
+        // Validate dimensions for BLOB (vector) columns before buffering
+        // Note: SQLite passes columns as: argv[0]=NULL, argv[1]=rowid, argv[2]=id, argv[3]=col1, argv[4]=col2, ...
+        // The 'id' column (INTEGER PRIMARY KEY) is at argv[2], user columns start at argv[3]
+        for (int i = 0; i < vtab->num_columns; i++)
+        {
+            int col_index = 2 + 1 + i; // Skip argv[0], argv[1], and argv[2] (id column)
+
+            if (col_index >= argc)
+            {
+                break; // No more columns in argv
+            }
+
+            if (vtab->columns[i].is_vector && sqlite3_value_type(argv[col_index]) == SQLITE_BLOB)
+            {
+                const unsigned char *blob_data = (const unsigned char *)sqlite3_value_blob(argv[col_index]);
+                int blob_size = sqlite3_value_bytes(argv[col_index]);
+
+                // Need at least 6 bytes for header (version + type + dimensions)
+                if (blob_size < 6)
+                {
+                    pVtab->zErrMsg = sqlite3_mprintf(
+                        "Column '%s' has invalid vector BLOB (too small, expected at least 6 bytes)",
+                        vtab->columns[i].name);
+                    return SQLITE_ERROR;
+                }
+
+                // Extract dimensions from bytes 2-5 (little-endian)
+                int actual_dims = (int)blob_data[2] |
+                                  ((int)blob_data[3] << 8) |
+                                  ((int)blob_data[4] << 16) |
+                                  ((int)blob_data[5] << 24);
+
+                // Validate dimensions match column definition
+                if (actual_dims != vtab->columns[i].dimensions)
+                {
+                    pVtab->zErrMsg = sqlite3_mprintf(
+                        "Column '%s' expects %d dimensions, got %d",
+                        vtab->columns[i].name,
+                        vtab->columns[i].dimensions,
+                        actual_dims);
+                    return SQLITE_ERROR;
+                }
             }
         }
 
@@ -1579,32 +1873,38 @@ int vector_index_update(
         sqlite3_int64 old_vector_id = sqlite3_value_int64(argv[0]);
         const void *vector_data = sqlite3_value_blob(argv[3]);
         int vector_size = sqlite3_value_bytes(argv[3]);
+        sqlite3_stmt *stmt;
 
-        // Delete old mapping entry using prepared statement
-        if (vtab->delete_map_stmt)
+        // Multi-column support: Delete old mappings from all column-specific cluster_vector_map tables
+        for (int i = 0; i < vtab->num_columns; i++)
         {
-            sqlite3_bind_int64(vtab->delete_map_stmt, 1, old_vector_id);
-            rc = sqlite3_step(vtab->delete_map_stmt);
-            sqlite3_reset(vtab->delete_map_stmt);
-            sqlite3_clear_bindings(vtab->delete_map_stmt);
+            if (!vtab->columns[i].is_vector)
+            {
+                continue;
+            }
+
+            sql = sqlite3_mprintf(
+                "DELETE FROM %s_%s_cluster_vector_map WHERE vector_id = ?",
+                vtab->table_name, vtab->columns[i].name);
+
+            rc = sqlite3_prepare_v2(vtab->db, sql, -1, &stmt, NULL);
+            sqlite3_free(sql);
+
+            if (rc != SQLITE_OK)
+            {
+                pVtab->zErrMsg = sqlite3_mprintf("Failed to prepare UPDATE DELETE for %s_%s_cluster_vector_map: %s",
+                                                 vtab->table_name, vtab->columns[i].name, sqlite3_errmsg(vtab->db));
+                return rc;
+            }
+
+            sqlite3_bind_int64(stmt, 1, old_vector_id);
+            rc = sqlite3_step(stmt);
+            sqlite3_finalize(stmt);
 
             if (rc != SQLITE_DONE && rc != SQLITE_OK)
             {
-                pVtab->zErrMsg = sqlite3_mprintf("UPDATE delete mapping failed: %s", sqlite3_errmsg(vtab->db));
-                return rc;
-            }
-        }
-        else
-        {
-            sql = sqlite3_mprintf(
-                "DELETE FROM %s_cluster_vector_map WHERE vector_id = %lld",
-                vtab->table_name, old_vector_id);
-            rc = sqlite3_exec(vtab->db, sql, NULL, NULL, &err_msg);
-            sqlite3_free(sql);
-            if (rc != SQLITE_OK)
-            {
-                pVtab->zErrMsg = sqlite3_mprintf("UPDATE delete mapping failed: %s", err_msg);
-                sqlite3_free(err_msg);
+                pVtab->zErrMsg = sqlite3_mprintf("UPDATE delete from %s_%s_cluster_vector_map failed: %s",
+                                                 vtab->table_name, vtab->columns[i].name, sqlite3_errmsg(vtab->db));
                 return rc;
             }
         }
@@ -1624,7 +1924,6 @@ int vector_index_update(
             "INSERT INTO %s_vectors (%s, created_at) VALUES (?1, ?2)",
             vtab->table_name, vector_col_name);
 
-        sqlite3_stmt *stmt;
         rc = sqlite3_prepare_v2(vtab->db, sql, -1, &stmt, NULL);
         sqlite3_free(sql);
         if (rc != SQLITE_OK)
@@ -1640,34 +1939,39 @@ int vector_index_update(
 
         sqlite3_int64 new_vector_id = sqlite3_last_insert_rowid(vtab->db);
 
-        // Assign new vector to cluster 0 using upsert
-        if (vtab->upsert_map_stmt)
+        // Assign new vector to cluster 0 for all vector columns
+        for (int i = 0; i < vtab->num_columns; i++)
         {
-            sqlite3_bind_int64(vtab->upsert_map_stmt, 1, new_vector_id);
-            sqlite3_bind_int64(vtab->upsert_map_stmt, 2, 0);
-            sqlite3_bind_int64(vtab->upsert_map_stmt, 3, (sqlite3_int64)time(NULL));
+            if (!vtab->columns[i].is_vector)
+            {
+                continue;
+            }
 
-            rc = sqlite3_step(vtab->upsert_map_stmt);
-            sqlite3_reset(vtab->upsert_map_stmt);
-            sqlite3_clear_bindings(vtab->upsert_map_stmt);
+            sql = sqlite3_mprintf(
+                "INSERT INTO %s_%s_cluster_vector_map (vector_id, cluster_id, indexed_at) VALUES (?, ?, ?)",
+                vtab->table_name, vtab->columns[i].name);
+
+            rc = sqlite3_prepare_v2(vtab->db, sql, -1, &stmt, NULL);
+            sqlite3_free(sql);
+
+            if (rc != SQLITE_OK)
+            {
+                pVtab->zErrMsg = sqlite3_mprintf("Failed to prepare INSERT for %s_%s_cluster_vector_map: %s",
+                                                 vtab->table_name, vtab->columns[i].name, sqlite3_errmsg(vtab->db));
+                return rc;
+            }
+
+            sqlite3_bind_int64(stmt, 1, new_vector_id);
+            sqlite3_bind_int64(stmt, 2, 0);
+            sqlite3_bind_int64(stmt, 3, (sqlite3_int64)time(NULL));
+
+            rc = sqlite3_step(stmt);
+            sqlite3_finalize(stmt);
 
             if (rc != SQLITE_DONE && rc != SQLITE_OK)
             {
-                pVtab->zErrMsg = sqlite3_mprintf("UPDATE assign to cluster failed: %s", sqlite3_errmsg(vtab->db));
-                return rc;
-            }
-        }
-        else
-        {
-            sql = sqlite3_mprintf(
-                "INSERT INTO %s_cluster_vector_map (vector_id, cluster_id, indexed_at) VALUES (%lld, 0, %lld)",
-                vtab->table_name, new_vector_id, (sqlite3_int64)time(NULL));
-            rc = sqlite3_exec(vtab->db, sql, NULL, NULL, &err_msg);
-            sqlite3_free(sql);
-            if (rc != SQLITE_OK)
-            {
-                pVtab->zErrMsg = sqlite3_mprintf("UPDATE assign to cluster failed: %s", err_msg);
-                sqlite3_free(err_msg);
+                pVtab->zErrMsg = sqlite3_mprintf("UPDATE assign to %s_%s_cluster_vector_map failed: %s",
+                                                 vtab->table_name, vtab->columns[i].name, sqlite3_errmsg(vtab->db));
                 return rc;
             }
         }

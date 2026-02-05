@@ -81,9 +81,16 @@ func VectorIndexerJob(ctx context.Context, app *App, data map[string]interface{}
 
 	dbConn := conn.GetConnection()
 
-	// Get index configuration from metadata key-value store
+	// Get vector columns configuration from metadata
+	vectorColumns, err := vector.GetVectorColumns(dbConn, tableName)
+
+	if err != nil {
+		return fmt.Errorf("failed to get vector columns: %w", err)
+	}
+
+	// Get index configuration from metadata key-value store (table-level defaults)
 	res, err := dbConn.Exec(
-		fmt.Sprintf(`SELECT key, value FROM %s_metadata WHERE key IN ('dimensions', 'distance_metric', 'max_cluster_size', 'min_cluster_size')`, tableName),
+		fmt.Sprintf(`SELECT key, value FROM %s_metadata WHERE key IN ('max_cluster_size', 'min_cluster_size')`, tableName),
 		nil,
 	)
 
@@ -100,10 +107,8 @@ func VectorIndexerJob(ctx context.Context, app *App, data map[string]interface{}
 		metadata[key] = value
 	}
 
-	var dimensions, distanceMetric, maxClusterSize, minClusterSize int
+	var maxClusterSize, minClusterSize int
 
-	fmt.Sscanf(metadata["dimensions"], "%d", &dimensions)
-	fmt.Sscanf(metadata["distance_metric"], "%d", &distanceMetric)
 	fmt.Sscanf(metadata["max_cluster_size"], "%d", &maxClusterSize)
 	fmt.Sscanf(metadata["min_cluster_size"], "%d", &minClusterSize)
 
@@ -111,8 +116,7 @@ func VectorIndexerJob(ctx context.Context, app *App, data map[string]interface{}
 	indexer, err := vector.NewVectorIndexer(
 		dbConn,
 		tableName,
-		dimensions,
-		distanceMetric,
+		vectorColumns,
 		maxClusterSize,
 		minClusterSize,
 	)

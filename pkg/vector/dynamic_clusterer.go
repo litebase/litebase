@@ -327,11 +327,18 @@ func (c *DynamicClusterer) CheckAndRebalanceClusters(ctx context.Context, cluste
 // SplitCluster splits an oversized cluster into two clusters
 func (c *DynamicClusterer) SplitCluster(clusterID int64) error {
 	// Get the vector column name from metadata
-	vectorColumn, err := getVectorColumnName(c.DB, c.TableName)
+	vectorColumns, err := getVectorColumns(c.DB, c.TableName)
 
 	if err != nil {
-		return fmt.Errorf("failed to get vector column name: %w", err)
+		return fmt.Errorf("failed to get vector columns: %w", err)
 	}
+
+	if len(vectorColumns) == 0 {
+		return fmt.Errorf("no vector columns found")
+	}
+
+	// Use first vector column (dynamic clusterer is deprecated)
+	vectorColumn := vectorColumns[0].Name
 
 	// Get all vectors from the cluster
 	res, err := c.DB.Exec(

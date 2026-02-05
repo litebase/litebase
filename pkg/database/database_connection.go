@@ -55,7 +55,8 @@ var DatabaseConnectionConfigStatements = func(config *config.Config) []string {
 		"PRAGMA busy_timeout = 5000",
 
 		// PRAGMA cache_size will set the size of the cache to 0. This will
-		// disable caching and force SQLite to read from storage for every query.
+		// disable caching and force SQLite to read from storage for every query
+		// to properly use distributed storage.
 		"PRAGMA cache_size = 0",
 
 		// PRAGMA secure_delete will ensure that data is securely deleted from
@@ -912,15 +913,11 @@ func (con *DatabaseConnection) Transaction(
 ) error {
 	con.mutex.Lock()
 	con.inTransaction = true
-	// Register active transaction so other subsystems can detect it
-	RegisterActiveTransaction(con.branch.DatabaseID, con.branch.DatabaseBranchID)
 	con.mutex.Unlock()
 
 	defer func() {
 		con.mutex.Lock()
 		con.inTransaction = false
-		UnregisterActiveTransaction(con.branch.DatabaseID, con.branch.DatabaseBranchID)
-
 		con.mutex.Unlock()
 	}()
 

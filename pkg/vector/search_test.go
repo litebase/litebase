@@ -49,29 +49,19 @@ func TestVectorSearchBruteForceFallback(t *testing.T) {
 			}
 		}
 
-		// Check what's in the pending table FIRST
-		pendingRes, err := dbConn.Exec("SELECT COUNT(*) FROM embeddings_pending", nil)
+		// CRITICAL: Verify cluster tree has only the root cluster (testing brute-force fallback)
+		// With multi-column schema: embeddings_vector_cluster_tree
+		clustersRes, err := dbConn.Exec("SELECT COUNT(*) FROM embeddings_vector_cluster_tree WHERE parent_id IS NOT NULL", nil)
 
 		if err != nil {
-			t.Fatalf("Failed to count pending vectors: %v", err)
-		}
-
-		if len(pendingRes.Rows) <= 0 {
-			t.Fatal("No rows in pending count result")
-		}
-
-		// CRITICAL: Verify NO clusters exist yet (testing brute-force fallback)
-		clustersRes, err := dbConn.Exec("SELECT COUNT(*) FROM embeddings_clusters", nil)
-
-		if err != nil {
-			t.Fatalf("Failed to count clusters: %v", err)
+			t.Fatalf("Failed to count non-root clusters: %v", err)
 		}
 
 		if len(clustersRes.Rows) > 0 && len(clustersRes.Rows[0]) > 0 {
 			clusterCount := clustersRes.Rows[0][0].Int64()
 
 			if clusterCount != 0 {
-				t.Fatalf("Expected 0 clusters (testing brute-force fallback), got %d", clusterCount)
+				t.Fatalf("Expected 0 non-root clusters (testing brute-force fallback), got %d", clusterCount)
 			}
 		}
 
@@ -180,47 +170,11 @@ func TestVectorSearchWithClusters(t *testing.T) {
 		// Mark the index as having pending vectors to trigger processing
 		app.VectorIndexMgr.MarkPending(mock.DatabaseID, mock.DatabaseBranchID, "embeddings")
 
-		// Wait for the VectorIndexer job to complete (up to 5 seconds)
-		timeout := time.After(5 * time.Second)
-		ticker := time.NewTicker(100 * time.Millisecond)
-		defer ticker.Stop()
+		// Wait briefly for vectors to be mapped to cluster 0 (root cluster)
+		time.Sleep(500 * time.Millisecond)
 
-	waitForIndexing:
-		for {
-			select {
-			case <-timeout:
-				t.Fatal("Timed out waiting for vector indexing to complete")
-			case <-ticker.C:
-				// Check if vectors have been indexed
-				indexedRes, err := dbConn.Exec("SELECT COUNT(*) FROM embeddings_indexed", nil)
-
-				if err != nil {
-					t.Fatalf("Failed to count indexed vectors: %v", err)
-				}
-
-				if len(indexedRes.Rows) > 0 && len(indexedRes.Rows[0]) > 0 {
-					indexedCount := indexedRes.Rows[0][0].Int64()
-
-					if indexedCount > 0 {
-						break waitForIndexing
-					}
-				}
-			}
-		}
-
-		// Check what's in the pending table after indexing
-		pendingRes, err := dbConn.Exec("SELECT COUNT(*) FROM embeddings_pending", nil)
-
-		if err != nil {
-			t.Fatalf("Failed to count pending vectors: %v", err)
-		}
-
-		if len(pendingRes.Rows) > 0 && len(pendingRes.Rows[0]) > 0 && pendingRes.Rows[0][0].Int64() != 0 {
-			t.Fatalf("Expected 0 pending vectors after indexing, but found %d", pendingRes.Rows[0][0].Int64())
-		}
-
-		// Verify clusters were created
-		clustersRes, err := dbConn.Exec("SELECT COUNT(*) FROM embeddings_clusters", nil)
+		// Verify cluster tree exists (at least the root cluster)
+		clustersRes, err := dbConn.Exec("SELECT COUNT(*) FROM embeddings_vector_cluster_tree", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to count clusters: %v", err)
@@ -232,25 +186,25 @@ func TestVectorSearchWithClusters(t *testing.T) {
 
 		clusterCount := clustersRes.Rows[0][0].Int64()
 
-		if clusterCount == 0 {
-			t.Fatal("Expected at least 1 cluster after indexing")
+		if clusterCount < 1 {
+			t.Fatalf("Expected at least 1 cluster (root), got %d", clusterCount)
 		}
 
-		// Verify indexed vectors
-		indexedRes2, err := dbConn.Exec("SELECT COUNT(*) FROM embeddings_indexed", nil)
+		// Verify vectors are mapped to clusters in embeddings_vector_cluster_vector_map
+		mappingRes, err := dbConn.Exec("SELECT COUNT(*) FROM embeddings_vector_cluster_vector_map", nil)
 
 		if err != nil {
-			t.Fatalf("Failed to count indexed vectors: %v", err)
+			t.Fatalf("Failed to count cluster mappings: %v", err)
 		}
 
-		if len(indexedRes2.Rows) == 0 || len(indexedRes2.Rows[0]) == 0 {
-			t.Fatal("No indexed count result")
+		if len(mappingRes.Rows) == 0 || len(mappingRes.Rows[0]) == 0 {
+			t.Fatal("No mapping count result")
 		}
 
-		indexedCount2 := indexedRes2.Rows[0][0].Int64()
+		mappingCount := mappingRes.Rows[0][0].Int64()
 
-		if indexedCount2 == 0 {
-			t.Fatal("Expected at least 1 indexed vector")
+		if mappingCount != 5 {
+			t.Fatalf("Expected 5 vector-cluster mappings, got %d", mappingCount)
 		}
 
 		// Now test vector_search() - should use cluster-based search, not fallback

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"strconv"
 	"sync"
 	"unsafe"
 
@@ -29,26 +30,72 @@ type SearchHandle struct {
 	Index   int
 }
 
-// getVectorColumnNameForSearch queries the metadata table to get the first vector column name
+// getVectorColumnNameForSearch queries the metadata table to get a vector column name by searching for a BLOB column
 // This is a helper for search operations that need to query the vector column dynamically
-func getVectorColumnNameForSearch(conn *database.DatabaseConnection, tableName string) (string, error) {
+func getVectorColumnNameForSearch(conn *database.DatabaseConnection, tableName string, columnName string) (string, error) {
+	if columnName == "" {
+		return "", fmt.Errorf("columnName is required")
+	}
+
+	// Fetch ALL metadata in a single query to avoid N+1 queries
 	res, err := conn.Exec(
-		fmt.Sprintf("SELECT value FROM %s_metadata WHERE key = 'vector_column'", tableName),
+		fmt.Sprintf("SELECT key, value FROM %s_metadata WHERE key LIKE 'column_%%' OR key = 'column_count' ORDER BY key", tableName),
 		nil,
 	)
 
 	if err != nil {
-		return "", fmt.Errorf("failed to query vector_column from metadata: %w", err)
+		return "", fmt.Errorf("failed to query metadata: %w", err)
 	}
 
-	if len(res.Rows) == 0 || len(res.Rows[0]) == 0 {
-		// Fall back to "vector_blob" for backward compatibility with old indexes
-		return "vector_blob", nil
+	if len(res.Rows) == 0 {
+		return "", fmt.Errorf("no metadata found")
 	}
 
-	columnName := string(res.Rows[0][0].Text())
+	// Parse all metadata into a map for efficient lookup
+	metadata := make(map[string]string)
 
-	return columnName, nil
+	for _, row := range res.Rows {
+		if len(row) < 2 {
+			continue
+		}
+
+		key := string(row[0].Text())
+		value := string(row[1].Text())
+		metadata[key] = value
+	}
+
+	// Get column count
+	columnCountStr, ok := metadata["column_count"]
+
+	if !ok {
+		return "", fmt.Errorf("no column_count metadata found")
+	}
+
+	columnCount, err := strconv.Atoi(columnCountStr)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to parse column_count: %w", err)
+	}
+
+	// Search for the column by name
+	for i := range columnCount {
+		colName, hasName := metadata[fmt.Sprintf("column_%d_name", i)]
+
+		if !hasName || colName != columnName {
+			continue
+		}
+
+		// Verify it's a BLOB column
+		colType, hasType := metadata[fmt.Sprintf("column_%d_type", i)]
+
+		if !hasType || colType != "BLOB" {
+			return "", fmt.Errorf("column %s is not a vector (BLOB) column", columnName)
+		}
+
+		return columnName, nil
+	}
+
+	return "", fmt.Errorf("column %s not found", columnName)
 }
 
 // VectorSearch performs a k-NN vector search using pre-built cluster index
@@ -63,7 +110,7 @@ func VectorSearch(vfsID, databaseID, branchID, tableName, columnName string, que
 
 	// Execute cluster-based search using the index's shadow tables
 	// The metric is read from the table's metadata
-	results, err := executeClusterSearch(vfsID, databaseID, branchID, tableName, queryVector, k)
+	results, err := executeClusterSearch(vfsID, databaseID, branchID, tableName, columnName, queryVector, k)
 
 	if err != nil {
 		return -1, err
@@ -125,6 +172,7 @@ func findNearestLeafClusters(
 	dbConn *database.DatabaseConnection,
 	resultPool *sqlite3.ResultPool,
 	indexTableName string,
+	columnName string,
 	queryVector *VectorBlob,
 	metric string,
 	k int,
@@ -149,9 +197,9 @@ func findNearestLeafClusters(
 	// Step 1: Find root clusters (parent_id IS NULL)
 	rootQuery := fmt.Sprintf(`
 		SELECT cluster_id, centroid_blob, is_leaf
-		FROM %s_cluster_tree
+		FROM %s_%s_cluster_tree
 		WHERE parent_id IS NULL
-	`, indexTableName)
+	`, indexTableName, columnName)
 
 	rootResult, err := dbConn.Exec(rootQuery, nil)
 
@@ -223,9 +271,9 @@ func findNearestLeafClusters(
 			// Check if this cluster is a leaf
 			leafCheckQuery := fmt.Sprintf(`
 				SELECT is_leaf 
-				FROM %s_cluster_tree 
+				FROM %s_%s_cluster_tree 
 				WHERE cluster_id = ?
-			`, indexTableName)
+			`, indexTableName, columnName)
 
 			leafCheckResult, err := dbConn.Exec(leafCheckQuery, []sqlite3.StatementParameter{
 				{Type: sqlite3.ParameterTypeInteger, Value: cluster.ClusterID},
@@ -265,9 +313,9 @@ func findNearestLeafClusters(
 
 			leafCheckQuery := fmt.Sprintf(`
 				SELECT is_leaf 
-				FROM %s_cluster_tree 
+				FROM %s_%s_cluster_tree 
 				WHERE cluster_id = ?
-			`, indexTableName)
+			`, indexTableName, columnName)
 
 			leafCheckResult, err := dbConn.Exec(leafCheckQuery, []sqlite3.StatementParameter{
 				{Type: sqlite3.ParameterTypeInteger, Value: cluster.ClusterID},
@@ -296,9 +344,9 @@ func findNearestLeafClusters(
 		// Query children of the closest non-leaf cluster
 		childrenQuery := fmt.Sprintf(`
 			SELECT cluster_id, centroid_blob 
-			FROM %s_cluster_tree 
+			FROM %s_%s_cluster_tree 
 			WHERE parent_id = ?
-		`, indexTableName)
+		`, indexTableName, columnName)
 
 		childrenResult, err := dbConn.Exec(childrenQuery, []sqlite3.StatementParameter{
 			{Type: sqlite3.ParameterTypeInteger, Value: closestNonLeaf.ClusterID},
@@ -418,14 +466,6 @@ func goVectorSearch(
 	// Convert query blob to Go byte slice
 	queryData := C.GoBytes(queryBlob, queryBlobLen)
 
-	// If there's an active transaction on this database+branch, return an error
-	// rather than acquiring new connections which can deadlock.
-	if database.IsTransactionActive(databaseID, branchID) {
-		slog.Debug("vector_search invoked inside active transaction", "database", databaseID, "branch", branchID)
-
-		return C.longlong(-1)
-	}
-
 	handleID, err := VectorSearch(vfsID, databaseID, branchID, table, column, queryData, int(k))
 
 	if err != nil {
@@ -457,7 +497,7 @@ func goReleaseSearchResults(handleID C.longlong) {
 
 // executeClusterSearch performs k-NN search using hierarchical IVF cluster index
 // This traverses the cluster tree from root to leaves, then searches leaf cluster members
-func executeClusterSearch(vfsID, databaseID, branchID, indexTableName string, queryVector *VectorBlob, k int) ([]VectorResult, error) {
+func executeClusterSearch(vfsID, databaseID, branchID, indexTableName, columnName string, queryVector *VectorBlob, k int) ([]VectorResult, error) {
 	log.Println("executeClusterSearch")
 	// Get connection to query the index shadow tables
 	conn, err := AcquireConnection(vfsID, databaseID, branchID)
@@ -473,30 +513,79 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName string, qu
 	// Use the connection's result pool
 	resultPool := dbConn.ResultPool()
 
-	// Get the vector column name from metadata
-	vectorColumn, err := getVectorColumnNameForSearch(dbConn, indexTableName)
+	// Get the vector column name from metadata - verify it exists
+	vectorColumn, err := getVectorColumnNameForSearch(dbConn, indexTableName, columnName)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get vector column name: %w", err)
 	}
 
-	// Read distance metric from table metadata
-	metricQuery := fmt.Sprintf(`SELECT value FROM %s_metadata WHERE key = 'distance_metric'`, indexTableName)
-
-	metricResult, err := dbConn.Exec(metricQuery, nil)
+	// Read distance metric from column metadata (not table metadata anymore)
+	// Fetch ALL metadata in a single query to avoid N+1 queries
+	res, err := dbConn.Exec(
+		fmt.Sprintf("SELECT key, value FROM %s_metadata WHERE key LIKE 'column_%%' OR key = 'column_count' ORDER BY key", indexTableName),
+		nil,
+	)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to query distance metric from metadata: %w", err)
+		return nil, fmt.Errorf("failed to query metadata: %w", err)
 	}
 
-	defer resultPool.Put(metricResult)
-
-	if len(metricResult.Rows) == 0 {
-		return nil, fmt.Errorf("distance metric not found in metadata for table %s", indexTableName)
+	if len(res.Rows) == 0 {
+		return nil, fmt.Errorf("no metadata found")
 	}
 
-	// Convert distance_metric from string to metric name
-	metricValue := string(metricResult.Rows[0][0].Text())
+	// Parse all metadata into a map for efficient lookup
+	metadata := make(map[string]string)
+
+	for _, row := range res.Rows {
+		if len(row) < 2 {
+			continue
+		}
+
+		key := string(row[0].Text())
+		value := string(row[1].Text())
+		metadata[key] = value
+	}
+
+	// Get column count
+	columnCountStr, ok := metadata["column_count"]
+
+	if !ok {
+		return nil, fmt.Errorf("no column_count metadata found")
+	}
+
+	columnCount, err := strconv.Atoi(columnCountStr)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse column_count: %w", err)
+	}
+
+	// Find the column index and distance metric
+	var metricValue string
+
+	for i := range columnCount {
+		colName, hasName := metadata[fmt.Sprintf("column_%d_name", i)]
+
+		if !hasName {
+			continue
+		}
+
+		if colName == vectorColumn {
+			// Found the column - get its distance metric
+			metricValue, ok = metadata[fmt.Sprintf("column_%d_distance_metric", i)]
+
+			if !ok {
+				return nil, fmt.Errorf("failed to get distance_metric for column %s", vectorColumn)
+			}
+
+			break
+		}
+	}
+
+	if metricValue == "" {
+		return nil, fmt.Errorf("distance metric not found for column %s", vectorColumn)
+	}
 
 	var metric string
 
@@ -511,8 +600,8 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName string, qu
 		metric = "L2" // Default to L2 if unknown
 	}
 
-	// Step 1: Hierarchical tree traversal to find nearest leaf clusters
-	leafClusters, err := findNearestLeafClusters(dbConn, resultPool, indexTableName, queryVector, metric, k)
+	// Step 1: Hierarchical tree traversal to find nearest leaf clusters for this column
+	leafClusters, err := findNearestLeafClusters(dbConn, resultPool, indexTableName, vectorColumn, queryVector, metric, k)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to find nearest leaf clusters: %w", err)
@@ -521,7 +610,7 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName string, qu
 	if len(leafClusters) == 0 {
 		// No clusters exist yet - fall back to brute-force search on pending vectors
 		slog.Debug("No leaf clusters found, performing brute-force search on pending vectors", "table", indexTableName)
-		return executeBruteForceSearch(dbConn, resultPool, indexTableName, queryVector, k, metric)
+		return executeBruteForceSearch(dbConn, resultPool, indexTableName, vectorColumn, queryVector, k, metric)
 	}
 
 	// Step 2: Search within selected leaf clusters in parallel using goroutines
@@ -561,9 +650,9 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName string, qu
 				vectorsQuery := fmt.Sprintf(`
 					SELECT v.id, v.%s 
 					FROM %s_vectors v
-					INNER JOIN %s_cluster_vector_map m ON v.id = m.vector_id
+					INNER JOIN %s_%s_cluster_vector_map m ON v.id = m.vector_id
 					WHERE m.cluster_id = ?
-				`, vectorColumn, indexTableName, indexTableName)
+				`, vectorColumn, indexTableName, indexTableName, vectorColumn)
 
 				vectorsResult, err := clusterConn.Exec(vectorsQuery, []sqlite3.StatementParameter{
 					{Type: sqlite3.ParameterTypeInteger, Value: clusterID},
@@ -629,9 +718,9 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName string, qu
 			// Check if there are vectors in cluster 0 (awaiting reassignment)
 			pendingCountQuery := fmt.Sprintf(`
 				SELECT COUNT(*) 
-				FROM %s_cluster_vector_map
+				FROM %s_%s_cluster_vector_map
 				WHERE cluster_id = 0
-			`, indexTableName)
+			`, indexTableName, vectorColumn)
 
 			pendingCountResult, err := pendingConn.Exec(pendingCountQuery, nil)
 
@@ -651,9 +740,9 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName string, qu
 			pendingQuery := fmt.Sprintf(`
 				SELECT v.id, v.%s 
 				FROM %s_vectors v
-				INNER JOIN %s_cluster_vector_map m ON v.id = m.vector_id
+				INNER JOIN %s_%s_cluster_vector_map m ON v.id = m.vector_id
 				WHERE m.cluster_id = 0
-			`, vectorColumn, indexTableName, indexTableName)
+			`, vectorColumn, indexTableName, indexTableName, vectorColumn)
 
 			pendingResult, err := pendingConn.Exec(pendingQuery, nil)
 
@@ -667,7 +756,6 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName string, qu
 			pendingVectors := make([]VectorResult, 0, len(pendingResult.Rows))
 
 			for _, row := range pendingResult.Rows {
-				log.Printf("processing row %d \n", row[0].Int64())
 				vectorID := row[0].Int64()
 				vectorBlob := row[1].ColumnValue
 
@@ -738,23 +826,19 @@ func sortClustersByDistance(clusters []ClusterDistance) {
 
 // executeBruteForceSearch performs a brute-force k-NN search on vectors in cluster 0
 // This is used as a fallback when no proper clusters exist yet or for vectors awaiting reassignment
-func executeBruteForceSearch(dbConn *database.DatabaseConnection, resultPool *sqlite3.ResultPool, indexTableName string, queryVector *VectorBlob, k int, metric string) ([]VectorResult, error) {
+func executeBruteForceSearch(dbConn *database.DatabaseConnection, resultPool *sqlite3.ResultPool, indexTableName string, columnName string, queryVector *VectorBlob, k int, metric string) ([]VectorResult, error) {
 	slog.Debug("Executing brute-force search", "table", indexTableName, "k", k, "metric", metric)
 
-	// Get the vector column name from metadata
-	vectorColumn, err := getVectorColumnNameForSearch(dbConn, indexTableName)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get vector column name: %w", err)
-	}
+	// Use the provided columnName parameter directly
+	vectorColumn := columnName
 
 	// Query all vectors in cluster 0 (v2 schema)
 	pendingQuery := fmt.Sprintf(`
 		SELECT v.id, v.%s 
 		FROM %s_vectors v
-		INNER JOIN %s_cluster_vector_map m ON v.id = m.vector_id
+		INNER JOIN %s_%s_cluster_vector_map m ON v.id = m.vector_id
 		WHERE m.cluster_id = 0
-	`, vectorColumn, indexTableName, indexTableName)
+	`, vectorColumn, indexTableName, indexTableName, columnName)
 
 	slog.Debug("Brute-force cluster 0 query", "query", pendingQuery)
 
