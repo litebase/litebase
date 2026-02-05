@@ -55,8 +55,7 @@ var DatabaseConnectionConfigStatements = func(config *config.Config) []string {
 		"PRAGMA busy_timeout = 5000",
 
 		// PRAGMA cache_size will set the size of the cache to 0. This will
-		// disable caching and force SQLite to read from storage for every query
-		// to properly use distributed storage.
+		// disable caching and force SQLite to read from storage for every query.
 		"PRAGMA cache_size = 0",
 
 		// PRAGMA secure_delete will ensure that data is securely deleted from
@@ -426,15 +425,18 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 
 	if !con.inTransaction {
 		// Detect if this is a read-only query by checking if it starts with SELECT
+		// Reads don't need barriers - WAL/PageLogger reference counting provides safety
 		trimmedSQL := strings.TrimSpace(sql)
 		isReadOnly := len(trimmedSQL) >= 6 && strings.EqualFold(trimmedSQL[:6], "SELECT")
 
 		if isReadOnly {
-			// Use passive checkpoint barrier for reads - prevents checkpoints but doesn't block writes
-			// This prevents TieredFS from releasing WAL files that have active timestamp reservations
-			checkpointBarrier = con.walManager.CheckpointBarrierRead
-			// No compaction barrier needed for reads - just prevent checkpoint file releases
-			compactionBarrier = con.pageLogger.CompactionPassiveBarrierRead
+			// No barriers needed for reads - versioning ensures consistency
+			checkpointBarrier = func(fn func() error) error {
+				return fn()
+			}
+			compactionBarrier = func(fn func() error) error {
+				return fn()
+			}
 		} else {
 			checkpointBarrier = con.walManager.CheckpointBarrier
 			compactionBarrier = con.fileSystem.CompactionBarrier
@@ -935,12 +937,14 @@ func (con *DatabaseConnection) Transaction(
 	var compactionBarrier func(func() error) error
 
 	if readOnly {
-		// Use passive checkpoint barrier for read-only transactions
-		// Prevents checkpoints from releasing WAL files but doesn't block writes
-		// This prevents TieredFS from releasing files that have active timestamp reservations
-		checkpointBarrier = con.walManager.CheckpointBarrierRead
-		// No compaction barrier needed for reads
-		compactionBarrier = con.pageLogger.CompactionPassiveBarrierRead
+		// No barriers needed for read-only transactions
+		// WAL/PageLogger reference counting ensures data isn't deleted while in use
+		checkpointBarrier = func(fn func() error) error {
+			return fn()
+		}
+		compactionBarrier = func(fn func() error) error {
+			return fn()
+		}
 	} else {
 		checkpointBarrier = con.walManager.CheckpointBarrier
 		compactionBarrier = con.fileSystem.CompactionBarrier
