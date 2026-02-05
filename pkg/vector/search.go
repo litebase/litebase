@@ -8,6 +8,7 @@ import "C"
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"log/slog"
 	"sync"
 	"unsafe"
@@ -417,6 +418,14 @@ func goVectorSearch(
 	// Convert query blob to Go byte slice
 	queryData := C.GoBytes(queryBlob, queryBlobLen)
 
+	// If there's an active transaction on this database+branch, return an error
+	// rather than acquiring new connections which can deadlock.
+	if database.IsTransactionActive(databaseID, branchID) {
+		slog.Debug("vector_search invoked inside active transaction", "database", databaseID, "branch", branchID)
+
+		return C.longlong(-1)
+	}
+
 	handleID, err := VectorSearch(vfsID, databaseID, branchID, table, column, queryData, int(k))
 
 	if err != nil {
@@ -449,6 +458,7 @@ func goReleaseSearchResults(handleID C.longlong) {
 // executeClusterSearch performs k-NN search using hierarchical IVF cluster index
 // This traverses the cluster tree from root to leaves, then searches leaf cluster members
 func executeClusterSearch(vfsID, databaseID, branchID, indexTableName string, queryVector *VectorBlob, k int) ([]VectorResult, error) {
+	log.Println("executeClusterSearch")
 	// Get connection to query the index shadow tables
 	conn, err := AcquireConnection(vfsID, databaseID, branchID)
 
@@ -636,8 +646,8 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName string, qu
 				resultsChan <- clusterResult{vectors: []VectorResult{}}
 				return
 			}
-
-			// Query vectors in cluster 0 (v2 schema: _vectors + _cluster_vector_map)
+			log.Println("getting rows from cluster 0")
+			// Query vectors in cluster 0
 			pendingQuery := fmt.Sprintf(`
 				SELECT v.id, v.%s 
 				FROM %s_vectors v
@@ -657,6 +667,7 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName string, qu
 			pendingVectors := make([]VectorResult, 0, len(pendingResult.Rows))
 
 			for _, row := range pendingResult.Rows {
+				log.Printf("processing row %d \n", row[0].Int64())
 				vectorID := row[0].Int64()
 				vectorBlob := row[1].ColumnValue
 

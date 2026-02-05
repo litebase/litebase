@@ -306,13 +306,13 @@ func (con *DatabaseConnection) performCheckpointOnWAL(wal *DatabaseWAL) error {
 	err := con.checkpointer.Begin(wal.timestamp)
 
 	if err != nil {
-		log.Println("Error beginning checkpoint:", err)
+		slog.Debug("Error beginning checkpoint:", "error", err)
 		return err
 	}
 
 	_, err = sqlite3.Checkpoint(con.sqliteConnection().Base(), func(result sqlite3.CheckpointResult) error {
 		if result.Result != 0 {
-			log.Println("Error checkpointing database", err)
+			slog.Debug("Error checkpointing database", "result", result.Result)
 		} else {
 			err = con.checkpointer.Commit()
 
@@ -910,11 +910,15 @@ func (con *DatabaseConnection) Transaction(
 ) error {
 	con.mutex.Lock()
 	con.inTransaction = true
+	// Register active transaction so other subsystems can detect it
+	RegisterActiveTransaction(con.branch.DatabaseID, con.branch.DatabaseBranchID)
 	con.mutex.Unlock()
 
 	defer func() {
 		con.mutex.Lock()
 		con.inTransaction = false
+		UnregisterActiveTransaction(con.branch.DatabaseID, con.branch.DatabaseBranchID)
+
 		con.mutex.Unlock()
 	}()
 

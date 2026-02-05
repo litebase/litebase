@@ -42,7 +42,7 @@ func RequestSignatureValidator(
 		contentType := request.Headers().Get("Content-Type")
 		path := request.Path()
 		isStreamingRequest := contentType == "application/octet-stream" && strings.Contains(path, "/query/stream")
-		
+
 		if isStreamingRequest {
 			// For streaming requests, use the special streaming payload hash
 			streamingPayloadHashSum := sha256.Sum256([]byte("STREAMING-LITEBASE-HMAC-SHA256-PAYLOAD"))

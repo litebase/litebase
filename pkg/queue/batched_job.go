@@ -6,10 +6,10 @@ import "time"
 type BatchStatus string
 
 const (
-	BatchStatusPending   BatchStatus = "pending"   // Job is waiting to be processed
+	BatchStatusPending    BatchStatus = "pending"    // Job is waiting to be processed
 	BatchStatusProcessing BatchStatus = "processing" // Job is currently being processed
-	BatchStatusCompleted BatchStatus = "completed" // Job has been successfully processed
-	BatchStatusFailed    BatchStatus = "failed"    // Job has failed
+	BatchStatusCompleted  BatchStatus = "completed"  // Job has been successfully processed
+	BatchStatusFailed     BatchStatus = "failed"     // Job has failed
 )
 
 // JobBatch represents a batch of jobs tracked together.
@@ -36,14 +36,14 @@ type BatchedJob struct {
 
 // BatchProgress represents the current progress of a batch.
 type BatchProgress struct {
-	BatchID      int64
-	Name         string
-	TotalJobs    int
-	PendingJobs  int
+	BatchID       int64
+	Name          string
+	TotalJobs     int
+	PendingJobs   int
 	CompletedJobs int
-	FailedJobs   int
-	Progress     int // Percentage 0-100
-	IsFinished   bool
-	CreatedAt    time.Time
-	FinishedAt   *time.Time
+	FailedJobs    int
+	Progress      int // Percentage 0-100
+	IsFinished    bool
+	CreatedAt     time.Time
+	FinishedAt    *time.Time
 }

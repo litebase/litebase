@@ -7,11 +7,11 @@ import (
 )
 
 var (
-	ErrNoMemory         = errors.New("insufficient memory available")
-	ErrInvalidLease     = errors.New("invalid lease")
-	ErrLeaseNotFound    = errors.New("lease not found")
-	ErrManagerShutdown  = errors.New("memory manager is shutdown")
-	nextLeaseID         atomic.Uint64
+	ErrNoMemory        = errors.New("insufficient memory available")
+	ErrInvalidLease    = errors.New("invalid lease")
+	ErrLeaseNotFound   = errors.New("lease not found")
+	ErrManagerShutdown = errors.New("memory manager is shutdown")
+	nextLeaseID        atomic.Uint64
 )
 
 // LeaseID represents a unique identifier for a memory lease

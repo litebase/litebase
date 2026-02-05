@@ -25,8 +25,8 @@ var ErrNoSnapshotsFound = errors.New("no snapshots found")
 type SnapshotLogger struct {
 	BranchID          string
 	DatabaseID        string
-	dataKey           []byte   // Optional: 32-byte encryption key
-	encrypted         bool     // Whether snapshots should be encrypted
+	dataKey           []byte // Optional: 32-byte encryption key
+	encrypted         bool   // Whether snapshots should be encrypted
 	file              internalStorage.File
 	keys              []int64
 	keyHash           [32]byte // Optional: SHA256 hash of encryption key

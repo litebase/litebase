@@ -373,10 +373,10 @@ func TestQueryStreamController_RequiresAccessKeyAuth(t *testing.T) {
 
 		expectedError := "Query stream connections require access key authentication. Token and basic auth are not supported for LQTP protocol."
 
-	if errorMsg != expectedError {
-		t.Fatalf("expected error message '%s', got '%s'", expectedError, errorMsg)
-	}
-})
+		if errorMsg != expectedError {
+			t.Fatalf("expected error message '%s', got '%s'", expectedError, errorMsg)
+		}
+	})
 }
 
 func TestQueryStreamControllerBlobHandling(t *testing.T) {
@@ -427,25 +427,25 @@ func TestQueryStreamControllerBlobHandling(t *testing.T) {
 			t.Fatal(string(result.Error))
 		}
 
-	// Test 1: Insert a blob with binary data (client library will base64 encode it)
-	binaryData := []byte("Hello World")
+		// Test 1: Insert a blob with binary data (client library will base64 encode it)
+		binaryData := []byte("Hello World")
 
-	insertQuery := sql.Query{
-		ID:        uuid.NewString(),
-		Statement: "INSERT INTO files (name, content) VALUES (?, ?)",
-		Parameters: []sql.Parameter{
-			{
-				Type:  "TEXT",
-				Value: "test.bin",
+		insertQuery := sql.Query{
+			ID:        uuid.NewString(),
+			Statement: "INSERT INTO files (name, content) VALUES (?, ?)",
+			Parameters: []sql.Parameter{
+				{
+					Type:  "TEXT",
+					Value: "test.bin",
+				},
+				{
+					Type:  "BLOB",
+					Value: binaryData,
+				},
 			},
-			{
-				Type:  "BLOB",
-				Value: binaryData,
-			},
-		},
-	}
+		}
 
-	result, err = connection.Send(insertQuery)
+		result, err = connection.Send(insertQuery)
 
 		if err != nil {
 			t.Fatal(err)
@@ -491,18 +491,18 @@ func TestQueryStreamControllerBlobHandling(t *testing.T) {
 			ID:        uuid.NewString(),
 			Statement: "INSERT INTO files (name, content) VALUES (?, ?)",
 			Parameters: []sql.Parameter{
-			{
-				Type:  "TEXT",
-				Value: "empty.bin",
+				{
+					Type:  "TEXT",
+					Value: "empty.bin",
+				},
+				{
+					Type:  "BLOB",
+					Value: []byte{},
+				},
 			},
-			{
-				Type:  "BLOB",
-				Value: []byte{},
-			},
-		},
-	}
+		}
 
-	result, err = connection.Send(emptyBlobQuery)
+		result, err = connection.Send(emptyBlobQuery)
 
 		if err != nil {
 			t.Fatal(err)
@@ -516,24 +516,24 @@ func TestQueryStreamControllerBlobHandling(t *testing.T) {
 		largeData := make([]byte, 1024)
 		for i := range largeData {
 			largeData[i] = byte(i % 256)
-	}
+		}
 
-	largeBlobQuery := sql.Query{
-		ID:        uuid.NewString(),
-		Statement: "INSERT INTO files (name, content) VALUES (?, ?)",
-		Parameters: []sql.Parameter{
-			{
-				Type:  "TEXT",
-				Value: "large.bin",
+		largeBlobQuery := sql.Query{
+			ID:        uuid.NewString(),
+			Statement: "INSERT INTO files (name, content) VALUES (?, ?)",
+			Parameters: []sql.Parameter{
+				{
+					Type:  "TEXT",
+					Value: "large.bin",
+				},
+				{
+					Type:  "BLOB",
+					Value: largeData,
+				},
 			},
-			{
-				Type:  "BLOB",
-				Value: largeData,
-			},
-		},
-	}
+		}
 
-	result, err = connection.Send(largeBlobQuery)
+		result, err = connection.Send(largeBlobQuery)
 
 		if err != nil {
 			t.Fatal(err)

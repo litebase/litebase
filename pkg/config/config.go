@@ -18,37 +18,37 @@ const (
 )
 
 type Config struct {
-	ClusterId               string
-	DataEncryptionKey       []byte
-	DataEncryptionKeyHash   string
-	DataEncryptionKeyNext   []byte
+	ClusterId                 string
+	DataEncryptionKey         []byte
+	DataEncryptionKeyHash     string
+	DataEncryptionKeyNext     []byte
 	DataEncryptionKeyNextHash string
-	Debug                   bool
-	DefaultBranchName       string
-	EncryptionKey           string
-	EncryptionKeyNext       string
-	HostName                string
-	Env                     string
-	FakeObjectStorage       bool
-	FileSystemDriver        string
-	MemoryLimit             int64
-	NodeAddressProvider     string
-	PageSize                int64
-	Port                    string
-	PrivatePort             string
-	RootPassword            string
-	RootUsername            string
-	StorageAccessKeyId      string
-	StorageBucket           string
-	StorageEndpoint         string
-	StorageLocalPath        string
-	StorageNetworkPath      string
-	StorageObjectMode       string
-	StorageSecretAccessKey  string
-	StoragePort             string
-	StorageRegion           string
-	StorageTieredMode       string
-	StorageTmpPath          string
+	Debug                     bool
+	DefaultBranchName         string
+	EncryptionKey             string
+	EncryptionKeyNext         string
+	HostName                  string
+	Env                       string
+	FakeObjectStorage         bool
+	FileSystemDriver          string
+	MemoryLimit               int64
+	NodeAddressProvider       string
+	PageSize                  int64
+	Port                      string
+	PrivatePort               string
+	RootPassword              string
+	RootUsername              string
+	StorageAccessKeyId        string
+	StorageBucket             string
+	StorageEndpoint           string
+	StorageLocalPath          string
+	StorageNetworkPath        string
+	StorageObjectMode         string
+	StorageSecretAccessKey    string
+	StoragePort               string
+	StorageRegion             string
+	StorageTieredMode         string
+	StorageTmpPath            string
 }
 
 // Get an environment variable or return a default value if not set.

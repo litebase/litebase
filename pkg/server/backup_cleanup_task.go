@@ -58,12 +58,12 @@ func (app *App) EnqueueBackupCleanupJobs(ctx context.Context) error {
 
 		for rows.Next() {
 			var (
-				backupID             int64
-				databaseID           string
-				branchID             string
+				backupID              int64
+				databaseID            string
+				branchID              string
 				restorePointTimestamp int64
-				createdAt            string
-				retentionDays        int
+				createdAt             string
+				retentionDays         int
 			)
 
 			if err := rows.Scan(&backupID, &databaseID, &branchID, &restorePointTimestamp, &createdAt, &retentionDays); err != nil {

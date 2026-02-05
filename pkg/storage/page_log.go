@@ -358,7 +358,7 @@ func (pl *PageLog) File() storage.File {
 
 	// Check if file needs to be opened or reopened
 	needsReopen := false
-	
+
 	if pl.file == nil {
 		needsReopen = true
 	} else {
