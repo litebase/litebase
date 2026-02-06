@@ -428,6 +428,8 @@ func (c *ConnectionManager) Release(clientConnection *ClientConnection) {
 			if branchConnection.connection.connection.Closed() {
 				c.remove(clientConnection)
 			} else {
+				// Reset skipBarriers flag to ensure connections are always in clean state for reuse
+				clientConnection.connection.SetSkipBarriers(false)
 				branchConnection.Release()
 				branchConnection.lastUsedAt = time.Now().UTC()
 			}

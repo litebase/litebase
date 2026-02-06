@@ -91,6 +91,7 @@ type DatabaseConnection struct {
 	id                     string
 	inTransaction          bool
 	mutex                  *sync.Mutex
+	skipBarriers           bool // Skip barriers for nested operations (e.g., vector_search internals)
 	nodeId                 string
 	pageLogger             *storage.PageLogger
 	resultPool             *sqlite3.ResultPool
@@ -424,25 +425,32 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 	var checkpointBarrier func(func() error) error
 	var compactionBarrier func(func() error) error
 
-	if !con.inTransaction {
+	// Skip barriers if this is a nested operation (e.g., vector_search internal queries)
+	if con.skipBarriers {
+		checkpointBarrier = func(fn func() error) error {
+			return fn()
+		}
+		compactionBarrier = func(fn func() error) error {
+			return fn()
+		}
+	} else if !con.inTransaction {
 		// Detect if this is a read-only query by checking if it starts with SELECT
-		// Reads don't need barriers - WAL/PageLogger reference counting provides safety
+		// Read queries use read barriers to allow concurrent reads while blocking during checkpoints
 		trimmedSQL := strings.TrimSpace(sql)
 		isReadOnly := len(trimmedSQL) >= 6 && strings.EqualFold(trimmedSQL[:6], "SELECT")
 
 		if isReadOnly {
-			// No barriers needed for reads - versioning ensures consistency
-			checkpointBarrier = func(fn func() error) error {
-				return fn()
-			}
-			compactionBarrier = func(fn func() error) error {
-				return fn()
-			}
+			// Use read barriers - allow concurrent reads but block during checkpoint/compaction
+			// This protects WAL timestamp sovereignty while avoiding deadlocks
+			checkpointBarrier = con.walManager.CheckpointBarrierRead
+			compactionBarrier = con.fileSystem.CompactionBarrierRead
 		} else {
+			// Write operations use exclusive barriers
 			checkpointBarrier = con.walManager.CheckpointBarrier
 			compactionBarrier = con.fileSystem.CompactionBarrier
 		}
 	} else {
+		// Transaction wrapper already applied barriers - skip here to avoid nested locks
 		checkpointBarrier = func(fn func() error) error {
 			return fn()
 		}
@@ -933,16 +941,21 @@ func (con *DatabaseConnection) Transaction(
 	var checkpointBarrier func(func() error) error
 	var compactionBarrier func(func() error) error
 
-	if readOnly {
-		// No barriers needed for read-only transactions
-		// WAL/PageLogger reference counting ensures data isn't deleted while in use
+	// Skip barriers if this is a nested operation
+	if con.skipBarriers {
 		checkpointBarrier = func(fn func() error) error {
 			return fn()
 		}
 		compactionBarrier = func(fn func() error) error {
 			return fn()
 		}
+	} else if readOnly {
+		// Read-only transactions use read barriers to allow concurrent reads
+		// while blocking during checkpoints/compactions to protect WAL timestamp sovereignty
+		checkpointBarrier = con.walManager.CheckpointBarrierRead
+		compactionBarrier = con.fileSystem.CompactionBarrierRead
 	} else {
+		// Write transactions use exclusive barriers
 		checkpointBarrier = con.walManager.CheckpointBarrier
 		compactionBarrier = con.fileSystem.CompactionBarrier
 	}
@@ -1019,6 +1032,16 @@ func (con *DatabaseConnection) VFSHash() string {
 	}
 
 	return con.vfsHash
+}
+
+// SetSkipBarriers marks the connection to skip checkpoint/compaction barriers.
+// Used for nested operations (e.g., vector_search internal queries) that are
+// already protected by an outer query's barrier to avoid nested RLock deadlocks.
+func (con *DatabaseConnection) SetSkipBarriers(skip bool) {
+	con.mutex.Lock()
+	defer con.mutex.Unlock()
+
+	con.skipBarriers = skip
 }
 
 func (con *DatabaseConnection) WALTimestamp() int64 {

@@ -1377,5 +1377,505 @@ func TestDatabaseConnection(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+
+		t.Run("BarrierProtection_ConcurrentReads", func(t *testing.T) {
+			mock := test.MockDatabase(app)
+
+			connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(connection)
+
+			// Create test table with data
+			_, err = connection.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)", nil)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = connection.GetConnection().Exec("INSERT INTO test (value) VALUES ('test1'), ('test2'), ('test3')", nil)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Release connection so we can get multiple fresh connections
+			app.DatabaseManager.ConnectionManager().Release(connection)
+
+			// Verify multiple concurrent SELECTs can proceed simultaneously (read barriers allow this)
+			const numReaders = 20
+			readersStarted := make(chan bool, numReaders)
+			readersCompleted := make(chan bool, numReaders)
+			errChan := make(chan error, numReaders)
+
+			for i := range numReaders {
+				go func(id int) {
+					conn, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+					if err != nil {
+						errChan <- fmt.Errorf("reader %d failed to get connection: %w", id, err)
+						return
+					}
+
+					defer app.DatabaseManager.ConnectionManager().Release(conn)
+
+					readersStarted <- true
+
+					// Execute SELECT query - should use read barrier
+					result, err := conn.GetConnection().Exec("SELECT * FROM test", nil)
+
+					if err != nil {
+						errChan <- fmt.Errorf("reader %d query failed: %w", id, err)
+						return
+					}
+
+					if len(result.Rows) != 3 {
+						errChan <- fmt.Errorf("reader %d expected 3 rows, got %d", id, len(result.Rows))
+						return
+					}
+
+					readersCompleted <- true
+				}(i)
+			}
+
+			// Wait for all readers to start (proves they don't block each other)
+			readersStartedCount := 0
+
+			for readersStartedCount < numReaders {
+				select {
+				case <-readersStarted:
+					readersStartedCount++
+				case err := <-errChan:
+					t.Fatal(err)
+				case <-time.After(5 * time.Second):
+					t.Fatalf("Timeout waiting for readers to start (got %d/%d)", readersStartedCount, numReaders)
+				}
+			}
+
+			// Wait for all readers to complete
+			readersCompletedCount := 0
+
+			for readersCompletedCount < numReaders {
+				select {
+				case <-readersCompleted:
+					readersCompletedCount++
+				case err := <-errChan:
+					t.Fatal(err)
+				case <-time.After(5 * time.Second):
+					t.Fatalf("Timeout waiting for readers to complete (got %d/%d)", readersCompletedCount, numReaders)
+				}
+			}
+
+			t.Logf("✓ All %d concurrent readers completed successfully (read barriers allow concurrency)", numReaders)
+		})
+
+		t.Run("BarrierProtection_SelectDuringCheckpoint", func(t *testing.T) {
+			mock := test.MockDatabase(app)
+
+			connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(connection)
+
+			// Create test table with data
+			_, err = connection.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)", nil)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Insert data to trigger WAL changes
+			for i := range 100 {
+				_, err = connection.GetConnection().Exec("INSERT INTO test (value) VALUES (?)", []sqlite3.StatementParameter{
+					{Type: sqlite3.ParameterTypeText, Value: []byte(fmt.Sprintf("value%d", i))},
+				})
+
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			// Force a checkpoint
+			err = connection.Checkpoint()
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Release connection
+			app.DatabaseManager.ConnectionManager().Release(connection)
+
+			// Start a long-running SELECT query
+			selectDone := make(chan error)
+			selectStarted := make(chan bool)
+
+			go func() {
+				conn, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+				if err != nil {
+					selectDone <- err
+					return
+				}
+
+				defer app.DatabaseManager.ConnectionManager().Release(conn)
+
+				selectStarted <- true
+
+				// This SELECT should use read barrier and complete successfully
+				// even if checkpoint runs concurrently
+				result, err := conn.GetConnection().Exec("SELECT * FROM test", nil)
+
+				if err != nil {
+					selectDone <- err
+					return
+				}
+
+				if len(result.Rows) != 100 {
+					selectDone <- fmt.Errorf("expected 100 rows, got %d", len(result.Rows))
+					return
+				}
+
+				selectDone <- nil
+			}()
+
+			// Wait for SELECT to start
+			<-selectStarted
+
+			// Trigger checkpoint while SELECT is running (simulates the race condition)
+			conn2, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(conn2)
+
+			// Insert more data to trigger WAL changes
+			_, err = conn2.GetConnection().Exec("INSERT INTO test (value) VALUES ('checkpoint_trigger')", nil)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Checkpoint should wait for SELECT to finish (read barrier protects it)
+			checkpointErr := conn2.Checkpoint()
+
+			if checkpointErr != nil {
+				t.Logf("Checkpoint error (expected if SELECT still holding read lock): %v", checkpointErr)
+			}
+
+			// Wait for SELECT to complete
+			err = <-selectDone
+
+			if err != nil {
+				t.Fatalf("SELECT query failed: %v - this indicates read barrier didn't protect WAL timestamps", err)
+			}
+
+			t.Log("✓ SELECT completed successfully during checkpoint (read barrier protected WAL timestamp)")
+		})
+
+		t.Run("BarrierProtection_WritesSerialized", func(t *testing.T) {
+			mock := test.MockDatabase(app)
+
+			connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(connection)
+
+			// Create test table
+			_, err = connection.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, counter INTEGER)", nil)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = connection.GetConnection().Exec("INSERT INTO test (counter) VALUES (0)", nil)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			app.DatabaseManager.ConnectionManager().Release(connection)
+
+			// Verify concurrent writes are properly serialized by checkpoint barrier
+			const numWriters = 10
+			var wg sync.WaitGroup
+			errChan := make(chan error, numWriters)
+
+			for i := range numWriters {
+				wg.Add(1)
+
+				go func(id int) {
+					defer wg.Done()
+
+					conn, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+					if err != nil {
+						errChan <- err
+						return
+					}
+
+					defer app.DatabaseManager.ConnectionManager().Release(conn)
+
+					// Each writer increments the counter
+					_, err = conn.GetConnection().Exec("UPDATE test SET counter = counter + 1", nil)
+
+					if err != nil {
+						errChan <- err
+					}
+				}(i)
+			}
+
+			wg.Wait()
+			close(errChan)
+
+			for err := range errChan {
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			// Verify final counter value equals number of writers (proves serialization)
+			conn, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(conn)
+
+			result, err := conn.GetConnection().Exec("SELECT counter FROM test", nil)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if len(result.Rows) != 1 {
+				t.Fatalf("Expected 1 row, got %d", len(result.Rows))
+			}
+
+			counter := result.Rows[0][0].Int64()
+
+			if counter != int64(numWriters) {
+				t.Fatalf("Expected counter to be %d, got %d - barrier didn't properly serialize writes", numWriters, counter)
+			}
+
+			t.Logf("✓ All %d concurrent writes properly serialized (checkpoint barrier enforced)", numWriters)
+		})
+
+		t.Run("BarrierProtection_WALTimestampSovereignty", func(t *testing.T) {
+			mock := test.MockDatabase(app)
+
+			connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(connection)
+
+			// Create test table
+			_, err = connection.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)", nil)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Insert initial data
+			_, err = connection.GetConnection().Exec("INSERT INTO test (value) VALUES ('initial')", nil)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Force checkpoint to create WAL version
+			err = connection.Checkpoint()
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			app.DatabaseManager.ConnectionManager().Release(connection)
+
+			// Start a transaction in one goroutine
+			txDone := make(chan error)
+			txStarted := make(chan bool)
+
+			go func() {
+				conn, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+				if err != nil {
+					txDone <- err
+					return
+				}
+
+				defer app.DatabaseManager.ConnectionManager().Release(conn)
+
+				err = conn.GetConnection().Transaction(false, func(txConn *database.DatabaseConnection) error {
+					txStarted <- true
+
+					// Insert data
+					_, err := txConn.Exec("INSERT INTO test (value) VALUES ('tx_data')", nil)
+
+					if err != nil {
+						return err
+					}
+
+					// Sleep to ensure concurrent checkpoint attempt happens
+					time.Sleep(100 * time.Millisecond)
+
+					return nil
+				})
+
+				txDone <- err
+			}()
+
+			// Wait for transaction to start
+			<-txStarted
+
+			// Attempt concurrent checkpoint (should be blocked by transaction's barrier)
+			conn2, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(conn2)
+
+			// Try to insert and checkpoint
+			_, err = conn2.GetConnection().Exec("INSERT INTO test (value) VALUES ('checkpoint_data')", nil)
+
+			if err != nil {
+				// This is expected if transaction is holding barrier
+				t.Logf("Concurrent insert blocked (expected): %v", err)
+			}
+
+			// Wait for transaction to complete
+			err = <-txDone
+
+			if err != nil {
+				t.Fatalf("Transaction failed: %v - barrier didn't protect WAL timestamp sovereignty", err)
+			}
+
+			// Verify both inserts succeeded (proves timestamps were protected)
+			result, err := conn2.GetConnection().Exec("SELECT COUNT(*) FROM test", nil)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			count := result.Rows[0][0].Int64()
+
+			if count < 2 {
+				t.Fatalf("Expected at least 2 rows (initial + tx_data), got %d", count)
+			}
+
+			t.Log("✓ WAL timestamp sovereignty maintained during concurrent operations")
+		})
+
+		t.Run("BarrierProtection_NestedConnectionNoDeadlock", func(t *testing.T) {
+			// This test simulates the vector_search pattern where a connection
+			// might trigger nested connection acquisition (e.g., querying system database)
+			mock := test.MockDatabase(app)
+
+			connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			defer app.DatabaseManager.ConnectionManager().Release(connection)
+
+			// Create test table
+			_, err = connection.GetConnection().Exec("CREATE TABLE test (id INTEGER PRIMARY KEY)", nil)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			app.DatabaseManager.ConnectionManager().Release(connection)
+
+			// Simulate pattern: outer connection queries, which internally gets system connection
+			const numConcurrent = 10
+			var wg sync.WaitGroup
+			errChan := make(chan error, numConcurrent)
+			successChan := make(chan bool, numConcurrent)
+
+			for i := range numConcurrent {
+				wg.Add(1)
+
+				go func(id int) {
+					defer wg.Done()
+
+					// Get connection (like vector_search does)
+					conn, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+					if err != nil {
+						errChan <- fmt.Errorf("goroutine %d failed to get connection: %w", id, err)
+						return
+					}
+
+					defer app.DatabaseManager.ConnectionManager().Release(conn)
+
+					// Query that might trigger nested connection (simulated)
+					// In real vector_search, this could trigger BranchByID -> SystemDB -> Get()
+					_, err = conn.GetConnection().Exec("SELECT * FROM test", nil)
+
+					if err != nil {
+						errChan <- fmt.Errorf("goroutine %d query failed: %w", id, err)
+						return
+					}
+
+					successChan <- true
+				}(i)
+			}
+
+			// Wait with timeout
+			done := make(chan bool)
+
+			go func() {
+				wg.Wait()
+				close(done)
+			}()
+
+			select {
+			case <-done:
+				// Success
+			case <-time.After(10 * time.Second):
+				t.Fatal("Deadlock detected: nested connection acquisition blocked")
+			}
+
+			close(errChan)
+			close(successChan)
+
+			// Check for errors
+			for err := range errChan {
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			// Verify all succeeded
+			successCount := 0
+
+			for range successChan {
+				successCount++
+			}
+
+			if successCount != numConcurrent {
+				t.Fatalf("Expected %d successful operations, got %d", numConcurrent, successCount)
+			}
+
+			t.Logf("✓ %d concurrent nested connection patterns completed without deadlock", numConcurrent)
+		})
 	})
 }

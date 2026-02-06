@@ -498,7 +498,6 @@ func goReleaseSearchResults(handleID C.longlong) {
 // executeClusterSearch performs k-NN search using hierarchical IVF cluster index
 // This traverses the cluster tree from root to leaves, then searches leaf cluster members
 func executeClusterSearch(vfsID, databaseID, branchID, indexTableName, columnName string, queryVector *VectorBlob, k int) ([]VectorResult, error) {
-	log.Println("executeClusterSearch")
 	// Get connection to query the index shadow tables
 	conn, err := AcquireConnection(vfsID, databaseID, branchID)
 

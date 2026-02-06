@@ -22,6 +22,8 @@ func (cw *ConnectionWrapper) GetConnection() *database.DatabaseConnection {
 }
 
 // AcquireConnection gets a database connection from the connection manager
+// These connections are used internally by vector operations and skip barriers
+// since they're already protected by the outer query's barrier.
 func AcquireConnection(vfsID, databaseID, branchID string) (*ConnectionWrapper, error) {
 	// Get VFS instance
 	vfsInstance, err := vfs.GetVfsFromId(vfsID)
@@ -50,6 +52,9 @@ func AcquireConnection(vfsID, databaseID, branchID string) (*ConnectionWrapper, 
 	if !ok {
 		return nil, fmt.Errorf("connection type assertion failed: got type %T", connInterface)
 	}
+
+	// Mark connection to skip barriers - it's used within vector_search which already holds barriers
+	conn.GetConnection().SetSkipBarriers(true)
 
 	return &ConnectionWrapper{
 		conn:  conn,

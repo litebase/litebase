@@ -716,6 +716,10 @@ func (w *DatabaseWALManager) OnWALUpdate(timestamp int64, walIndexHeader []byte)
 		return
 	}
 
+	// Lock to protect walUpdateMsg from concurrent access
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
 	// Reuse message struct to avoid allocation
 	if w.walUpdateMsg.Data == nil {
 		w.walUpdateMsg.Data = &messages.WALIndexHeaderMessage{
