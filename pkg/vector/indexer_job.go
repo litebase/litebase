@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"math"
 	"strings"
-	"time"
 
 	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/sqlite3"
@@ -118,6 +117,16 @@ func getVectorColumns(db *database.DatabaseConnection, tableName string) ([]Vect
 	return vectorColumns, nil
 }
 
+// ClusterNode represents a node in the cluster tree (for in-memory traversal)
+type ClusterNode struct {
+	ClusterID   int64
+	ParentID    *int64
+	Centroid    []float32
+	IsLeaf      bool
+	ClusterSize int
+	Children    []int64 // Child cluster IDs
+}
+
 // VectorIndexer processes vectors in cluster 0 and reassigns them to proper clusters
 type VectorIndexer struct {
 	DB             *database.DatabaseConnection
@@ -182,7 +191,7 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 					FROM %s_vectors v 
 					INNER JOIN %s_%s_cluster_vector_map m ON v.id = m.vector_id 
 					WHERE m.cluster_id = 0 
-					ORDER BY v.created_at ASC 
+					ORDER BY v.rowid ASC 
 					LIMIT ?`,
 					colInfo.Name, vi.TableName, vi.TableName, colInfo.Name),
 				[]sqlite3.StatementParameter{
@@ -211,7 +220,12 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 			vectorAssignments := make(map[int64]int64)     // vector_id -> new cluster_id
 			vectorDistances := make(map[int64]float64)     // vector_id -> distance to cluster centroid
 
-			now := time.Now().UTC().Unix()
+			// Pre-load cluster tree into memory to avoid N+1 queries
+			clusterTree, err := vi.loadClusterTree(db, colInfo.Name)
+
+			if err != nil {
+				return fmt.Errorf("failed to load cluster tree: %w", err)
+			}
 
 			for _, row := range res.Rows {
 				// Check context during loop processing
@@ -247,11 +261,11 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 					continue
 				}
 
-				// Find best cluster using hierarchical traversal for this column
-				clusterID, distance, err := vi.findBestCluster(db, colInfo.Name, colInfo.DistanceMetric, vector)
+				// Find best cluster using in-memory hierarchical traversal (no DB queries)
+				clusterID, distance := vi.findBestClusterInMemory(clusterTree, colInfo.DistanceMetric, vector)
 
-				if err != nil {
-					slog.Error("Failed to find best cluster", "id", vectorID, "error", err)
+				if clusterID == 0 {
+					slog.Error("Failed to find best cluster", "id", vectorID)
 					continue
 				}
 
@@ -273,9 +287,9 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 			// Update cluster mappings in batch
 			if len(vectorAssignments) > 0 {
 				// SQLite has a limit on the number of parameters (default 999, max 32766)
-				// With 4 params per row (vector_id, cluster_id, distance, indexed_at),
-				// we can safely do 8000 rows per chunk (32000 parameters)
-				const maxRowsPerBatch = 8000
+				// With 3 params per row (vector_id, cluster_id, distance),
+				// we can safely do 10000 rows per chunk (30000 parameters)
+				const maxRowsPerBatch = 10000
 
 				// Convert map to slice for chunking
 				assignments := make([]struct {
@@ -300,21 +314,20 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 
 					// Build bulk UPDATE statement for this chunk
 					valuesParts := make([]string, 0, len(chunk))
-					params := make([]sqlite3.StatementParameter, 0, len(chunk)*4)
+					params := make([]sqlite3.StatementParameter, 0, len(chunk)*3)
 
 					for _, assignment := range chunk {
-						valuesParts = append(valuesParts, "(?, ?, ?, ?)")
+						valuesParts = append(valuesParts, "(?, ?, ?)")
 						params = append(params,
 							sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: assignment.vectorID},
 							sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: assignment.clusterID},
 							sqlite3.StatementParameter{Type: sqlite3.ParameterTypeFloat, Value: assignment.distance},
-							sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: now},
 						)
 					}
 
 					// Use INSERT OR REPLACE to update cluster assignments for this column
 					query := fmt.Sprintf(
-						`INSERT OR REPLACE INTO %s_%s_cluster_vector_map (vector_id, cluster_id, distance, indexed_at) VALUES %s`,
+						`INSERT OR REPLACE INTO %s_%s_cluster_vector_map (vector_id, cluster_id, distance) VALUES %s`,
 						vi.TableName,
 						colInfo.Name,
 						strings.Join(valuesParts, ", "),
@@ -433,8 +446,149 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 	return totalProcessed, nil
 }
 
+// loadClusterTree loads the entire cluster tree for a column into memory
+func (vi *VectorIndexer) loadClusterTree(db *database.DatabaseConnection, columnName string) (map[int64]*ClusterNode, error) {
+	res, err := db.Exec(
+		fmt.Sprintf(`SELECT cluster_id, parent_id, centroid_blob, is_leaf, cluster_size FROM %s_%s_cluster_tree`, vi.TableName, columnName),
+		nil,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to query cluster tree: %w", err)
+	}
+
+	if len(res.Rows) == 0 {
+		return nil, fmt.Errorf("no clusters found in tree")
+	}
+
+	clusterTree := make(map[int64]*ClusterNode, len(res.Rows))
+
+	for _, row := range res.Rows {
+		if len(row) < 5 {
+			return nil, fmt.Errorf("invalid cluster tree row: expected 5 columns, got %d", len(row))
+		}
+
+		clusterID := row[0].Int64()
+		var parentID *int64
+
+		if row[1].ColumnType == sqlite3.ColumnTypeInteger && len(row[1].ColumnValue) > 0 {
+			pid := row[1].Int64()
+			parentID = &pid
+		}
+
+		centroidBlob := row[2].Blob()
+
+		if row[3].ColumnType != sqlite3.ColumnTypeInteger || len(row[3].ColumnValue) == 0 {
+			slog.Warn("Invalid is_leaf value", "cluster_id", clusterID, "type", row[3].ColumnType, "len", len(row[3].ColumnValue))
+			continue
+		}
+
+		isLeaf := row[3].Int64() == 1
+
+		if row[4].ColumnType != sqlite3.ColumnTypeInteger || len(row[4].ColumnValue) == 0 {
+			slog.Warn("Invalid cluster_size value", "cluster_id", clusterID, "type", row[4].ColumnType, "len", len(row[4].ColumnValue))
+			continue
+		}
+
+		clusterSize := int(row[4].Int64())
+
+		// Parse centroid
+		var centroid []float32
+
+		if len(centroidBlob) > 0 {
+			vb, err := ParseVectorBlob(centroidBlob)
+
+			if err == nil {
+				centroid = vb.GetFloat32Slice()
+			}
+		}
+
+		clusterTree[clusterID] = &ClusterNode{
+			ClusterID:   clusterID,
+			ParentID:    parentID,
+			Centroid:    centroid,
+			IsLeaf:      isLeaf,
+			ClusterSize: clusterSize,
+			Children:    make([]int64, 0),
+		}
+	}
+
+	// Build parent-child relationships
+	for clusterID, node := range clusterTree {
+		if node.ParentID != nil {
+			if parent, exists := clusterTree[*node.ParentID]; exists {
+				parent.Children = append(parent.Children, clusterID)
+			}
+		}
+	}
+
+	return clusterTree, nil
+}
+
+// findBestClusterInMemory finds the best leaf cluster using in-memory tree traversal
+// Returns the cluster ID and distance (0 if tree is empty)
+func (vi *VectorIndexer) findBestClusterInMemory(clusterTree map[int64]*ClusterNode, distanceMetric int, vector []float32) (int64, float64) {
+	// Start from root (cluster_id = 1)
+	if len(clusterTree) == 0 {
+		return 1, 0 // Default to root if tree is empty
+	}
+
+	currentNode, exists := clusterTree[1]
+
+	if !exists {
+		return 1, 0 // Default to root if not found
+	}
+
+	finalDistance := float64(0)
+
+	for {
+		// Calculate distance to current cluster's centroid
+		if len(currentNode.Centroid) > 0 {
+			finalDistance = calculateDistance(vector, currentNode.Centroid, distanceMetric)
+		}
+
+		if currentNode.IsLeaf {
+			// Found a leaf cluster
+			return currentNode.ClusterID, finalDistance
+		}
+
+		// Not a leaf - find best child cluster
+		if len(currentNode.Children) == 0 {
+			// No children - treat as leaf
+			return currentNode.ClusterID, finalDistance
+		}
+
+		var bestChild *ClusterNode
+		bestDistance := float64(1e9)
+
+		for _, childID := range currentNode.Children {
+			child, exists := clusterTree[childID]
+
+			if !exists || len(child.Centroid) == 0 {
+				continue
+			}
+
+			distance := calculateDistance(vector, child.Centroid, distanceMetric)
+
+			if distance < bestDistance {
+				bestDistance = distance
+				bestChild = child
+			}
+		}
+
+		if bestChild == nil {
+			// Couldn't find valid child, return current
+			return currentNode.ClusterID, finalDistance
+		}
+
+		// Move to best child
+		currentNode = bestChild
+	}
+}
+
 // findBestCluster finds the best leaf cluster for a vector using hierarchical traversal
 // Returns the cluster ID and the distance from the vector to the cluster's centroid
+// DEPRECATED: Use loadClusterTree + findBestClusterInMemory instead to avoid N+1 queries
 func (vi *VectorIndexer) findBestCluster(db *database.DatabaseConnection, columnName string, distanceMetric int, vector []float32) (int64, float64, error) {
 	// Start from root (cluster_id = 1)
 	currentClusterID := int64(1)
@@ -472,7 +626,7 @@ func (vi *VectorIndexer) findBestCluster(db *database.DatabaseConnection, column
 
 		// Not a leaf - find best child cluster
 		childRes, err := db.Exec(
-			fmt.Sprintf(`SELECT cluster_id, centroid_blob FROM %s_%s_cluster_tree WHERE parent_cluster_id = ?`, vi.TableName, columnName),
+			fmt.Sprintf(`SELECT cluster_id, centroid_blob FROM %s_%s_cluster_tree WHERE parent_id = ?`, vi.TableName, columnName),
 			[]sqlite3.StatementParameter{
 				{Type: sqlite3.ParameterTypeInteger, Value: currentClusterID},
 			},
@@ -866,8 +1020,6 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 		nextClusterID := maxIDRes.Rows[0][0].Int64() + 1
 
 		// Create child clusters with computed centroids
-		now := time.Now().UTC().Unix()
-
 		for i := 0; i < k; i++ {
 			childClusterID := nextClusterID + int64(i)
 
@@ -876,12 +1028,11 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 
 			// Insert child cluster with computed centroid
 			_, err = db.Exec(
-				fmt.Sprintf(`INSERT INTO %s_%s_cluster_tree (cluster_id, parent_id, centroid_blob, cluster_size, is_leaf, created_at) VALUES (?, ?, ?, 0, 1, ?)`, vi.TableName, columnName),
+				fmt.Sprintf(`INSERT INTO %s_%s_cluster_tree (cluster_id, parent_id, centroid_blob, cluster_size, is_leaf) VALUES (?, ?, ?, 0, 1)`, vi.TableName, columnName),
 				[]sqlite3.StatementParameter{
 					{Type: sqlite3.ParameterTypeInteger, Value: childClusterID},
 					{Type: sqlite3.ParameterTypeInteger, Value: clusterID},
 					{Type: sqlite3.ParameterTypeBlob, Value: centroidBlob},
-					{Type: sqlite3.ParameterTypeInteger, Value: now},
 				},
 			)
 
@@ -902,24 +1053,12 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 			return err
 		}
 
-		// DELETE old parent cluster mappings first to avoid duplicate mappings
-		// This is critical - without this, vectors would be mapped to BOTH parent and children
-		_, err = db.Exec(
-			fmt.Sprintf(`DELETE FROM %s_%s_cluster_vector_map WHERE cluster_id = ?`, vi.TableName, columnName),
-			[]sqlite3.StatementParameter{
-				{Type: sqlite3.ParameterTypeInteger, Value: clusterID},
-			},
-		)
-
-		if err != nil {
-			return err
-		}
-
 		// Reassign vectors to child clusters in batches
+		// Use INSERT OR REPLACE to update existing rows in-place (avoiding DELETE+INSERT)
 		// SQLite has a limit on the number of parameters (default 999, max 32766)
-		// With 4 params per row (vector_id, cluster_id, distance, indexed_at),
-		// we can safely do 8000 rows per chunk (32000 parameters)
-		const batchSize = 8000
+		// With 3 params per row (vector_id, cluster_id, distance),
+		// we can safely do 10000 rows per chunk (30000 parameters)
+		const batchSize = 10000
 
 		for i := 0; i < len(vectors); i += batchSize {
 			select {
@@ -936,24 +1075,23 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 
 			batch := vectors[i:end]
 			valuesParts := make([]string, 0, len(batch))
-			params := make([]sqlite3.StatementParameter, 0, len(batch)*4)
+			params := make([]sqlite3.StatementParameter, 0, len(batch)*3)
 
 			clusterSizes := make(map[int64]int)
 
 			for j, v := range batch {
 				childClusterID := nextClusterID + int64(assignments[i+j])
-				valuesParts = append(valuesParts, "(?, ?, ?, ?)")
+				valuesParts = append(valuesParts, "(?, ?, ?)")
 				params = append(params,
 					sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: v.id},
 					sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: childClusterID},
 					sqlite3.StatementParameter{Type: sqlite3.ParameterTypeFloat, Value: v.distance},
-					sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: now},
 				)
 				clusterSizes[childClusterID]++
 			}
 
 			query := fmt.Sprintf(
-				`INSERT INTO %s_%s_cluster_vector_map (vector_id, cluster_id, distance, indexed_at) VALUES %s`,
+				`INSERT OR REPLACE INTO %s_%s_cluster_vector_map (vector_id, cluster_id, distance) VALUES %s`,
 				vi.TableName,
 				columnName,
 				strings.Join(valuesParts, ", "),
@@ -1041,8 +1179,6 @@ func (vi *VectorIndexer) splitInternalNode(db *database.DatabaseConnection, colu
 
 	newInternalNodeID := maxIDRes.Rows[0][0].Int64() + 1
 
-	now := time.Now().UTC().Unix()
-
 	// First, compute centroids for each group of children
 	// We need this before creating the internal nodes because centroid_blob is NOT NULL
 	internalNodeCentroids := make([][]byte, numInternalNodes)
@@ -1109,12 +1245,11 @@ func (vi *VectorIndexer) splitInternalNode(db *database.DatabaseConnection, colu
 	// Create new internal nodes with computed centroids (one less than numInternalNodes, since the original parent becomes one)
 	for i := 1; i < numInternalNodes; i++ {
 		_, err = db.Exec(
-			fmt.Sprintf(`INSERT INTO %s_%s_cluster_tree (cluster_id, parent_id, centroid_blob, cluster_size, is_leaf, created_at) VALUES (?, ?, ?, 0, 0, ?)`, vi.TableName, columnName),
+			fmt.Sprintf(`INSERT INTO %s_%s_cluster_tree (cluster_id, parent_id, centroid_blob, cluster_size, is_leaf) VALUES (?, ?, ?, 0, 0)`, vi.TableName, columnName),
 			[]sqlite3.StatementParameter{
 				{Type: sqlite3.ParameterTypeInteger, Value: newInternalNodeID + int64(i) - 1},
 				{Type: sqlite3.ParameterTypeInteger, Value: parentClusterID},
 				{Type: sqlite3.ParameterTypeBlob, Value: internalNodeCentroids[i]},
-				{Type: sqlite3.ParameterTypeInteger, Value: now},
 			},
 		)
 

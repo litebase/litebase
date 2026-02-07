@@ -35,11 +35,10 @@ typedef struct
 {
     sqlite3_value **column_values; // Array of sqlite3_value* for all columns (owned, must be freed)
     int num_columns;               // Number of columns
-    sqlite3_int64 created_at;
 } PendingInsert;
 
 // SQLite has a parameter limit of 32766 (SQLITE_MAX_VARIABLE_NUMBER)
-// The limiting factor is _cluster_vector_map with 3 params per row (vector_id, cluster_id, created_at)
+// The limiting factor is _cluster_vector_map with 3 params per row (vector_id, cluster_id, distance)
 // So max batch size = 32766 / 3 = 10922 vectors
 #define INSERT_BUFFER_CAPACITY 10922
 
@@ -136,7 +135,7 @@ static int prepare_vtab_statements(vector_index_vtab *vtab, char **pzErr)
     int rc;
 
     // insert_vector_stmt - build dynamically based on columns
-    // Format: INSERT INTO table_vectors (col1, col2, ..., created_at) VALUES (?1, ?2, ..., ?N)
+    // Format: INSERT INTO table_vectors (col1, col2, ...) VALUES (?1, ?2, ..., ?N)
     char *col_list = sqlite3_mprintf("");
     char *param_list = sqlite3_mprintf("");
 
@@ -166,8 +165,8 @@ static int prepare_vtab_statements(vector_index_vtab *vtab, char **pzErr)
     }
 
     sql = sqlite3_mprintf(
-        "INSERT INTO %s_vectors (%s, created_at) VALUES (%s, ?%d)",
-        vtab->table_name, col_list, param_list, vtab->num_columns + 1);
+        "INSERT INTO %s_vectors (%s) VALUES (%s)",
+        vtab->table_name, col_list, param_list);
 
     sqlite3_free(col_list);
     sqlite3_free(param_list);
@@ -221,10 +220,6 @@ static int create_shadow_tables(sqlite3 *db, const char *table_name, ColumnDef *
         }
     }
 
-    char *final_defs = sqlite3_mprintf("%s, created_at INTEGER NOT NULL", column_defs);
-    sqlite3_free(column_defs);
-    column_defs = final_defs;
-
     if (!column_defs)
     {
         *pzErr = sqlite3_mprintf("Out of memory building _vectors table schema");
@@ -264,8 +259,7 @@ static int create_shadow_tables(sqlite3 *db, const char *table_name, ColumnDef *
             "centroid_blob BLOB NOT NULL,"
             "is_leaf INTEGER NOT NULL DEFAULT 1,"
             "cluster_size INTEGER DEFAULT 0,"
-            "radius REAL DEFAULT 0.0,"
-            "created_at INTEGER NOT NULL"
+            "radius REAL DEFAULT 0.0"
             ")",
             table_name, col_name);
         rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
@@ -313,7 +307,6 @@ static int create_shadow_tables(sqlite3 *db, const char *table_name, ColumnDef *
             "vector_id INTEGER NOT NULL,"
             "cluster_id INTEGER NOT NULL,"
             "distance REAL,"
-            "indexed_at INTEGER NOT NULL,"
             "PRIMARY KEY (vector_id)"
             ")",
             table_name, col_name);
@@ -362,9 +355,9 @@ static int create_shadow_tables(sqlite3 *db, const char *table_name, ColumnDef *
         memset(&zero_blob[6], 0, dimensions * 4);
 
         sql = sqlite3_mprintf(
-            "INSERT OR IGNORE INTO %s_%s_cluster_tree (cluster_id, parent_id, centroid_blob, is_leaf, cluster_size, created_at) "
-            "VALUES (1, NULL, ?, 1, 0, %lld)",
-            table_name, col_name, (sqlite3_int64)time(NULL));
+            "INSERT OR IGNORE INTO %s_%s_cluster_tree (cluster_id, parent_id, centroid_blob, is_leaf, cluster_size) "
+            "VALUES (1, NULL, ?, 1, 0)",
+            table_name, col_name);
 
         sqlite3_stmt *stmt;
         rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
@@ -907,10 +900,10 @@ int vector_index_create(
         }
 
         sql = sqlite3_mprintf(
-            "INSERT OR IGNORE INTO %s_%s_cluster_tree (cluster_id, parent_id, centroid_blob, is_leaf, cluster_size, created_at) "
-            "SELECT 0, NULL, X'00000000', 1, 0, %lld "
+            "INSERT OR IGNORE INTO %s_%s_cluster_tree (cluster_id, parent_id, centroid_blob, is_leaf, cluster_size) "
+            "SELECT 0, NULL, X'00000000', 1, 0 "
             "WHERE NOT EXISTS (SELECT 1 FROM %s_%s_cluster_tree WHERE cluster_id = 0)",
-            vtab->table_name, columns[i].name, (long long)time(NULL), vtab->table_name, columns[i].name);
+            vtab->table_name, columns[i].name, vtab->table_name, columns[i].name);
         rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
         sqlite3_free(sql);
 
@@ -1326,8 +1319,8 @@ static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr)
     }
 
     // Build VALUES clause: (?,?,...,?),(?,?,...,?),...
-    // Each row has num_columns + 1 parameters (columns + created_at)
-    int params_per_row = vtab->num_columns + 1;
+    // Each row has num_columns parameters
+    int params_per_row = vtab->num_columns;
     int values_size = vtab->buffer_size * (params_per_row * 3 + 4); // Conservative: "(?,...,?)," per row
     char *values_clause = (char *)sqlite3_malloc(values_size);
     if (!values_clause)
@@ -1357,7 +1350,7 @@ static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr)
     }
 
     sql = sqlite3_mprintf(
-        "INSERT INTO %s_vectors (%s, created_at) VALUES %s",
+        "INSERT INTO %s_vectors (%s) VALUES %s",
         vtab->table_name, col_list, values_clause);
     sqlite3_free(col_list);
     sqlite3_free(values_clause);
@@ -1392,8 +1385,6 @@ static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr)
                 sqlite3_bind_null(stmt, param_idx++);
             }
         }
-        // Bind created_at
-        sqlite3_bind_int64(stmt, param_idx++, vtab->insert_buffer[i].created_at);
     }
 
     rc = sqlite3_step(stmt);
@@ -1426,7 +1417,7 @@ static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr)
     }
 
     // Build multi-row INSERT for each vector column's cluster_vector_map table
-    // INSERT INTO {table}_{column}_cluster_vector_map (vector_id, cluster_id, distance, indexed_at) VALUES (?,0,0.0,?),(?,0,0.0,?),...
+    // INSERT INTO {table}_{column}_cluster_vector_map (vector_id, cluster_id, distance) VALUES (?,0,0.0),(?,0,0.0),...
     for (int col_idx = 0; col_idx < vtab->num_columns; col_idx++)
     {
         if (!vtab->columns[col_idx].is_vector)
@@ -1449,14 +1440,13 @@ static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr)
             {
                 ptr += sprintf(ptr, ",");
             }
-            ptr += sprintf(ptr, "(%lld,0,0.0,%lld)",
-                           (long long)(first_rowid + i),
-                           (long long)vtab->insert_buffer[i].created_at);
+            ptr += sprintf(ptr, "(%lld,0,0.0)",
+                           (long long)(first_rowid + i));
         }
         *ptr = '\0'; // Ensure null termination
 
         sql = sqlite3_mprintf(
-            "INSERT INTO %s_%s_cluster_vector_map (vector_id, cluster_id, distance, indexed_at) VALUES %s",
+            "INSERT INTO %s_%s_cluster_vector_map (vector_id, cluster_id, distance) VALUES %s",
             vtab->table_name, col_name, values_clause);
         sqlite3_free(values_clause);
 
@@ -1860,7 +1850,6 @@ int vector_index_update(
 
         vtab->insert_buffer[vtab->buffer_size].column_values = col_vals;
         vtab->insert_buffer[vtab->buffer_size].num_columns = num_cols;
-        vtab->insert_buffer[vtab->buffer_size].created_at = (sqlite3_int64)time(NULL);
         vtab->buffer_size++;
 
         // Set pRowid to a temporary value (will be corrected on flush)
@@ -1921,7 +1910,7 @@ int vector_index_update(
         }
 
         sql = sqlite3_mprintf(
-            "INSERT INTO %s_vectors (%s, created_at) VALUES (?1, ?2)",
+            "INSERT INTO %s_vectors (%s) VALUES (?1)",
             vtab->table_name, vector_col_name);
 
         rc = sqlite3_prepare_v2(vtab->db, sql, -1, &stmt, NULL);
@@ -1930,7 +1919,6 @@ int vector_index_update(
             return rc;
 
         sqlite3_bind_blob(stmt, 1, vector_data, vector_size, SQLITE_TRANSIENT);
-        sqlite3_bind_int64(stmt, 2, (sqlite3_int64)time(NULL));
 
         rc = sqlite3_step(stmt);
         sqlite3_finalize(stmt);
@@ -1948,7 +1936,7 @@ int vector_index_update(
             }
 
             sql = sqlite3_mprintf(
-                "INSERT INTO %s_%s_cluster_vector_map (vector_id, cluster_id, indexed_at) VALUES (?, ?, ?)",
+                "INSERT INTO %s_%s_cluster_vector_map (vector_id, cluster_id) VALUES (?, ?)",
                 vtab->table_name, vtab->columns[i].name);
 
             rc = sqlite3_prepare_v2(vtab->db, sql, -1, &stmt, NULL);
@@ -1963,7 +1951,6 @@ int vector_index_update(
 
             sqlite3_bind_int64(stmt, 1, new_vector_id);
             sqlite3_bind_int64(stmt, 2, 0);
-            sqlite3_bind_int64(stmt, 3, (sqlite3_int64)time(NULL));
 
             rc = sqlite3_step(stmt);
             sqlite3_finalize(stmt);
