@@ -430,11 +430,17 @@ func (s *Statement) getBlobData(index int) []byte {
 		return nil
 	}
 
-	// Create a byte slice and copy the data
-	data := make([]byte, size)
-	copy(data, (*[1 << 30]byte)(unsafe.Pointer(blobPtr))[:size:size])
+	// Ensure the buffer is large enough
+	if buf.Cap() < size {
+		buf.Grow(size)
+	}
 
-	return data
+	byteSlice := buf.Bytes()[0:size]
+
+	// Copy the blob data into the buffer
+	copy(byteSlice, (*[1 << 30]byte)(unsafe.Pointer(blobPtr))[:size:size])
+
+	return byteSlice
 }
 
 // Use the text buffer to store the text data
