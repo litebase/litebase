@@ -13,6 +13,8 @@ type Manager struct {
 	evictionPolicy EvictionPolicy
 	mutex          sync.Mutex
 	shutdown       bool
+	// reclaimHandlers stores per-owner reclaim callbacks to avoid per-lease closures.
+	reclaimHandlers map[string]func(*Lease) error
 }
 
 // Config contains manager configuration
@@ -37,10 +39,26 @@ func NewManager(cfg Config) (*Manager, error) {
 	}
 
 	return &Manager{
-		reservoir:      NewReservoir(cfg.Capacity, cfg.Threshold),
-		metrics:        NewMetrics(),
-		evictionPolicy: cfg.EvictionPolicy,
+		reservoir:       NewReservoir(cfg.Capacity, cfg.Threshold),
+		metrics:         NewMetrics(),
+		evictionPolicy:  cfg.EvictionPolicy,
+		reclaimHandlers: make(map[string]func(*Lease) error),
 	}, nil
+}
+
+// RegisterReclaimHandler registers a reclaim handler for a given owner.
+// The handler will be invoked for leases owned by that owner when the manager
+// needs to reclaim or evict leases. This avoids allocating a closure per-lease.
+func (m *Manager) RegisterReclaimHandler(owner string, handler func(*Lease) error) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	if handler == nil {
+		delete(m.reclaimHandlers, owner)
+		return
+	}
+
+	m.reclaimHandlers[owner] = handler
 }
 
 // Request requests a memory lease
@@ -73,15 +91,14 @@ func (m *Manager) Request(size int64, opts ...LeaseOption) (*Lease, error) {
 		return nil, err
 	}
 
-	// Create lease
-	id := LeaseID(fmt.Sprintf("lease-%d", nextLeaseID.Add(1)))
+	// Create lease ID as numeric to avoid string allocations
+	id := LeaseID(nextLeaseID.Add(1))
 
-	lease := &Lease{
-		ID:          id,
-		Size:        size,
-		Reclaimable: true,
-		Priority:    PriorityNormal,
-	}
+	lease := AcquireLease()
+	lease.ID = id
+	lease.Size = size
+	lease.Reclaimable = true
+	lease.Priority = PriorityNormal
 	lease.lastUsed.Store(time.Now().UTC().UnixNano())
 
 	// Apply options
@@ -113,6 +130,9 @@ func (m *Manager) Release(lease *Lease) error {
 	m.reservoir.RemoveLease(lease.ID)
 	m.reservoir.Release(lease.Size)
 	m.metrics.RecordRelease(lease.Size, lease.Owner)
+
+	// Return lease to pool
+	ReleaseLease(lease)
 
 	return nil
 }
@@ -160,10 +180,17 @@ func (m *Manager) Shutdown() error {
 			if err != nil {
 				m.metrics.RecordReclaimFailure()
 			}
+		} else if handler, ok := m.reclaimHandlers[lease.Owner]; ok && handler != nil {
+			if err := handler(lease); err != nil {
+				m.metrics.RecordReclaimFailure()
+			}
 		}
 
 		m.reservoir.RemoveLease(lease.ID)
 		m.reservoir.Release(lease.Size)
+
+		// Return lease to pool
+		ReleaseLease(lease)
 	}
 
 	return nil
@@ -182,9 +209,14 @@ func (m *Manager) evict(needed int64) error {
 	var freed int64
 
 	for _, lease := range toEvict {
-		// Call reclaim callback if set
+		// Call reclaim callback if set, otherwise call owner-level handler if registered
 		if lease.OnReclaim != nil {
 			if err := lease.OnReclaim(); err != nil {
+				m.metrics.RecordReclaimFailure()
+				continue
+			}
+		} else if handler, ok := m.reclaimHandlers[lease.Owner]; ok && handler != nil {
+			if err := handler(lease); err != nil {
 				m.metrics.RecordReclaimFailure()
 				continue
 			}
@@ -198,6 +230,9 @@ func (m *Manager) evict(needed int64) error {
 		m.reservoir.Release(lease.Size)
 		m.metrics.RecordEviction(lease.Size)
 		m.metrics.RecordRelease(lease.Size, lease.Owner)
+
+		// Return lease to pool
+		ReleaseLease(lease)
 
 		freed += lease.Size
 	}

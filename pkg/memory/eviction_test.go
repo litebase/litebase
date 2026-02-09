@@ -12,8 +12,8 @@ func TestLRUEvictionPolicy(t *testing.T) {
 	now := time.Now().UTC()
 
 	t.Run("SelectOldest", func(t *testing.T) {
-		newLease := &memory.Lease{ID: "new", Size: 100, Reclaimable: true, Priority: memory.PriorityNormal}
-		oldLease := &memory.Lease{ID: "old", Size: 100, Reclaimable: true, Priority: memory.PriorityNormal}
+		newLease := &memory.Lease{ID: 1, Size: 100, Reclaimable: true, Priority: memory.PriorityNormal}
+		oldLease := &memory.Lease{ID: 2, Size: 100, Reclaimable: true, Priority: memory.PriorityNormal}
 
 		// Set last used times using the Touch method indirectly or by setting the atomic value
 		newLease.SetLastUsed(now)
@@ -27,14 +27,14 @@ func TestLRUEvictionPolicy(t *testing.T) {
 			t.Fatalf("Expected 1 lease, got %d", len(selected))
 		}
 
-		if selected[0].ID != "old" {
-			t.Errorf("Expected oldest lease, got %s", selected[0].ID)
+		if selected[0].ID != 2 {
+			t.Errorf("Expected oldest lease, got %d", selected[0].ID)
 		}
 	})
 
 	t.Run("IgnoreNonReclaimable", func(t *testing.T) {
-		reclaimableLease := &memory.Lease{ID: "reclaimable", Size: 100, Reclaimable: true, Priority: memory.PriorityNormal}
-		nonReclaimableLease := &memory.Lease{ID: "non-reclaimable", Size: 100, Reclaimable: false, Priority: memory.PriorityNormal}
+		reclaimableLease := &memory.Lease{ID: 3, Size: 100, Reclaimable: true, Priority: memory.PriorityNormal}
+		nonReclaimableLease := &memory.Lease{ID: 4, Size: 100, Reclaimable: false, Priority: memory.PriorityNormal}
 
 		reclaimableLease.SetLastUsed(now)
 		nonReclaimableLease.SetLastUsed(now.Add(-1 * time.Hour))
@@ -43,8 +43,8 @@ func TestLRUEvictionPolicy(t *testing.T) {
 
 		selected := policy.SelectForEviction(leases, 100)
 
-		if selected[0].ID != "reclaimable" {
-			t.Errorf("Expected reclaimable lease, got %s", selected[0].ID)
+		if selected[0].ID != 3 {
+			t.Errorf("Expected reclaimable lease, got %d", selected[0].ID)
 		}
 	})
 }
@@ -54,8 +54,8 @@ func TestSizeBasedEvictionPolicy(t *testing.T) {
 	now := time.Now().UTC()
 
 	t.Run("SelectLargest", func(t *testing.T) {
-		smallLease := &memory.Lease{ID: "small", Size: 100, Reclaimable: true}
-		largeLease := &memory.Lease{ID: "large", Size: 500, Reclaimable: true}
+		smallLease := &memory.Lease{ID: 5, Size: 100, Reclaimable: true}
+		largeLease := &memory.Lease{ID: 6, Size: 500, Reclaimable: true}
 
 		smallLease.SetLastUsed(now)
 		largeLease.SetLastUsed(now)
@@ -64,8 +64,8 @@ func TestSizeBasedEvictionPolicy(t *testing.T) {
 
 		selected := policy.SelectForEviction(leases, 250)
 
-		if selected[0].ID != "large" {
-			t.Errorf("Expected largest lease, got %s", selected[0].ID)
+		if selected[0].ID != 6 {
+			t.Errorf("Expected largest lease, got %d", selected[0].ID)
 		}
 	})
 }

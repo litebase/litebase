@@ -203,6 +203,11 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 				return fmt.Errorf("failed to query vectors in cluster 0: %w", err)
 			}
 
+			defer func() {
+				// Return the result to the result pool to free memory
+				db.ResultPool().Put(res)
+			}()
+
 			slog.Debug("Queried cluster 0 vectors",
 				"table", vi.TableName,
 				"column", colInfo.Name,
@@ -333,9 +338,16 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 						strings.Join(valuesParts, ", "),
 					)
 
-					if _, err := db.Exec(query, params); err != nil {
+					res, err := db.Exec(query, params)
+
+					if err != nil {
 						return fmt.Errorf("failed to update cluster mappings chunk %d-%d: %w", i, end, err)
 					}
+
+					defer func() {
+						// Return the result to the result pool to free memory
+						db.ResultPool().Put(res)
+					}()
 				}
 			}
 

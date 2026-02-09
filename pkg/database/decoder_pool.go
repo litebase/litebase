@@ -22,7 +22,7 @@ func JsonDecoderPool() *DecoderPool {
 		staticDecoderPool = &DecoderPool{
 			decoders: &sync.Pool{
 				New: func() any {
-					buffer := bytes.NewBuffer(make([]byte, 1024))
+					buffer := bytes.NewBuffer(make([]byte, 0, 1024))
 
 					return &Decoder{
 						Buffer:      buffer,

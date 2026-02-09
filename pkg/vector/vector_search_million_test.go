@@ -3,7 +3,9 @@ package vector_test
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"runtime/pprof"
+	"strings"
 	"testing"
 	"time"
 
@@ -61,7 +63,17 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to create memory profile file: %v", err)
 		}
-		defer memprofileFile.Close()
+		defer func() {
+			// gc before taking memory profile to get more accurate live heap objects
+			runtime.GC()
+
+			//flush memory profile to file
+			pprof.Lookup("allocs").WriteTo(memprofileFile, 0)
+
+			if err := memprofileFile.Sync(); err != nil {
+				t.Fatalf("Failed to sync memory profile file: %v", err)
+			}
+		}()
 
 		const (
 			// Target: 1M vectors under 5 minutes
@@ -75,16 +87,21 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 			k                 = 10    // Number of nearest neighbors to return
 		)
 
-		// Build the batched INSERT statement
-		placeholders := ""
+		// Build the batched INSERT statement without repeated allocations
+		var builder strings.Builder
+
+		// Approximate per-item size: 3 for "(?)" + 2 for ", " separator
+		if insertBatchSize > 0 {
+			builder.Grow(5 * insertBatchSize)
+		}
 
 		for i := range insertBatchSize {
 			if i > 0 {
-				placeholders += ", "
+				builder.WriteString(", ")
 			}
-
-			placeholders += "(?)"
+			builder.WriteString("(?)")
 		}
+		placeholders := builder.String()
 
 		insertSQL := fmt.Sprintf("INSERT INTO embeddings(vector) VALUES %s", placeholders)
 
@@ -97,6 +114,7 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 		result := sqlite3.NewResult()
 
 		t.Logf("Inserting %d vectors in batches of %d...", totalVectors, insertBatchSize)
+
 		insertStart := time.Now()
 
 		// Timing variables

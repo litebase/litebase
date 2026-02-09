@@ -26,7 +26,7 @@ var QueryLogFlushThreshold = time.Second
 
 var queryLogBuffer = sync.Pool{
 	New: func() any {
-		return bytes.NewBuffer(make([]byte, 1024))
+		return bytes.NewBuffer(make([]byte, 0, 1024))
 	},
 }
 

@@ -26,7 +26,7 @@ func NewRollbackLogger(tieredFS *storage.FileSystem, databaseId, branchId string
 	return &RollbackLogger{
 		buffers: sync.Pool{
 			New: func() any {
-				return bytes.NewBuffer(make([]byte, 1024))
+				return bytes.NewBuffer(make([]byte, 0, 1024))
 			},
 		},
 		DatabaseID: databaseId,

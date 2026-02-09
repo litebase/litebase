@@ -2,6 +2,7 @@ package memory
 
 import (
 	"errors"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -15,7 +16,8 @@ var (
 )
 
 // LeaseID represents a unique identifier for a memory lease
-type LeaseID string
+// Use a numeric ID to avoid string allocations for high-frequency IDs.
+type LeaseID uint64
 
 // Priority defines the importance of a memory lease for eviction decisions
 type Priority int
@@ -34,9 +36,55 @@ type Lease struct {
 	Reclaimable bool
 	Priority    Priority
 	Owner       string
-	lastUsed    atomic.Int64 // Unix timestamp in nanoseconds
-	OnReclaim   func() error
-	Reclaimed   bool
+	// Key is optional metadata associated with the lease (e.g., cache key).
+	// It may be used by owner-level reclaim handlers to identify the resource to delete.
+	Key       any
+	lastUsed  atomic.Int64 // Unix timestamp in nanoseconds
+	OnReclaim func() error
+	Reclaimed bool
+}
+
+var leasePool = sync.Pool{
+	New: func() any {
+		return &Lease{}
+	},
+}
+
+// AcquireLease gets a Lease from the pool (zeroed) for reuse.
+func AcquireLease() *Lease {
+	l := leasePool.Get().(*Lease)
+
+	// Reset fields to zero state
+	l.ID = 0
+	l.Size = 0
+	l.Reclaimable = false
+	l.Priority = 0
+	l.Owner = ""
+	l.Key = nil
+	l.lastUsed.Store(0)
+	l.OnReclaim = nil
+	l.Reclaimed = false
+
+	return l
+}
+
+// ReleaseLease resets the lease and returns it to the pool.
+func ReleaseLease(l *Lease) {
+	if l == nil {
+		return
+	}
+
+	l.ID = 0
+	l.Size = 0
+	l.Reclaimable = false
+	l.Priority = 0
+	l.Owner = ""
+	l.Key = nil
+	l.lastUsed.Store(0)
+	l.OnReclaim = nil
+	l.Reclaimed = false
+
+	leasePool.Put(l)
 }
 
 // GetLastUsed returns the last used time as a time.Time

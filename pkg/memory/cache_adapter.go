@@ -55,6 +55,27 @@ func NewManagedCache(cfg ManagedCacheConfig) *ManagedCache {
 	}
 }
 
+// registerOwnerHandler registers a reclaim handler for this cache owner if one
+// isn't already registered. It deletes cached entry and removes lease mapping
+// when called.
+func (mc *ManagedCache) registerOwnerHandler() {
+	if mc.manager == nil || mc.owner == "" {
+		return
+	}
+
+	mc.manager.RegisterReclaimHandler(mc.owner, func(l *Lease) error {
+		// l.Key is expected to be the cache key used by this ManagedCache
+		if l == nil {
+			return nil
+		}
+
+		mc.cache.Delete(l.Key)
+		delete(mc.leases, l.Key)
+
+		return nil
+	})
+}
+
 // Put adds an item to the cache
 func (mc *ManagedCache) Put(key any, value any) error {
 	size := mc.sizeFunc(value)
@@ -70,15 +91,13 @@ func (mc *ManagedCache) Put(key any, value any) error {
 		delete(mc.leases, key)
 	}
 
-	// Request memory lease
+	// Ensure owner-level reclaim handler is registered (register once per cache instance)
+	mc.registerOwnerHandler()
+
+	// Request memory lease; set owner so owner-level handler will be used on reclaim.
 	lease, err := mc.manager.Request(size,
 		Reclaimable(true),
 		WithOwner(mc.owner),
-		WithOnReclaim(func() error {
-			mc.cache.Delete(key)
-			delete(mc.leases, key)
-			return nil
-		}),
 	)
 
 	if err != nil {
@@ -99,6 +118,8 @@ func (mc *ManagedCache) Put(key any, value any) error {
 		return err
 	}
 
+	// Attach the cache key to the lease so the owner-level handler can find it
+	lease.Key = key
 	mc.leases[key] = lease
 
 	return nil

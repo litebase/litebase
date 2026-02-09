@@ -13,7 +13,7 @@ type ResultPool struct {
 func NewResultPool() *ResultPool {
 	return &ResultPool{
 		results: &sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				return NewResult()
 			},
 		},
@@ -27,5 +27,12 @@ func (rp *ResultPool) Get() *Result {
 
 // Put a Result back into the pool
 func (rp *ResultPool) Put(r *Result) {
+	if r == nil {
+		return
+	}
+
+	// Ensure internal buffers/columns/rows are released back to their pools
+	r.Reset()
+
 	rp.results.Put(r)
 }

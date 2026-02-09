@@ -97,7 +97,7 @@ func NewObjectFileSystemDriver(c *config.Config) *ObjectFileSystemDriver {
 		bucket: c.StorageBucket,
 		buffers: sync.Pool{
 			New: func() any {
-				return bytes.NewBuffer(make([]byte, 1024))
+				return bytes.NewBuffer(make([]byte, 0, 1024))
 			},
 		},
 		context:  context.Background(),
