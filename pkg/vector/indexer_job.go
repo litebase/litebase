@@ -203,11 +203,6 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 				return fmt.Errorf("failed to query vectors in cluster 0: %w", err)
 			}
 
-			defer func() {
-				// Return the result to the result pool to free memory
-				db.ResultPool().Put(res)
-			}()
-
 			slog.Debug("Queried cluster 0 vectors",
 				"table", vi.TableName,
 				"column", colInfo.Name,
@@ -288,6 +283,9 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 					clusterVectorSums[clusterID][i] += v
 				}
 			}
+
+			// Return the result to the result pool to free memory
+			db.ResultPool().Put(res)
 
 			// Update cluster mappings in batch
 			if len(vectorAssignments) > 0 {
