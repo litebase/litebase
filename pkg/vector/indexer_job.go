@@ -344,10 +344,8 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 						return fmt.Errorf("failed to update cluster mappings chunk %d-%d: %w", i, end, err)
 					}
 
-					defer func() {
-						// Return the result to the result pool to free memory
-						db.ResultPool().Put(res)
-					}()
+					// Return the result to the result pool to free memory
+					db.ResultPool().Put(res)
 				}
 			}
 
