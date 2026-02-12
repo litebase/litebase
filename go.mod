@@ -1,9 +1,8 @@
 module github.com/litebase/litebase
 
-go 1.25
+go 1.26
 
 require (
-	github.com/aws/aws-sdk-go v1.55.7
 	github.com/aws/aws-sdk-go-v2 v1.36.3
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.67
 	github.com/charmbracelet/bubbles/v2 v2.0.0-beta.1
@@ -13,6 +12,7 @@ require (
 	github.com/charmbracelet/huh v0.7.0
 	github.com/charmbracelet/lipgloss/v2 v2.0.0-beta1
 	github.com/charmbracelet/x/term v0.2.1
+	github.com/go-co-op/gocron/v2 v2.19.0
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/johannesboyne/gofakes3 v0.0.0-20250402064820-d479899d8cbe
 	github.com/joho/godotenv v1.5.1
@@ -22,12 +22,11 @@ require (
 )
 
 require (
+	github.com/aws/aws-sdk-go v1.55.7 // indirect
 	github.com/charmbracelet/harmonica v0.2.0 // indirect
-	github.com/go-co-op/gocron/v2 v2.19.0 // indirect
 	github.com/jonboulle/clockwork v0.5.0 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
-	github.com/stretchr/testify v1.11.1 // indirect
 	golang.org/x/mod v0.29.0 // indirect
 )
 
