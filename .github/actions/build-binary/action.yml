@@ -24,7 +24,7 @@ inputs:
   go_version:
     description: 'Go version to use'
     required: false
-    default: '1.25'
+    default: '1.26'
 
 outputs:
   archive_name:
