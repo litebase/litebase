@@ -31,12 +31,13 @@ func (wqm *WriteQueueManager) GetWriteQueue(query *Query) *WriteQueue {
 		branchId:   query.DatabaseKey.DatabaseBranchID,
 		context:    ctx,
 		databaseId: query.DatabaseKey.DatabaseID,
-		// Setup a buffered channel to hold up to 1000 concurrent jobs
-		jobs:  make(chan WriteQueueJob, 1),
+		// Setup a buffered channel to hold up to WriteQueueCapacity concurrent jobs
+		jobs:  make(chan WriteQueueJob, WriteQueueCapacity),
 		mutex: sync.Mutex{},
 		resultChannelPool: sync.Pool{
 			New: func() any {
-				return make(chan *WriteQueueResult)
+				// buffered channel to avoid blocking the sender when writing result
+				return make(chan *WriteQueueResult, 1)
 			},
 		},
 		resultPool: sync.Pool{

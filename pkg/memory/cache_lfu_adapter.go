@@ -6,8 +6,8 @@ import (
 	"github.com/litebase/litebase/pkg/cache"
 )
 
-// ManagedCache wraps an LFU cache with memory manager integration
-type ManagedCache struct {
+// ManagedLFUCache wraps an LFU cache with memory manager integration
+type ManagedLFUCache struct {
 	cache       *cache.LFUCache
 	manager     *Manager
 	sizeFunc    func(any) int64
@@ -16,8 +16,8 @@ type ManagedCache struct {
 	leases      map[any]*Lease
 }
 
-// ManagedCacheConfig contains configuration for a managed cache
-type ManagedCacheConfig struct {
+// ManagedLFUCacheConfig contains configuration for a managed LFU cache
+type ManagedLFUCacheConfig struct {
 	Capacity    int
 	Manager     *Manager
 	SizeFunc    func(any) int64
@@ -25,8 +25,8 @@ type ManagedCacheConfig struct {
 	Owner       string
 }
 
-// NewManagedCache creates a new managed cache
-func NewManagedCache(cfg ManagedCacheConfig) *ManagedCache {
+// NewManagedLFUCache creates a new managed LFU cache
+func NewManagedLFUCache(cfg ManagedLFUCacheConfig) *ManagedLFUCache {
 	if cfg.DefaultSize == 0 {
 		cfg.DefaultSize = 64
 	}
@@ -45,7 +45,7 @@ func NewManagedCache(cfg ManagedCacheConfig) *ManagedCache {
 		}
 	}
 
-	return &ManagedCache{
+	return &ManagedLFUCache{
 		cache:       cache.NewLFUCache(cfg.Capacity),
 		manager:     cfg.Manager,
 		sizeFunc:    cfg.SizeFunc,
@@ -58,13 +58,13 @@ func NewManagedCache(cfg ManagedCacheConfig) *ManagedCache {
 // registerOwnerHandler registers a reclaim handler for this cache owner if one
 // isn't already registered. It deletes cached entry and removes lease mapping
 // when called.
-func (mc *ManagedCache) registerOwnerHandler() {
+func (mc *ManagedLFUCache) registerOwnerHandler() {
 	if mc.manager == nil || mc.owner == "" {
 		return
 	}
 
 	mc.manager.RegisterReclaimHandler(mc.owner, func(l *Lease) error {
-		// l.Key is expected to be the cache key used by this ManagedCache
+		// l.Key is expected to be the cache key used by this ManagedLFUCache
 		if l == nil {
 			return nil
 		}
@@ -77,7 +77,7 @@ func (mc *ManagedCache) registerOwnerHandler() {
 }
 
 // Put adds an item to the cache
-func (mc *ManagedCache) Put(key any, value any) error {
+func (mc *ManagedLFUCache) Put(key any, value any) error {
 	size := mc.sizeFunc(value)
 
 	// Check if key exists and release old lease
@@ -126,11 +126,11 @@ func (mc *ManagedCache) Put(key any, value any) error {
 }
 
 // Get retrieves an item from the cache
-func (mc *ManagedCache) Get(key any) (any, bool) {
+func (mc *ManagedLFUCache) Get(key any) (any, bool) {
 	value, found := mc.cache.Get(key)
 
 	if found {
-		// Touch the lease to update LRU
+		// Touch the lease to update frequency
 		if lease, exists := mc.leases[key]; exists {
 			mc.manager.Touch(lease)
 		}
@@ -140,7 +140,7 @@ func (mc *ManagedCache) Get(key any) (any, bool) {
 }
 
 // Delete removes an item from the cache
-func (mc *ManagedCache) Delete(key any) {
+func (mc *ManagedLFUCache) Delete(key any) {
 	// Release lease
 	if lease, exists := mc.leases[key]; exists {
 		err := mc.manager.Release(lease)
@@ -154,4 +154,15 @@ func (mc *ManagedCache) Delete(key any) {
 
 	// Remove from cache
 	mc.cache.Delete(key)
+}
+// Backward compatibility aliases
+// ManagedCache is an alias for ManagedLFUCache for backward compatibility
+type ManagedCache = ManagedLFUCache
+
+// ManagedCacheConfig is an alias for ManagedLFUCacheConfig for backward compatibility
+type ManagedCacheConfig = ManagedLFUCacheConfig
+
+// NewManagedCache creates a new managed LFU cache (backward compatibility wrapper)
+func NewManagedCache(cfg ManagedCacheConfig) *ManagedCache {
+	return NewManagedLFUCache(cfg)
 }

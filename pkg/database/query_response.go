@@ -51,6 +51,11 @@ For a result set response, the format is:
 | 41 + n + m + p  | q      | rows                | The rows in the result set.                           |
 */
 
+const (
+	// queryResponseJsonBufferMaxPoolSize prevents oversized buffers from being pooled
+	queryResponseJsonBufferMaxPoolSize = 64 * 1024 // 64KB
+)
+
 // Buffer pool for reusing buffers
 var queryResponseJsonBufferPool = sync.Pool{
 	New: func() any {
@@ -312,7 +317,12 @@ func (qr *QueryResponse) Latency() float64 {
 
 func (qr *QueryResponse) MarshalJSON() ([]byte, error) {
 	buffer := queryResponseJsonBufferPool.Get().(*bytes.Buffer)
-	defer queryResponseJsonBufferPool.Put(buffer)
+	defer func() {
+		// Only return reasonably-sized buffers to pool
+		if buffer.Cap() <= queryResponseJsonBufferMaxPoolSize {
+			queryResponseJsonBufferPool.Put(buffer)
+		}
+	}()
 	buffer.Reset()
 
 	// Extract column names from ColumnDefinition slice for JSON

@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/litebase/litebase/pkg/vector"
+	"github.com/litebase/litebase/pkg/database"
 )
 
 const (
@@ -82,7 +82,7 @@ func VectorIndexerJob(ctx context.Context, app *App, data map[string]interface{}
 	dbConn := conn.GetConnection()
 
 	// Get vector columns configuration from metadata
-	vectorColumns, err := vector.GetVectorColumns(dbConn, tableName)
+	vectorColumns, err := database.GetVectorColumns(dbConn, tableName)
 
 	if err != nil {
 		return fmt.Errorf("failed to get vector columns: %w", err)
@@ -113,7 +113,7 @@ func VectorIndexerJob(ctx context.Context, app *App, data map[string]interface{}
 	fmt.Sscanf(metadata["min_cluster_size"], "%d", &minClusterSize)
 
 	// Create indexer
-	indexer, err := vector.NewVectorIndexer(
+	indexer, err := database.NewVectorIndexer(
 		dbConn,
 		tableName,
 		vectorColumns,

@@ -6,6 +6,13 @@ import (
 	"sync"
 )
 
+const (
+	// parameterDecoderBufferInitialSize is the initial capacity for parameter decoder buffers
+	parameterDecoderBufferInitialSize = 1024 // 1KB
+	// parameterDecoderBufferMaxPoolSize prevents oversized buffers from being pooled
+	parameterDecoderBufferMaxPoolSize = 64 * 1024 // 64KB
+)
+
 type ParameterDecoder struct {
 	Buffer      *bytes.Buffer
 	JsonDecoder *json.Decoder
@@ -19,7 +26,7 @@ func JsonParameterDecoderPool() *ParameterDecoderPool {
 	return &ParameterDecoderPool{
 		decoders: &sync.Pool{
 			New: func() interface{} {
-				buffer := bytes.NewBuffer(make([]byte, 1024))
+				buffer := bytes.NewBuffer(make([]byte, 0, parameterDecoderBufferInitialSize))
 
 				return &ParameterDecoder{
 					Buffer:      buffer,
@@ -38,5 +45,9 @@ func (pdp *ParameterDecoderPool) Get() *ParameterDecoder {
 }
 
 func (pdp *ParameterDecoderPool) Put(encoder *ParameterDecoder) {
-	pdp.decoders.Put(encoder)
+	// Only return reasonably-sized buffers to pool
+	if encoder.Buffer.Cap() <= parameterDecoderBufferMaxPoolSize {
+		pdp.decoders.Put(encoder)
+	}
+	// Oversized decoders are discarded and will be garbage collected
 }

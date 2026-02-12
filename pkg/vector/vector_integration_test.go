@@ -31,7 +31,7 @@ func NewTestVector(dim int) []float32 {
 func GenerateBatch(count, dim int) [][]float32 {
 	batch := make([][]float32, count)
 
-	for i := range count {
+	for i := 0; i < count; i++ {
 		vec := make([]float32, dim)
 
 		for j := range vec {
@@ -1226,7 +1226,7 @@ func TestVectorScanPerformanceWithMillionProducts(t *testing.T) {
 		// Build the batched INSERT statement
 		placeholders := ""
 
-		for i := range insertBatchSize {
+		for i := 0; i < insertBatchSize; i++ {
 			if i > 0 {
 				placeholders += ", "
 			}

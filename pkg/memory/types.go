@@ -42,6 +42,9 @@ type Lease struct {
 	lastUsed  atomic.Int64 // Unix timestamp in nanoseconds
 	OnReclaim func() error
 	Reclaimed bool
+	// Slab is the actual memory backing allocated by the manager.
+	// When non-nil, this slab is owned by the manager and will be freed on Release/eviction.
+	Slab      []byte
 }
 
 var leasePool = sync.Pool{
@@ -83,6 +86,7 @@ func ReleaseLease(l *Lease) {
 	l.lastUsed.Store(0)
 	l.OnReclaim = nil
 	l.Reclaimed = false
+	l.Slab = nil // Release slab reference for GC
 
 	leasePool.Put(l)
 }

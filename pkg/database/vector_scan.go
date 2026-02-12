@@ -1,4 +1,4 @@
-package vector
+package database
 
 /*
 #include <stdlib.h>
@@ -10,18 +10,20 @@ import (
 	"log/slog"
 	"runtime/cgo"
 	"unsafe"
+
+	"github.com/litebase/litebase/pkg/vector"
 )
 
-// ScanHandle holds the results of a vector scan
-type ScanHandle struct {
-	Results []VectorResult
+// VectorScanHandle holds the results of a vector scan
+type VectorScanHandle struct {
+	Results []vector.VectorResult
 	Index   int
 }
 
 // VectorScan performs a parallel k-NN vector search
 func VectorScan(vfsID, databaseID, branchID, tableName, columnName string, queryBlob []byte, k int, metric string) (cgo.Handle, error) {
 	// Parse query vector
-	queryVector, err := ParseVectorBlob(queryBlob)
+	queryVector, err := vector.ParseVectorBlob(queryBlob)
 
 	if err != nil {
 		return 0, fmt.Errorf("failed to parse query vector: %w", err)
@@ -35,7 +37,7 @@ func VectorScan(vfsID, databaseID, branchID, tableName, columnName string, query
 	}
 
 	// Create handle
-	handle := &ScanHandle{
+	handle := &VectorScanHandle{
 		Results: results,
 		Index:   0,
 	}
@@ -44,7 +46,7 @@ func VectorScan(vfsID, databaseID, branchID, tableName, columnName string, query
 }
 
 // executeParallelScan executes the parallel scan across table partitions
-func executeParallelScan(vfsID, databaseID, branchID, tableName, columnName string, queryVector *VectorBlob, k int, metric string) ([]VectorResult, error) {
+func executeParallelScan(vfsID, databaseID, branchID, tableName, columnName string, queryVector *vector.VectorBlob, k int, metric string) ([]vector.VectorResult, error) {
 	// Partition the table
 	partitions, err := PartitionTable(vfsID, databaseID, branchID, tableName, columnName, queryVector, k, metric)
 
@@ -53,7 +55,7 @@ func executeParallelScan(vfsID, databaseID, branchID, tableName, columnName stri
 	}
 
 	if len(partitions) == 0 {
-		return []VectorResult{}, nil
+		return []vector.VectorResult{}, nil
 	}
 
 	// Get worker pool
@@ -61,11 +63,11 @@ func executeParallelScan(vfsID, databaseID, branchID, tableName, columnName stri
 
 	// Phase 2.5: Create streaming channel for batch heaps
 	// Buffer size = workers * batches per chunk (approx 10 batches/chunk)
-	streamChan := make(chan *ChunkResult, pool.MaxWorkers()*10)
-	resultChan := make(chan *ChunkResult, len(partitions))
+	streamChan := make(chan *VectorChunkResult, pool.MaxWorkers()*10)
+	resultChan := make(chan *VectorChunkResult, len(partitions))
 
 	// Create central heap for continuous merging
-	centralHeap := NewTopKHeap(k)
+	centralHeap := vector.NewTopKHeap(k)
 
 	// Start central merger goroutine that continuously merges incoming batch heaps
 	mergerDone := make(chan struct{})
@@ -87,7 +89,7 @@ func executeParallelScan(vfsID, databaseID, branchID, tableName, columnName stri
 
 	// Submit jobs to worker pool with streaming channel
 	for i, partition := range partitions {
-		job := &ChunkJob{
+		job := &VectorChunkJob{
 			ChunkID:     i,
 			StartRow:    partition.StartRow,
 			EndRow:      partition.EndRow,
@@ -160,7 +162,7 @@ func goGetScanResult(handleID C.longlong, rowid *C.longlong, distance *C.double)
 
 // GoGetScanResult is the exported Go function that can be called from other packages
 func GoGetScanResult(handleID C.longlong, rowid *C.longlong, distance *C.double) C.int {
-	handle := cgo.Handle(handleID).Value().(*ScanHandle)
+	handle := cgo.Handle(handleID).Value().(*VectorScanHandle)
 
 	if handle.Index >= len(handle.Results) {
 		return 0

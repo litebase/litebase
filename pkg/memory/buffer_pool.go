@@ -36,8 +36,8 @@ func NewBufferPool(bufferSize int64, manager *Manager) *BufferPool {
 
 // Get retrieves a buffer from the pool
 func (bp *BufferPool) Get() (*[]byte, error) {
-	// Request memory lease
-	lease, err := bp.manager.Request(bp.bufferSize, WithOnReclaim(func() error {
+	// Request memory lease with slab
+	lease, err := bp.manager.RequestWithSlab(bp.bufferSize, WithOnReclaim(func() error {
 		return nil
 	}))
 
@@ -45,15 +45,16 @@ func (bp *BufferPool) Get() (*[]byte, error) {
 		return nil, err
 	}
 
-	// Get buffer from pool
-	buf := bp.pool.Get().(*[]byte)
+	// Copy the slice header (not the pointer to lease.Slab field)
+	// This prevents the returned pointer from being invalidated when lease is released
+	buf := lease.Slab
 
-	// Track lease
+	// Track lease by slice pointer
 	bp.mutex.Lock()
-	bp.leases[buf] = lease
+	bp.leases[&buf] = lease
 	bp.mutex.Unlock()
 
-	return buf, nil
+	return &buf, nil
 }
 
 // Put returns a buffer to the pool
@@ -72,17 +73,15 @@ func (bp *BufferPool) Put(buf *[]byte) error {
 
 	bp.mutex.Unlock()
 
-	// Release lease
+	// Release lease (frees the slab)
 	if ok && lease != nil {
 		err := bp.manager.Release(lease)
 
 		if err != nil {
 			slog.Warn("Failed to release lease", "error", err)
+			return err
 		}
 	}
-
-	// Return buffer to pool
-	bp.pool.Put(buf)
 
 	return nil
 }
@@ -115,8 +114,8 @@ func NewBytesBufferPool(bufferSize int64, manager *Manager) *BytesBufferPool {
 
 // Get retrieves a buffer from the pool
 func (bp *BytesBufferPool) Get() (*bytes.Buffer, error) {
-	// Request memory lease
-	lease, err := bp.manager.Request(bp.bufferSize, WithOnReclaim(func() error {
+	// Request memory lease with slab
+	lease, err := bp.manager.RequestWithSlab(bp.bufferSize, WithOnReclaim(func() error {
 		return nil
 	}))
 
@@ -124,9 +123,8 @@ func (bp *BytesBufferPool) Get() (*bytes.Buffer, error) {
 		return nil, err
 	}
 
-	// Get buffer from pool
-	buf := bp.pool.Get().(*bytes.Buffer)
-	buf.Reset()
+	// Create bytes.Buffer backed by the slab (manager-owned memory)
+	buf := bytes.NewBuffer(lease.Slab[:0])
 
 	// Track lease
 	bp.mutex.Lock()
@@ -152,18 +150,15 @@ func (bp *BytesBufferPool) Put(buf *bytes.Buffer) error {
 
 	bp.mutex.Unlock()
 
-	// Release lease
+	// Release lease (frees the slab)
 	if ok && lease != nil {
 		err := bp.manager.Release(lease)
 
 		if err != nil {
 			slog.Warn("Failed to release lease", "error", err)
+			return err
 		}
 	}
-
-	// Reset and return buffer to pool
-	buf.Reset()
-	bp.pool.Put(buf)
 
 	return nil
 }

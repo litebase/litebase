@@ -1,10 +1,11 @@
-package vector_test
+package database_test
 
 import (
 	"testing"
 	"time"
 
 	"github.com/litebase/litebase/internal/test"
+	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/server"
 	"github.com/litebase/litebase/pkg/sqlite3"
 	"github.com/litebase/litebase/pkg/vector"
@@ -75,7 +76,7 @@ func TestVectorScanIntegration(t *testing.T) {
 				t.Fatalf("Failed to encode query vector: %v", err)
 			}
 
-			handle, err := vector.VectorScan(
+			handle, err := database.VectorScan(
 				vfsID,
 				mock.DatabaseID,
 				mock.DatabaseBranchID,
@@ -93,7 +94,7 @@ func TestVectorScanIntegration(t *testing.T) {
 			defer handle.Delete()
 
 			// Retrieve results
-			scanHandle := handle.Value().(*vector.ScanHandle)
+			scanHandle := handle.Value().(*database.VectorScanHandle)
 
 			if len(scanHandle.Results) != 3 {
 				t.Errorf("Expected 3 results, got %d", len(scanHandle.Results))
@@ -121,7 +122,7 @@ func TestVectorScanIntegration(t *testing.T) {
 				t.Fatalf("Failed to encode query vector: %v", err)
 			}
 
-			handle, err := vector.VectorScan(
+			handle, err := database.VectorScan(
 				vfsID,
 				mock.DatabaseID,
 				mock.DatabaseBranchID,
@@ -138,7 +139,7 @@ func TestVectorScanIntegration(t *testing.T) {
 
 			defer handle.Delete()
 
-			scanHandle := handle.Value().(*vector.ScanHandle)
+			scanHandle := handle.Value().(*database.VectorScanHandle)
 
 			if len(scanHandle.Results) != 3 {
 				t.Errorf("Expected 3 results, got %d", len(scanHandle.Results))
@@ -158,7 +159,7 @@ func TestVectorScanIntegration(t *testing.T) {
 				t.Fatalf("Failed to encode query vector: %v", err)
 			}
 
-			handle, err := vector.VectorScan(
+			handle, err := database.VectorScan(
 				vfsID,
 				mock.DatabaseID,
 				mock.DatabaseBranchID,
@@ -175,7 +176,7 @@ func TestVectorScanIntegration(t *testing.T) {
 
 			defer handle.Delete()
 
-			scanHandle := handle.Value().(*vector.ScanHandle)
+			scanHandle := handle.Value().(*database.VectorScanHandle)
 
 			// Should return all 5 vectors
 			if len(scanHandle.Results) != 5 {
@@ -248,7 +249,7 @@ func TestVectorScanParallelExecution(t *testing.T) {
 
 			start := time.Now()
 
-			handle, err := vector.VectorScan(
+			handle, err := database.VectorScan(
 				vfsID,
 				mock.DatabaseID,
 				mock.DatabaseBranchID,
@@ -267,7 +268,7 @@ func TestVectorScanParallelExecution(t *testing.T) {
 
 			defer handle.Delete()
 
-			scanHandle := handle.Value().(*vector.ScanHandle)
+			scanHandle := handle.Value().(*database.VectorScanHandle)
 
 			if len(scanHandle.Results) != 10 {
 				t.Errorf("Expected 10 results, got %d", len(scanHandle.Results))
@@ -338,7 +339,7 @@ func TestCentralHeapMerging(t *testing.T) {
 	t.Run("StreamingMerge", func(t *testing.T) {
 		// Simulate the streaming merge pattern used in executeParallelScan
 		centralHeap := vector.NewTopKHeap(3)
-		streamChan := make(chan *vector.ChunkResult, 10)
+		streamChan := make(chan *database.VectorChunkResult, 10)
 
 		// Start merger goroutine
 		done := make(chan struct{})
@@ -358,13 +359,13 @@ func TestCentralHeapMerging(t *testing.T) {
 		batch1.Insert(1, 5.0)
 		batch1.Insert(2, 3.0)
 
-		streamChan <- &vector.ChunkResult{ChunkID: 0, Heap: batch1, Error: nil}
+		streamChan <- &database.VectorChunkResult{ChunkID: 0, Heap: batch1, Error: nil}
 
 		batch2 := vector.NewTopKHeap(3)
 		batch2.Insert(4, 2.0)
 		batch2.Insert(6, 1.0)
 
-		streamChan <- &vector.ChunkResult{ChunkID: 1, Heap: batch2, Error: nil}
+		streamChan <- &database.VectorChunkResult{ChunkID: 1, Heap: batch2, Error: nil}
 
 		close(streamChan)
 
@@ -385,7 +386,7 @@ func TestCentralHeapMerging(t *testing.T) {
 
 	t.Run("ConcurrentMerging", func(t *testing.T) {
 		centralHeap := vector.NewTopKHeap(10)
-		streamChan := make(chan *vector.ChunkResult, 20)
+		streamChan := make(chan *database.VectorChunkResult, 20)
 
 		// Start merger goroutine
 		done := make(chan struct{})
@@ -407,7 +408,7 @@ func TestCentralHeapMerging(t *testing.T) {
 			batch := vector.NewTopKHeap(5)
 			batch.Insert(int64(i*10+1), float64(i)+1.0)
 			batch.Insert(int64(i*10+2), float64(i)+2.0)
-			streamChan <- &vector.ChunkResult{ChunkID: i, Heap: batch, Error: nil}
+			streamChan <- &database.VectorChunkResult{ChunkID: i, Heap: batch, Error: nil}
 		}
 
 		close(streamChan)

@@ -34,11 +34,22 @@ func TestDatabaseConnectionWithMultipleWriters(t *testing.T) {
 			go func() {
 				defer wg.Done()
 
-				connection, _ := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+				connection, err := app.DatabaseManager.ConnectionManager().Get(mock.DatabaseID, mock.DatabaseBranchID)
+
+				if err != nil {
+					t.Error(err)
+					return
+				}
 
 				defer app.DatabaseManager.ConnectionManager().Release(connection)
 
-				statement, _ := connection.GetConnection().Statement("INSERT INTO test (name) VALUES (?)")
+				statement, err := connection.GetConnection().Statement("INSERT INTO test (name) VALUES (?)")
+
+				if err != nil {
+					t.Error(err)
+					return
+				}
+
 				result := connection.GetConnection().ResultPool().Get()
 
 				for range 10 {
@@ -76,7 +87,11 @@ func TestDatabaseConnectionWithMultipleWriters(t *testing.T) {
 		result, err := connection.GetConnection().Exec("SELECT COUNT(*) FROM test", nil)
 
 		if err != nil {
-			t.Error(err)
+			t.Fatal(err)
+		}
+
+		if len(result.Rows) == 0 {
+			t.Fatal("No rows returned from SELECT COUNT(*)")
 		}
 
 		if result.Rows[0][0].Int64() != 1000 {
@@ -119,7 +134,13 @@ func TestDatabaseConnectionWithMultipleWritersWhileCheckPointing(t *testing.T) {
 
 					defer app.DatabaseManager.ConnectionManager().Release(connection)
 
-					statement, _ := connection.GetConnection().Statement("INSERT INTO test (name) VALUES (?)")
+					statement, err := connection.GetConnection().Statement("INSERT INTO test (name) VALUES (?)")
+
+					if err != nil {
+						t.Error(err)
+						return
+					}
+
 					result := connection.GetConnection().ResultPool().Get()
 
 					for range 10 {

@@ -1,8 +1,9 @@
-package vector_test
+package database_test
 
 import (
 	"testing"
 
+	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/vector"
 )
 
@@ -13,7 +14,7 @@ func TestPartitionTable(t *testing.T) {
 
 		// This will fail because there's no real connection manager
 		// But we can test the structure
-		partitions, err := vector.PartitionTable("default", "test-db", "main", "vectors", "embedding", query, 10, vector.MetricL2)
+		partitions, err := database.PartitionTable("default", "test-db", "main", "vectors", "embedding", query, 10, vector.MetricL2)
 
 		// We expect an error because the connection manager isn't available
 		if err == nil {
@@ -44,7 +45,7 @@ func TestPartitionTable(t *testing.T) {
 		queryVector, _ := vector.EncodeFloat32([]float32{1.0, 2.0, 3.0})
 		query, _ := vector.ParseVectorBlob(queryVector)
 
-		_, err := vector.PartitionTable("", "test-db", "main", "vectors", "embedding", query, 10, vector.MetricL2)
+		_, err := database.PartitionTable("", "test-db", "main", "vectors", "embedding", query, 10, vector.MetricL2)
 
 		if err == nil {
 			t.Error("Expected error for empty VFS ID")
@@ -116,8 +117,8 @@ func TestChunkSizeCalculation(t *testing.T) {
 	}
 }
 
-func TestTablePartitionStruct(t *testing.T) {
-	partition := vector.TablePartition{
+func TestVectorTablePartitionStruct(t *testing.T) {
+	partition := database.VectorTablePartition{
 		StartRow: 1,
 		EndRow:   1000,
 	}
@@ -131,7 +132,7 @@ func TestTablePartitionStruct(t *testing.T) {
 	}
 
 	// Test that we can create multiple partitions
-	partitions := []vector.TablePartition{
+	partitions := []database.VectorTablePartition{
 		{StartRow: 1, EndRow: 1000},
 		{StartRow: 1001, EndRow: 2000},
 		{StartRow: 2001, EndRow: 3000},

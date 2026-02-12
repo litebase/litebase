@@ -1,30 +1,30 @@
-package vector
+package database
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
 
-	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/sqlite3"
+	"github.com/litebase/litebase/pkg/vector"
 	"github.com/litebase/litebase/pkg/vfs"
 )
 
-// ConnectionWrapper wraps a database connection for vector operations
-type ConnectionWrapper struct {
-	conn  *database.ClientConnection
+// VectorConnectionWrapper wraps a database connection for vector operations
+type VectorConnectionWrapper struct {
+	conn  *ClientConnection
 	vfsID string
 }
 
 // GetConnection returns the underlying database connection
-func (cw *ConnectionWrapper) GetConnection() *database.DatabaseConnection {
+func (cw *VectorConnectionWrapper) GetConnection() *DatabaseConnection {
 	return cw.conn.GetConnection()
 }
 
 // AcquireConnection gets a database connection from the connection manager
 // These connections are used internally by vector operations and skip barriers
 // since they're already protected by the outer query's barrier.
-func AcquireConnection(vfsID, databaseID, branchID string) (*ConnectionWrapper, error) {
+func AcquireConnection(vfsID, databaseID, branchID string) (*VectorConnectionWrapper, error) {
 	// Get VFS instance
 	vfsInstance, err := vfs.GetVfsFromId(vfsID)
 
@@ -47,7 +47,7 @@ func AcquireConnection(vfsID, databaseID, branchID string) (*ConnectionWrapper, 
 	}
 
 	// Type assert to ClientConnection (needed because interface returns any)
-	conn, ok := connInterface.(*database.ClientConnection)
+	conn, ok := connInterface.(*ClientConnection)
 
 	if !ok {
 		return nil, fmt.Errorf("connection type assertion failed: got type %T", connInterface)
@@ -56,7 +56,7 @@ func AcquireConnection(vfsID, databaseID, branchID string) (*ConnectionWrapper, 
 	// Mark connection to skip barriers - it's used within vector_search which already holds barriers
 	conn.GetConnection().SetSkipBarriers(true)
 
-	return &ConnectionWrapper{
+	return &VectorConnectionWrapper{
 		conn:  conn,
 		vfsID: vfsID,
 	}, nil
@@ -66,7 +66,7 @@ func AcquireConnection(vfsID, databaseID, branchID string) (*ConnectionWrapper, 
 // Note: This uses a hardcoded "default" VFS ID which may not exist for all connections.
 // Worker connections that fail to release will be cleaned up during connection manager
 // drain with a timeout. This is acceptable for worker connections used during vector scans.
-func ReleaseConnection(wrapper *ConnectionWrapper) {
+func ReleaseConnection(wrapper *VectorConnectionWrapper) {
 	if wrapper != nil && wrapper.conn != nil {
 		// Get VFS instance using the stored VFS ID
 		vfsInstance, err := vfs.GetVfsFromId(wrapper.vfsID)
@@ -86,7 +86,7 @@ func ReleaseConnection(wrapper *ConnectionWrapper) {
 
 // ExecuteChunkScan executes a vector scan on a chunk of the table
 // Executes multiple smaller queries (batchSize rows) and streams heaps to central merger
-func ExecuteChunkScan(job *ChunkJob) (*ChunkResult, error) {
+func ExecuteChunkScan(job *VectorChunkJob) (*VectorChunkResult, error) {
 	// Get connection
 	conn, err := AcquireConnection(job.VfsID, job.DatabaseID, job.BranchID)
 
@@ -135,7 +135,7 @@ func ExecuteChunkScan(job *ChunkJob) (*ChunkResult, error) {
 		}
 
 		// Create heap for this batch
-		batchHeap := NewTopKHeap(job.K)
+		batchHeap := vector.NewTopKHeap(job.K)
 
 		// Process each row from batch result
 		for _, row := range result.Rows {
@@ -151,7 +151,7 @@ func ExecuteChunkScan(job *ChunkJob) (*ChunkResult, error) {
 			}
 
 			// Parse the vector BLOB using pooled allocation
-			vec, err := ParseVectorBlobPooled(vectorBlob)
+			vec, err := vector.ParseVectorBlobPooled(vectorBlob)
 
 			if err != nil {
 				slog.Debug("Failed to parse vector", "rowid", rowid, "error", err)
@@ -163,17 +163,17 @@ func ExecuteChunkScan(job *ChunkJob) (*ChunkResult, error) {
 
 			switch job.Metric {
 			case "l2":
-				distance, err = DistanceL2(job.QueryVector, vec)
+				distance, err = vector.DistanceL2(job.QueryVector, vec)
 			case "cosine":
-				distance, err = DistanceCosine(job.QueryVector, vec)
+				distance, err = vector.DistanceCosine(job.QueryVector, vec)
 			case "dot":
-				distance, err = DistanceDot(job.QueryVector, vec)
+				distance, err = vector.DistanceDot(job.QueryVector, vec)
 			default:
 				err = fmt.Errorf("unknown metric: %s", job.Metric)
 			}
 
 			// Return VectorBlob to pool immediately after distance calculation
-			PutVectorBlob(vec)
+			vector.PutVectorBlob(vec)
 
 			if err != nil {
 				slog.Debug("Failed to compute distance", "rowid", rowid, "error", err)
@@ -188,7 +188,7 @@ func ExecuteChunkScan(job *ChunkJob) (*ChunkResult, error) {
 		// This allows central processor to merge while next batch fetches
 		if job.StreamChan != nil {
 			select {
-			case job.StreamChan <- &ChunkResult{
+			case job.StreamChan <- &VectorChunkResult{
 				ChunkID: job.ChunkID,
 				Heap:    batchHeap,
 				Error:   nil,
@@ -205,7 +205,7 @@ func ExecuteChunkScan(job *ChunkJob) (*ChunkResult, error) {
 	}
 
 	// Return empty result (actual results streamed via StreamChan)
-	return &ChunkResult{
+	return &VectorChunkResult{
 		ChunkID: job.ChunkID,
 		Heap:    nil, // Heaps already streamed
 		Error:   nil,
@@ -214,13 +214,13 @@ func ExecuteChunkScan(job *ChunkJob) (*ChunkResult, error) {
 
 // ExecuteChunkScanWithWorker executes a vector scan using worker context
 // Currently just delegates to ExecuteChunkScan - worker struct available for future optimizations
-func ExecuteChunkScanWithWorker(w *Worker, job *ChunkJob) (*ChunkResult, error) {
+func ExecuteChunkScanWithWorker(w *VectorWorker, job *VectorChunkJob) (*VectorChunkResult, error) {
 	// Delegate to ExecuteChunkScan which now uses Statement() caching and Step() iteration
 	return ExecuteChunkScan(job)
 }
 
 // ExecuteChunkScanWithWorkerOld is the old implementation kept for reference
-func ExecuteChunkScanWithWorkerOld(w *Worker, job *ChunkJob) (*ChunkResult, error) {
+func ExecuteChunkScanWithWorkerOld(w *VectorWorker, job *VectorChunkJob) (*VectorChunkResult, error) {
 	// Get connection for this specific database
 	conn, err := AcquireConnection(job.VfsID, job.DatabaseID, job.BranchID)
 
@@ -231,7 +231,7 @@ func ExecuteChunkScanWithWorkerOld(w *Worker, job *ChunkJob) (*ChunkResult, erro
 	defer ReleaseConnection(conn)
 
 	// Create heap for this chunk
-	topK := NewTopKHeap(job.K)
+	topK := vector.NewTopKHeap(job.K)
 
 	// Query the table chunk
 	query := fmt.Sprintf("SELECT rowid, %s FROM %s WHERE rowid BETWEEN ? AND ?",
@@ -270,7 +270,7 @@ func ExecuteChunkScanWithWorkerOld(w *Worker, job *ChunkJob) (*ChunkResult, erro
 		}
 
 		// Parse the vector BLOB using pooled allocation
-		vec, err := ParseVectorBlobPooled(vectorBlob)
+		vec, err := vector.ParseVectorBlobPooled(vectorBlob)
 
 		if err != nil {
 			slog.Debug("Failed to parse vector", "rowid", rowid, "error", err)
@@ -282,17 +282,17 @@ func ExecuteChunkScanWithWorkerOld(w *Worker, job *ChunkJob) (*ChunkResult, erro
 
 		switch job.Metric {
 		case "l2":
-			distance, err = DistanceL2(job.QueryVector, vec)
+			distance, err = vector.DistanceL2(job.QueryVector, vec)
 		case "cosine":
-			distance, err = DistanceCosine(job.QueryVector, vec)
+			distance, err = vector.DistanceCosine(job.QueryVector, vec)
 		case "dot":
-			distance, err = DistanceDot(job.QueryVector, vec)
+			distance, err = vector.DistanceDot(job.QueryVector, vec)
 		default:
 			err = fmt.Errorf("unknown metric: %s", job.Metric)
 		}
 
 		// Return VectorBlob to pool immediately after distance calculation
-		PutVectorBlob(vec)
+		vector.PutVectorBlob(vec)
 
 		if err != nil {
 			slog.Debug("Failed to compute distance", "rowid", rowid, "error", err)
@@ -303,7 +303,7 @@ func ExecuteChunkScanWithWorkerOld(w *Worker, job *ChunkJob) (*ChunkResult, erro
 		topK.Insert(rowid, distance)
 	}
 
-	return &ChunkResult{
+	return &VectorChunkResult{
 		ChunkID: job.ChunkID,
 		Heap:    topK,
 		Error:   nil,

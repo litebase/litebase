@@ -22,7 +22,7 @@ import (
 
 const (
 	// WAL cache configuration
-	WALCacheCapacity    = 10000 // Number of pages to cache (10000 pages × 4KB = 40MB per WAL)
+	WALCacheCapacity    = 32000 // Number of pages to cache (10000 pages × 4KB = 40MB per WAL)
 	WALCacheDefaultSize = 4096  // 4KB per page
 	// Read-ahead configuration for sequential scans
 	WALReadAheadPages = 64 // Prefetch 64 pages (256KB) ahead for sequential reads
@@ -42,28 +42,32 @@ var (
 // consider the number of cached items which may be 24 bytes for a SQLITE WAL
 // Frame header and 4KB for the contents of the page.
 type DatabaseWAL struct {
-	BranchID         string
-	cache            *memory.ManagedCache
-	cacheKeyBuffer   []byte
-	memoryManager    *memory.Manager
-	createdAt        time.Time
-	DatabaseID       string
-	checkpointedAt   time.Time
-	checkpointing    bool
-	file             internalStorage.File
-	fileSystem       *storage.FileSystem
-	hash             string
-	lastKnownSize    int64
-	lastReadOffset   int64 // Track last read offset for sequential detection
-	lastSyncTime     time.Time
-	lastWriteTime    time.Time
-	mutex            *sync.RWMutex
-	node             *cluster.Node
-	Path             string
-	prefetchInFlight sync.Map // Track in-flight prefetch operations to avoid duplicates
-	syncMutex        *sync.Mutex
-	timestamp        int64
-	walManager       *DatabaseWALManager
+	BranchID                string
+	cache                   *memory.ManagedLRUCache
+	cacheKeyBuffer          []byte
+	memoryManager           *memory.Manager
+	createdAt               time.Time
+	DatabaseID              string
+	checkpointedAt          time.Time
+	checkpointing           bool
+	file                    internalStorage.File
+	fileSystem              *storage.FileSystem
+	hash                    string
+	lastKnownSize           int64
+	lastReadOffset          int64 // Track last read offset for sequential detection
+	lastSyncTime            time.Time
+	lastWriteTime           time.Time
+	mutex                   *sync.RWMutex
+	node                    *cluster.Node
+	Path                    string
+	prefetchInFlight        sync.Map // Track in-flight prefetch operations to avoid duplicates
+	syncMutex               *sync.Mutex
+	timestamp               int64
+	walManager              *DatabaseWALManager
+	inTransaction           bool
+	transactionConnectionId string
+	txnBuffer               *TransactionBuffer // Transaction buffer (protected by SQLite write lock)
+	txnBufferAllocTried     bool
 }
 
 // walCacheKey is used as a cache key to avoid string allocations
@@ -82,28 +86,65 @@ func NewDatabaseWAL(
 	walManager *DatabaseWALManager,
 	timestamp int64,
 ) *DatabaseWAL {
+
 	return &DatabaseWAL{
 		BranchID: branchId,
-		cache: memory.NewManagedCache(memory.ManagedCacheConfig{
+		cache: memory.NewManagedLRUCache(memory.ManagedLRUCacheConfig{
 			Capacity:    WALCacheCapacity,
 			Manager:     memoryManager,
 			DefaultSize: WALCacheDefaultSize,
 			Owner:       fmt.Sprintf("wal-cache-%s-%s-%d", databaseId, branchId, timestamp),
 		}),
-		cacheKeyBuffer: make([]byte, 0, 64),
-		createdAt:      time.Now().UTC(),
-		DatabaseID:     databaseId,
-		fileSystem:     fileSystem,
-		lastKnownSize:  -1,
-		lastSyncTime:   time.Time{},
-		memoryManager:  memoryManager,
-		mutex:          &sync.RWMutex{},
-		node:           node,
-		Path:           fmt.Sprintf("%slogs/wal/WAL_%d", file.GetDatabaseFileBaseDir(databaseId, branchId), timestamp),
-		syncMutex:      &sync.Mutex{},
-		timestamp:      timestamp,
-		walManager:     walManager,
+		cacheKeyBuffer:      make([]byte, 0, 64),
+		createdAt:           time.Now().UTC(),
+		DatabaseID:          databaseId,
+		fileSystem:          fileSystem,
+		lastKnownSize:       -1,
+		lastSyncTime:        time.Time{},
+		memoryManager:       memoryManager,
+		mutex:               &sync.RWMutex{},
+		node:                node,
+		Path:                fmt.Sprintf("%slogs/wal/WAL_%d", file.GetDatabaseFileBaseDir(databaseId, branchId), timestamp),
+		syncMutex:           &sync.Mutex{},
+		timestamp:           timestamp,
+		txnBuffer:           nil,
+		txnBufferAllocTried: false,
+		walManager:          walManager,
 	}
+}
+
+// Begin starts a new transaction for the given connection. It ensures that only
+// one transaction can be active at a time for this WAL.
+func (wal *DatabaseWAL) Begin(connectionID string) error {
+	wal.mutex.Lock()
+	defer wal.mutex.Unlock()
+
+	if wal.inTransaction {
+		return errors.New("transaction already in progress")
+	}
+
+	wal.inTransaction = true
+	wal.transactionConnectionId = connectionID
+
+	// Ensure we have a transaction buffer for this WAL. Allocate lazily
+	// so the system doesn't pre-allocate buffers for WALs that are not
+	// actively used. Only attempt allocation once per WAL to avoid
+	// repeated allocation churn under memory pressure.
+	if wal.txnBuffer == nil && !wal.txnBufferAllocTried {
+		wal.txnBufferAllocTried = true
+
+		if wal.memoryManager != nil {
+			buf, err := NewTransactionBuffer(wal.memoryManager, wal.timestamp)
+
+			if err != nil {
+				slog.Debug("failed to allocate txn buffer for WAL", "timestamp", wal.timestamp, "error", err)
+			} else {
+				wal.txnBuffer = buf
+			}
+		}
+	}
+
+	return nil
 }
 
 func (wal *DatabaseWAL) Checkpointing() bool {
@@ -111,7 +152,6 @@ func (wal *DatabaseWAL) Checkpointing() bool {
 }
 
 func (wal *DatabaseWAL) Close() error {
-
 	if wal.file != nil {
 		err := wal.file.Close()
 
@@ -120,6 +160,11 @@ func (wal *DatabaseWAL) Close() error {
 		}
 
 		wal.file = nil
+	}
+
+	if wal.txnBuffer != nil {
+		wal.txnBuffer.Release(wal.memoryManager)
+		wal.txnBuffer = nil
 	}
 
 	return nil
@@ -147,12 +192,67 @@ func (wal *DatabaseWAL) Delete() error {
 		return err
 	}
 
+	// Release any allocated transaction buffer lease so memory is returned.
+	if wal.txnBuffer != nil {
+		if err := wal.txnBuffer.Release(wal.memoryManager); err != nil {
+			slog.Error("failed to release txn buffer during Delete", "error", err)
+		}
+		wal.txnBuffer = nil
+	}
+
 	err = wal.fileSystem.Remove(wal.Path)
 
 	if err != nil {
 		log.Println(err)
 		return err
 	}
+
+	return nil
+}
+
+// End ends the current transaction, flushing any buffered writes to the WAL file.
+func (wal *DatabaseWAL) End(connectionID string) error {
+	wal.mutex.Lock()
+
+	if !wal.inTransaction {
+		wal.mutex.Unlock()
+		return nil // Transaction already ended - this is okay
+	}
+
+	if wal.transactionConnectionId != connectionID {
+		wal.mutex.Unlock()
+		return errors.New("connection does not own the active transaction")
+	}
+
+	// Snapshot current buffer; release wal mutex before flushing to avoid
+	// lock-order inversions with checkpointing/compaction code paths.
+	buf := wal.txnBuffer
+	wal.mutex.Unlock()
+
+	// Flush buffer outside wal mutex to avoid lock-order inversions
+	if buf != nil {
+		writes := buf.GetWrites()
+
+		if len(writes) > 0 {
+			if err := wal.FlushBuffer(); err != nil {
+				// Log flush errors but allow transaction end to proceed so caller can handle higher-level errors.
+				slog.Error("Failed to flush transaction buffer on End", "error", err)
+			}
+		}
+	}
+
+	// Re-acquire wal mutex to update transaction state
+	wal.mutex.Lock()
+
+	// Re-check that transaction is still active (could have been ended by another thread)
+	if !wal.inTransaction || wal.transactionConnectionId != connectionID {
+		wal.mutex.Unlock()
+		return nil // Transaction already ended, this is okay
+	}
+
+	wal.inTransaction = false
+	wal.transactionConnectionId = ""
+	wal.mutex.Unlock()
 
 	return nil
 }
@@ -295,6 +395,70 @@ tryOpen:
 	return wal.file, nil
 }
 
+func (wal *DatabaseWAL) FlushBuffer() error {
+	// Grab a snapshot of the buffer without holding wal mutex to avoid
+	// lock-order inversions (wal.mutex vs checkpoint mutex) that can
+	// deadlock under contention. The TransactionBuffer has its own
+	// synchronization for reads.
+	if wal.txnBuffer == nil {
+		return nil
+	}
+
+	writes := wal.txnBuffer.GetWrites()
+
+	if len(writes) == 0 {
+		return nil
+	}
+
+	file, err := wal.File()
+
+	if err != nil {
+		return fmt.Errorf("failed to get WAL file for flush: %w", err)
+	}
+
+	slog.Debug("Flushing transaction buffer", "writes", len(writes), "timestamp", wal.timestamp)
+
+	for _, w := range writes {
+		if _, err := file.WriteAt(w.data, w.offset); err != nil {
+			slog.Error("Failed to write buffered data during flush", "error", err, "offset", w.offset)
+			return fmt.Errorf("failed to flush transaction buffer at offset %d: %w", w.offset, err)
+		}
+	}
+
+	// Batch-update cache and metadata under wal mutex to minimize lock hold time
+	wal.mutex.Lock()
+	for _, w := range writes {
+		cacheKey := wal.getCacheKey(w.offset)
+
+		if cacheErr := wal.cache.Put(cacheKey, w.data); cacheErr != nil {
+			slog.Error("Error caching WAL data during flush", "error", cacheErr)
+		}
+	}
+
+	// Update last write time
+	wal.lastWriteTime = time.Now().UTC()
+	wal.mutex.Unlock()
+
+	// Sync once at the end if needed
+	if wal.shouldSync() {
+		if err := file.Sync(); err != nil {
+			slog.Error("Failed to sync WAL after transaction flush", "error", err)
+		}
+	}
+
+	// Update last write time (protect write with mutex)
+	wal.mutex.Lock()
+	wal.lastWriteTime = time.Now().UTC()
+	wal.mutex.Unlock()
+
+	// Clear buffer after successful flush
+	wal.txnBuffer.Clear()
+
+	slog.Debug("Successfully flushed transaction buffer", "writes", len(writes), "timestamp", wal.timestamp)
+
+	return nil
+}
+
 // MatchEncryptionKey finds the matching encryption key in the config based on the key hash.
 // It checks both DataEncryptionKeyHash and DataEncryptionKeyNextHash.
 // Returns the key, its hash, and an error if no match is found.
@@ -390,13 +554,28 @@ func (wal *DatabaseWAL) performAsynchronousSync() {
 	}()
 }
 
-func (wal *DatabaseWAL) ReadAt(p []byte, off int64) (n int, err error) {
+func (wal *DatabaseWAL) ReadAt(connectionID string, p []byte, off int64) (n int, err error) {
+	// If this connection owns the transaction buffer, read from it first
+	wal.mutex.RLock()
+	inTxn := wal.inTransaction && wal.txnBuffer != nil && wal.transactionConnectionId == connectionID
+	buf := wal.txnBuffer
+	wal.mutex.RUnlock()
+
+	if inTxn && buf != nil {
+		if n, err := buf.ReadAt(p, off); err == nil {
+			return n, nil
+		}
+		// Fall through to read from file if not present in buffer
+	}
+
+	// Read from WAL file (committed writes)
 	wal.mutex.Lock()
 	defer wal.mutex.Unlock()
 
+	// Check cache first
 	cacheKey := wal.getCacheKey(off)
 
-	if data, found := wal.cache.Get(cacheKey); found && len(data.([]byte)) == len(p) {
+	if data, found := wal.cache.Get(cacheKey); found {
 		if cachedData, ok := data.([]byte); ok && len(cachedData) >= len(p) {
 			return copy(p, cachedData[:len(p)]), nil
 		}
@@ -408,33 +587,14 @@ func (wal *DatabaseWAL) ReadAt(p []byte, off int64) (n int, err error) {
 		return 0, err
 	}
 
-	// Expectations for reading from checkpointed WAL files:
-	//
-	// PRIMARY NODE:
-	//   - Once a WAL is checkpointed, the primary should not read from it during
-	//     normal operations. All new writes go to a new WAL version.
-	//   - Reading from a checkpointed WAL on primary indicates a logic error in
-	//     the connection/checkpoint management.
-	//   - Therefore, we panic to catch these bugs early in development.
-	//
-	// REPLICA NODE:
-	//   - Replicas receive checkpoint notifications from the primary and need to
-	//     apply those changes by reading the checkpointed WAL data.
-	//   - Replicas may also need to read historical WAL data for catch-up operations.
-	//   - Therefore, replicas SHOULD be allowed to read from checkpointed WAL files.
-	//   - The current panic condition is a bug that prevents proper replica operation.
-	//
 	if wal.node.IsPrimary() && !wal.checkpointedAt.IsZero() {
 		panic(fmt.Sprintf("WAL file has been checkpointed, cannot read from it - %d", wal.timestamp))
 	}
 
-	// TODO: Remove the replica panic condition to allow replicas to read
-	// checkpointed WALs once messages are properly handled.
 	if wal.node.IsReplica() && !wal.checkpointedAt.IsZero() {
 		panic(fmt.Sprintf("WAL file has been checkpointed, cannot read from it - %d", wal.timestamp))
 	}
 
-	// Read current page
 	n, err = file.ReadAt(p, off)
 
 	if err != nil {
@@ -445,18 +605,9 @@ func (wal *DatabaseWAL) ReadAt(p []byte, off int64) (n int, err error) {
 	wal.lastReadOffset = off
 
 	// Cache the read data
-	err = wal.cache.Put(cacheKey, p[:n])
-
-	if err != nil {
-		slog.Error("Error caching WAL data", "error", err)
+	if cacheErr := wal.cache.Put(cacheKey, p[:n]); cacheErr != nil {
+		slog.Error("Error caching WAL data", "error", cacheErr)
 	}
-
-	// TODO: Re-enable prefetching after fixing lock contention issues
-	// Trigger async prefetch if this is a sequential read
-	// if isSequential && file != nil {
-	// 	nextOffset := off + int64(len(p))
-	// 	go wal.prefetchPages(file, nextOffset, WALReadAheadPages)
-	// }
 
 	return n, nil
 }
@@ -630,19 +781,47 @@ func (wal *DatabaseWAL) Truncate(size int64) error {
 	return nil
 }
 
-func (wal *DatabaseWAL) WriteAt(p []byte, off int64) (n int, err error) {
+// WriteAt writes to the WAL file, using transaction buffer if this connection owns it.
+func (wal *DatabaseWAL) WriteAt(connectionID string, p []byte, off int64) (n int, err error) {
+	// Try to buffer when this connection owns the txn buffer.
+	wal.mutex.RLock()
+	inTxn := wal.inTransaction && wal.txnBuffer != nil && wal.transactionConnectionId == connectionID
+	buf := wal.txnBuffer
+	wal.mutex.RUnlock()
+
+	if inTxn && buf != nil {
+		if n, err := buf.WriteAt(p, off); err != nil {
+			if err == ErrBufferCapacity {
+				// Buffer is full — flush the buffer to WAL and then retry buffering.
+				if ferr := wal.FlushBuffer(); ferr != nil {
+					// If flush fails, fall back to direct write to avoid data loss.
+					wal.mutex.Lock()
+					defer wal.mutex.Unlock()
+					return wal.writeAtDirect(p, off)
+				}
+
+				// Retry buffering after successful flush
+				return buf.WriteAt(p, off)
+			}
+
+			return 0, err
+		} else {
+			return n, nil
+		}
+	}
+
+	// Not in transaction or different connection — write directly
 	wal.mutex.Lock()
 	defer wal.mutex.Unlock()
 
+	return wal.writeAtDirect(p, off)
+}
+
+// writeAtDirect writes directly to the WAL file without buffering.
+// This is used by both direct writes and when flushing transaction buffers.
+func (wal *DatabaseWAL) writeAtDirect(p []byte, off int64) (n int, err error) {
+
 	wal.lastWriteTime = time.Now().UTC()
-
-	cacheKey := wal.getCacheKey(off)
-
-	err = wal.cache.Put(cacheKey, p[:n])
-
-	if err != nil {
-		slog.Error("Error caching WAL data", "error", err)
-	}
 
 	file, err := wal.File()
 
@@ -652,6 +831,17 @@ func (wal *DatabaseWAL) WriteAt(p []byte, off int64) (n int, err error) {
 	}
 
 	n, err = file.WriteAt(p, off)
+
+	if err != nil {
+		return n, err
+	}
+
+	// Update cache after successful write
+	cacheKey := wal.getCacheKey(off)
+
+	if cacheErr := wal.cache.Put(cacheKey, p[:n]); cacheErr != nil {
+		slog.Error("Error caching WAL data", "error", cacheErr)
+	}
 
 	if wal.shouldSync() {
 		wal.performAsynchronousSync()

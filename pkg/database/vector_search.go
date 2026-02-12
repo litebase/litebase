@@ -1,4 +1,4 @@
-package vector
+package database
 
 /*
 #include <stdlib.h>
@@ -14,8 +14,8 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/sqlite3"
+	"github.com/litebase/litebase/pkg/vector"
 )
 
 var (
@@ -26,13 +26,13 @@ var (
 
 // SearchHandle holds the results of a vector search
 type SearchHandle struct {
-	Results []VectorResult
+	Results []vector.VectorResult
 	Index   int
 }
 
 // getVectorColumnNameForSearch queries the metadata table to get a vector column name by searching for a BLOB column
 // This is a helper for search operations that need to query the vector column dynamically
-func getVectorColumnNameForSearch(conn *database.DatabaseConnection, tableName string, columnName string) (string, error) {
+func getVectorColumnNameForSearch(conn *DatabaseConnection, tableName string, columnName string) (string, error) {
 	if columnName == "" {
 		return "", fmt.Errorf("columnName is required")
 	}
@@ -102,7 +102,7 @@ func getVectorColumnNameForSearch(conn *database.DatabaseConnection, tableName s
 // tableName should be the name of a vector_index virtual table (not a regular table)
 func VectorSearch(vfsID, databaseID, branchID, tableName, columnName string, queryBlob []byte, k int) (int64, error) {
 	// Parse query vector
-	queryVector, err := ParseVectorBlob(queryBlob)
+	queryVector, err := vector.ParseVectorBlob(queryBlob)
 
 	if err != nil {
 		return -1, fmt.Errorf("failed to parse query vector: %w", err)
@@ -169,11 +169,11 @@ type ClusterDistance struct {
 // findNearestLeafClusters performs hierarchical tree traversal to find nearest leaf clusters
 // This implements the IVF hierarchical search: traverse from root to leaves, then return closest leaf clusters
 func findNearestLeafClusters(
-	dbConn *database.DatabaseConnection,
+	dbConn *DatabaseConnection,
 	resultPool *sqlite3.ResultPool,
 	indexTableName string,
 	columnName string,
-	queryVector *VectorBlob,
+	queryVector *vector.VectorBlob,
 	metric string,
 	k int,
 ) ([]ClusterDistance, error) {
@@ -221,7 +221,7 @@ func findNearestLeafClusters(
 		centroidBlob := row[1].ColumnValue
 		isLeaf := row[2].Int64()
 
-		centroid, err := ParseVectorBlob(centroidBlob)
+		centroid, err := vector.ParseVectorBlob(centroidBlob)
 
 		if err != nil {
 			slog.Warn("Failed to parse root centroid blob", "cluster_id", clusterID, "error", err)
@@ -232,13 +232,13 @@ func findNearestLeafClusters(
 
 		switch metric {
 		case "L2", "l2":
-			dist, _ = DistanceL2(queryVector, centroid)
+			dist, _ = vector.DistanceL2(queryVector, centroid)
 		case "cosine":
-			dist, _ = DistanceCosine(queryVector, centroid)
+			dist, _ = vector.DistanceCosine(queryVector, centroid)
 		case "dot":
-			dist, _ = DistanceDot(queryVector, centroid)
+			dist, _ = vector.DistanceDot(queryVector, centroid)
 		default:
-			dist, _ = DistanceL2(queryVector, centroid)
+			dist, _ = vector.DistanceL2(queryVector, centroid)
 		}
 
 		// If this is a leaf node, add it to current clusters
@@ -363,7 +363,7 @@ func findNearestLeafClusters(
 			childID := row[0].Int64()
 			centroidBlob := row[1].ColumnValue
 
-			centroid, err := ParseVectorBlob(centroidBlob)
+			centroid, err := vector.ParseVectorBlob(centroidBlob)
 
 			if err != nil {
 				continue
@@ -373,13 +373,13 @@ func findNearestLeafClusters(
 
 			switch metric {
 			case "L2", "l2":
-				dist, _ = DistanceL2(queryVector, centroid)
+				dist, _ = vector.DistanceL2(queryVector, centroid)
 			case "cosine":
-				dist, _ = DistanceCosine(queryVector, centroid)
+				dist, _ = vector.DistanceCosine(queryVector, centroid)
 			case "dot":
-				dist, _ = DistanceDot(queryVector, centroid)
+				dist, _ = vector.DistanceDot(queryVector, centroid)
 			default:
-				dist, _ = DistanceL2(queryVector, centroid)
+				dist, _ = vector.DistanceL2(queryVector, centroid)
 			}
 
 			children = append(children, ClusterDistance{
@@ -497,7 +497,7 @@ func goReleaseSearchResults(handleID C.longlong) {
 
 // executeClusterSearch performs k-NN search using hierarchical IVF cluster index
 // This traverses the cluster tree from root to leaves, then searches leaf cluster members
-func executeClusterSearch(vfsID, databaseID, branchID, indexTableName, columnName string, queryVector *VectorBlob, k int) ([]VectorResult, error) {
+func executeClusterSearch(vfsID, databaseID, branchID, indexTableName, columnName string, queryVector *vector.VectorBlob, k int) ([]vector.VectorResult, error) {
 	// Get connection to query the index shadow tables
 	conn, err := AcquireConnection(vfsID, databaseID, branchID)
 
@@ -613,12 +613,12 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName, columnNam
 	}
 
 	// Step 2: Search within selected leaf clusters in parallel using goroutines
-	resultHeap := NewTopKHeap(k)
+	resultHeap := vector.NewTopKHeap(k)
 
 	if len(leafClusters) > 0 {
 		// Create channels for parallel processing
 		type clusterResult struct {
-			vectors []VectorResult
+			vectors []vector.VectorResult
 			err     error
 		}
 
@@ -665,13 +665,13 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName, columnNam
 				defer clusterPool.Put(vectorsResult)
 
 				// Calculate distances for all vectors in this cluster
-				clusterVectors := make([]VectorResult, 0, len(vectorsResult.Rows))
+				clusterVectors := make([]vector.VectorResult, 0, len(vectorsResult.Rows))
 
 				for _, row := range vectorsResult.Rows {
 					vectorID := row[0].Int64()
 					vectorBlob := row[1].ColumnValue
 
-					vector, err := ParseVectorBlob(vectorBlob)
+					v, err := vector.ParseVectorBlob(vectorBlob)
 
 					if err != nil {
 						continue
@@ -681,16 +681,16 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName, columnNam
 
 					switch metric {
 					case "L2", "l2":
-						dist, _ = DistanceL2(queryVector, vector)
+						dist, _ = vector.DistanceL2(queryVector, v)
 					case "cosine":
-						dist, _ = DistanceCosine(queryVector, vector)
+						dist, _ = vector.DistanceCosine(queryVector, v)
 					case "dot":
-						dist, _ = DistanceDot(queryVector, vector)
+						dist, _ = vector.DistanceDot(queryVector, v)
 					default:
-						dist, _ = DistanceL2(queryVector, vector)
+						dist, _ = vector.DistanceL2(queryVector, v)
 					}
 
-					clusterVectors = append(clusterVectors, VectorResult{
+					clusterVectors = append(clusterVectors, vector.VectorResult{
 						RowId:    vectorID,
 						Distance: dist,
 					})
@@ -731,7 +731,7 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName, columnNam
 			defer pendingPool.Put(pendingCountResult)
 
 			if len(pendingCountResult.Rows) == 0 || pendingCountResult.Rows[0][0].Int64() == 0 {
-				resultsChan <- clusterResult{vectors: []VectorResult{}}
+				resultsChan <- clusterResult{vectors: []vector.VectorResult{}}
 				return
 			}
 			log.Println("getting rows from cluster 0")
@@ -752,13 +752,13 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName, columnNam
 
 			defer pendingPool.Put(pendingResult)
 
-			pendingVectors := make([]VectorResult, 0, len(pendingResult.Rows))
+			pendingVectors := make([]vector.VectorResult, 0, len(pendingResult.Rows))
 
 			for _, row := range pendingResult.Rows {
 				vectorID := row[0].Int64()
 				vectorBlob := row[1].ColumnValue
 
-				vector, err := ParseVectorBlob(vectorBlob)
+				v, err := vector.ParseVectorBlob(vectorBlob)
 
 				if err != nil {
 					continue
@@ -768,16 +768,16 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName, columnNam
 
 				switch metric {
 				case "L2", "l2":
-					dist, _ = DistanceL2(queryVector, vector)
+					dist, _ = vector.DistanceL2(queryVector, v)
 				case "cosine":
-					dist, _ = DistanceCosine(queryVector, vector)
+					dist, _ = vector.DistanceCosine(queryVector, v)
 				case "dot":
-					dist, _ = DistanceDot(queryVector, vector)
+					dist, _ = vector.DistanceDot(queryVector, v)
 				default:
-					dist, _ = DistanceL2(queryVector, vector)
+					dist, _ = vector.DistanceL2(queryVector, v)
 				}
 
-				pendingVectors = append(pendingVectors, VectorResult{
+				pendingVectors = append(pendingVectors, vector.VectorResult{
 					RowId:    vectorID,
 					Distance: dist,
 				})
@@ -825,7 +825,7 @@ func sortClustersByDistance(clusters []ClusterDistance) {
 
 // executeBruteForceSearch performs a brute-force k-NN search on vectors in cluster 0
 // This is used as a fallback when no proper clusters exist yet or for vectors awaiting reassignment
-func executeBruteForceSearch(dbConn *database.DatabaseConnection, resultPool *sqlite3.ResultPool, indexTableName string, columnName string, queryVector *VectorBlob, k int, metric string) ([]VectorResult, error) {
+func executeBruteForceSearch(dbConn *DatabaseConnection, resultPool *sqlite3.ResultPool, indexTableName string, columnName string, queryVector *vector.VectorBlob, k int, metric string) ([]vector.VectorResult, error) {
 	slog.Debug("Executing brute-force search", "table", indexTableName, "k", k, "metric", metric)
 
 	// Use the provided columnName parameter directly
@@ -853,17 +853,17 @@ func executeBruteForceSearch(dbConn *database.DatabaseConnection, resultPool *sq
 	slog.Debug("Brute-force search found cluster 0 vectors", "count", len(pendingResult.Rows))
 
 	if len(pendingResult.Rows) == 0 {
-		return []VectorResult{}, nil
+		return []vector.VectorResult{}, nil
 	}
 
 	// Calculate distance to each pending vector
-	resultHeap := NewTopKHeap(k)
+	resultHeap := vector.NewTopKHeap(k)
 
 	for _, row := range pendingResult.Rows {
 		rowID := row[0].Int64()
 		vectorBlob := row[1].ColumnValue
 
-		vector, err := ParseVectorBlob(vectorBlob)
+		v, err := vector.ParseVectorBlob(vectorBlob)
 
 		if err != nil {
 			slog.Warn("Failed to parse vector blob", "row_id", rowID, "error", err)
@@ -875,13 +875,13 @@ func executeBruteForceSearch(dbConn *database.DatabaseConnection, resultPool *sq
 
 		switch metric {
 		case "L2", "l2":
-			dist, err = DistanceL2(queryVector, vector)
+			dist, err = vector.DistanceL2(queryVector, v)
 		case "cosine":
-			dist, err = DistanceCosine(queryVector, vector)
+			dist, err = vector.DistanceCosine(queryVector, v)
 		case "dot":
-			dist, err = DistanceDot(queryVector, vector)
+			dist, err = vector.DistanceDot(queryVector, v)
 		default:
-			dist, err = DistanceL2(queryVector, vector)
+			dist, err = vector.DistanceL2(queryVector, v)
 		}
 
 		if err != nil {

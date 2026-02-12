@@ -1,4 +1,4 @@
-package vector
+package database
 
 import (
 	"context"
@@ -7,8 +7,8 @@ import (
 	"math"
 	"strings"
 
-	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/sqlite3"
+	"github.com/litebase/litebase/pkg/vector"
 )
 
 const (
@@ -25,12 +25,12 @@ type VectorColumnInfo struct {
 }
 
 // GetVectorColumns queries the metadata table to get all vector column definitions (exported for use in server package)
-func GetVectorColumns(db *database.DatabaseConnection, tableName string) ([]VectorColumnInfo, error) {
+func GetVectorColumns(db *DatabaseConnection, tableName string) ([]VectorColumnInfo, error) {
 	return getVectorColumns(db, tableName)
 }
 
 // getVectorColumns queries the metadata table to get all vector column definitions
-func getVectorColumns(db *database.DatabaseConnection, tableName string) ([]VectorColumnInfo, error) {
+func getVectorColumns(db *DatabaseConnection, tableName string) ([]VectorColumnInfo, error) {
 	// Fetch ALL metadata in a single query to avoid N+1 queries
 	res, err := db.Exec(
 		fmt.Sprintf("SELECT key, value FROM %s_metadata WHERE key LIKE 'column_%%' OR key = 'column_count' ORDER BY key", tableName),
@@ -129,7 +129,7 @@ type ClusterNode struct {
 
 // VectorIndexer processes vectors in cluster 0 and reassigns them to proper clusters
 type VectorIndexer struct {
-	DB             *database.DatabaseConnection
+	DB             *DatabaseConnection
 	TableName      string
 	VectorColumns  []VectorColumnInfo // All vector columns with their config
 	MaxClusterSize int
@@ -137,7 +137,7 @@ type VectorIndexer struct {
 }
 
 // NewVectorIndexer creates a new vector indexer
-func NewVectorIndexer(db *database.DatabaseConnection, tableName string, vectorColumns []VectorColumnInfo, maxClusterSize, minClusterSize int) (*VectorIndexer, error) {
+func NewVectorIndexer(db *DatabaseConnection, tableName string, vectorColumns []VectorColumnInfo, maxClusterSize, minClusterSize int) (*VectorIndexer, error) {
 	return &VectorIndexer{
 		DB:             db,
 		TableName:      tableName,
@@ -176,7 +176,7 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 
 		var processed int
 
-		err := vi.DB.Transaction(false, func(db *database.DatabaseConnection) error {
+		err := vi.DB.Transaction(false, func(db *DatabaseConnection) error {
 			// Check context again inside transaction
 			select {
 			case <-ctx.Done():
@@ -243,7 +243,7 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 				vectorBlob := row[1].Blob()
 
 				// Parse vector
-				vb, err := ParseVectorBlob(vectorBlob)
+				vb, err := vector.ParseVectorBlob(vectorBlob)
 
 				if err != nil {
 					slog.Error("Failed to parse vector blob",
@@ -391,7 +391,7 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 				}
 
 				// Serialize new centroid
-				centroidBlob, err := EncodeFloat32(newCentroid)
+				centroidBlob, err := vector.EncodeFloat32(newCentroid)
 
 				if err != nil {
 					slog.Error("Failed to serialize centroid", "cluster", clusterID, "error", err)
@@ -455,7 +455,7 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 }
 
 // loadClusterTree loads the entire cluster tree for a column into memory
-func (vi *VectorIndexer) loadClusterTree(db *database.DatabaseConnection, columnName string) (map[int64]*ClusterNode, error) {
+func (vi *VectorIndexer) loadClusterTree(db *DatabaseConnection, columnName string) (map[int64]*ClusterNode, error) {
 	res, err := db.Exec(
 		fmt.Sprintf(`SELECT cluster_id, parent_id, centroid_blob, is_leaf, cluster_size FROM %s_%s_cluster_tree`, vi.TableName, columnName),
 		nil,
@@ -504,7 +504,7 @@ func (vi *VectorIndexer) loadClusterTree(db *database.DatabaseConnection, column
 		var centroid []float32
 
 		if len(centroidBlob) > 0 {
-			vb, err := ParseVectorBlob(centroidBlob)
+			vb, err := vector.ParseVectorBlob(centroidBlob)
 
 			if err == nil {
 				centroid = vb.GetFloat32Slice()
@@ -594,91 +594,8 @@ func (vi *VectorIndexer) findBestClusterInMemory(clusterTree map[int64]*ClusterN
 	}
 }
 
-// findBestCluster finds the best leaf cluster for a vector using hierarchical traversal
-// Returns the cluster ID and the distance from the vector to the cluster's centroid
-// DEPRECATED: Use loadClusterTree + findBestClusterInMemory instead to avoid N+1 queries
-func (vi *VectorIndexer) findBestCluster(db *database.DatabaseConnection, columnName string, distanceMetric int, vector []float32) (int64, float64, error) {
-	// Start from root (cluster_id = 1)
-	currentClusterID := int64(1)
-	finalDistance := float64(0)
-
-	for {
-		// Check if current cluster is a leaf
-		res, err := db.Exec(
-			fmt.Sprintf(`SELECT is_leaf, centroid_blob FROM %s_%s_cluster_tree WHERE cluster_id = ?`, vi.TableName, columnName),
-			[]sqlite3.StatementParameter{
-				{Type: sqlite3.ParameterTypeInteger, Value: currentClusterID},
-			},
-		)
-
-		if err != nil || len(res.Rows) == 0 {
-			// Cluster doesn't exist - need to create initial structure
-			clusterID, err := vi.getOrCreateRootCluster(db, columnName)
-			return clusterID, 0, err
-		}
-
-		isLeaf := res.Rows[0][0].Int64() == 1
-		centroidBlob := res.Rows[0][1].Blob()
-
-		// Calculate distance to current cluster's centroid
-		centroid, err := ParseVectorBlob(centroidBlob)
-
-		if err == nil {
-			finalDistance = calculateDistance(vector, centroid.GetFloat32Slice(), distanceMetric)
-		}
-
-		if isLeaf {
-			// Found a leaf cluster, return it with distance
-			return currentClusterID, finalDistance, nil
-		}
-
-		// Not a leaf - find best child cluster
-		childRes, err := db.Exec(
-			fmt.Sprintf(`SELECT cluster_id, centroid_blob FROM %s_%s_cluster_tree WHERE parent_id = ?`, vi.TableName, columnName),
-			[]sqlite3.StatementParameter{
-				{Type: sqlite3.ParameterTypeInteger, Value: currentClusterID},
-			},
-		)
-
-		if err != nil || len(childRes.Rows) == 0 {
-			// No children - treat this as a leaf
-			return currentClusterID, finalDistance, nil
-		}
-
-		// Find child with closest centroid
-		var bestChild int64
-		bestDistance := float64(1e9)
-
-		for _, row := range childRes.Rows {
-			childID := row[0].Int64()
-			centroidBlob := row[1].Blob()
-
-			centroid, err := ParseVectorBlob(centroidBlob)
-
-			if err != nil {
-				continue
-			}
-
-			distance := calculateDistance(vector, centroid.GetFloat32Slice(), distanceMetric)
-
-			if distance < bestDistance {
-				bestDistance = distance
-				bestChild = childID
-			}
-		}
-
-		if bestChild == 0 {
-			// Couldn't find a valid child, return current
-			return currentClusterID, finalDistance, nil
-		}
-
-		// Move to best child
-		currentClusterID = bestChild
-	}
-}
-
 // getOrCreateRootCluster ensures root cluster exists and returns its ID
-func (vi *VectorIndexer) getOrCreateRootCluster(db *database.DatabaseConnection, columnName string) (int64, error) {
+func (vi *VectorIndexer) getOrCreateRootCluster(db *DatabaseConnection, columnName string) (int64, error) {
 	// Root cluster is always created by C code during table creation
 	// Just verify it exists
 	res, err := db.Exec(
@@ -725,7 +642,7 @@ func calculateDistance(a, b []float32, distanceMetric int) float64 {
 }
 
 // updateClusterSize updates the size of a single cluster for a specific column
-func (vi *VectorIndexer) updateClusterSize(db *database.DatabaseConnection, columnName string, clusterID int64, delta int) error {
+func (vi *VectorIndexer) updateClusterSize(db *DatabaseConnection, columnName string, clusterID int64, delta int) error {
 	_, err := db.Exec(
 		fmt.Sprintf(`UPDATE %s_%s_cluster_tree SET cluster_size = cluster_size + ? WHERE cluster_id = ?`, vi.TableName, columnName),
 		[]sqlite3.StatementParameter{
@@ -738,7 +655,7 @@ func (vi *VectorIndexer) updateClusterSize(db *database.DatabaseConnection, colu
 }
 
 // getClusterCentroid retrieves the current centroid and size for a cluster in a specific column
-func (vi *VectorIndexer) getClusterCentroid(db *database.DatabaseConnection, columnName string, clusterID int64) ([]float32, int, error) {
+func (vi *VectorIndexer) getClusterCentroid(db *DatabaseConnection, columnName string, clusterID int64) ([]float32, int, error) {
 	res, err := db.Exec(
 		fmt.Sprintf(`SELECT centroid_blob, cluster_size FROM %s_%s_cluster_tree WHERE cluster_id = ?`, vi.TableName, columnName),
 		[]sqlite3.StatementParameter{
@@ -753,7 +670,7 @@ func (vi *VectorIndexer) getClusterCentroid(db *database.DatabaseConnection, col
 	centroidBlob := res.Rows[0][0].Blob()
 	size := int(res.Rows[0][1].Int64())
 
-	centroid, err := ParseVectorBlob(centroidBlob)
+	centroid, err := vector.ParseVectorBlob(centroidBlob)
 
 	if err != nil {
 		return nil, 0, err
@@ -865,7 +782,7 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 	// First, we need to get the cluster size
 	var clusterSize int64
 
-	err := vi.DB.Transaction(false, func(db *database.DatabaseConnection) error {
+	err := vi.DB.Transaction(false, func(db *DatabaseConnection) error {
 		res, err := db.Exec(
 			fmt.Sprintf(`SELECT cluster_size FROM %s_%s_cluster_tree WHERE cluster_id = ?`, vi.TableName, columnName),
 			[]sqlite3.StatementParameter{
@@ -899,7 +816,7 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 		vector   []float32
 	}
 
-	err = vi.DB.Transaction(false, func(db *database.DatabaseConnection) error {
+	err = vi.DB.Transaction(false, func(db *DatabaseConnection) error {
 		vectorRes, err := db.Exec(
 			fmt.Sprintf(`
 				SELECT m.vector_id, IFNULL(m.distance, 0.0), v.%s
@@ -935,7 +852,7 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 			vectorBlob := row[2].Blob()
 
 			// Parse vector
-			vb, err := ParseVectorBlob(vectorBlob)
+			vb, err := vector.ParseVectorBlob(vectorBlob)
 
 			if err != nil {
 				slog.Error("Failed to parse vector blob during split", "id", vectorID, "error", err)
@@ -1013,7 +930,7 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 	}
 
 	// Now apply the clustering results in a transaction
-	return vi.DB.Transaction(false, func(db *database.DatabaseConnection) error {
+	return vi.DB.Transaction(false, func(db *DatabaseConnection) error {
 
 		// Get next cluster ID
 		maxIDRes, err := db.Exec(
@@ -1149,7 +1066,7 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 
 // splitInternalNode splits an internal node that has too many children (>16)
 // into multiple internal nodes, each with at most 16 children
-func (vi *VectorIndexer) splitInternalNode(db *database.DatabaseConnection, columnName string, parentClusterID, firstChildID int64, totalChildren int) error {
+func (vi *VectorIndexer) splitInternalNode(db *DatabaseConnection, columnName string, parentClusterID, firstChildID int64, totalChildren int) error {
 	// Get dimensions for this column
 	var dimensions int
 
@@ -1221,7 +1138,7 @@ func (vi *VectorIndexer) splitInternalNode(db *database.DatabaseConnection, colu
 				continue
 			}
 
-			vb, err := ParseVectorBlob(centroidBlob)
+			vb, err := vector.ParseVectorBlob(centroidBlob)
 
 			if err != nil {
 				continue

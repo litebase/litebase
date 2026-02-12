@@ -61,8 +61,20 @@ func (m *Manager) RegisterReclaimHandler(owner string, handler func(*Lease) erro
 	m.reclaimHandlers[owner] = handler
 }
 
-// Request requests a memory lease
+// Request requests a memory lease without allocating a slab.
+// Deprecated: prefer RequestWithSlab for true memory allocation.
 func (m *Manager) Request(size int64, opts ...LeaseOption) (*Lease, error) {
+	return m.requestInternal(size, false, opts...)
+}
+
+// RequestWithSlab requests a memory lease and allocates a slab of the requested size.
+// The slab is owned by the manager and will be freed when the lease is released or evicted.
+func (m *Manager) RequestWithSlab(size int64, opts ...LeaseOption) (*Lease, error) {
+	return m.requestInternal(size, true, opts...)
+}
+
+// requestInternal is the internal implementation of Request and RequestWithSlab.
+func (m *Manager) requestInternal(size int64, allocateSlab bool, opts ...LeaseOption) (*Lease, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -106,6 +118,11 @@ func (m *Manager) Request(size int64, opts ...LeaseOption) (*Lease, error) {
 		opt(lease)
 	}
 
+	// Allocate slab if requested
+	if allocateSlab {
+		lease.Slab = make([]byte, size)
+	}
+
 	// Register lease
 	m.reservoir.AddLease(lease)
 	m.metrics.RecordAllocation(size, lease.Owner)
@@ -113,7 +130,7 @@ func (m *Manager) Request(size int64, opts ...LeaseOption) (*Lease, error) {
 	return lease, nil
 }
 
-// Release releases a memory lease
+// Release releases a memory lease and frees the associated slab if present.
 func (m *Manager) Release(lease *Lease) error {
 	if lease == nil {
 		return ErrInvalidLease
@@ -130,6 +147,9 @@ func (m *Manager) Release(lease *Lease) error {
 	m.reservoir.RemoveLease(lease.ID)
 	m.reservoir.Release(lease.Size)
 	m.metrics.RecordRelease(lease.Size, lease.Owner)
+
+	// Free slab before returning lease to pool (allows GC to collect)
+	lease.Slab = nil
 
 	// Return lease to pool
 	ReleaseLease(lease)

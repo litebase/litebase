@@ -1,13 +1,15 @@
-package vector
+package database
 
 import (
 	"context"
 	"log/slog"
 	"sync"
+
+	"github.com/litebase/litebase/pkg/vector"
 )
 
-// ChunkJob represents a chunk of work for the worker pool
-type ChunkJob struct {
+// VectorChunkJob represents a chunk of work for the worker pool
+type VectorChunkJob struct {
 	ChunkID     int
 	StartRow    int64
 	EndRow      int64
@@ -16,52 +18,52 @@ type ChunkJob struct {
 	BranchID    string
 	TableName   string
 	ColumnName  string
-	QueryVector *VectorBlob
+	QueryVector *vector.VectorBlob
 	Metric      string
 	K           int
-	ResultChan  chan *ChunkResult
-	StreamChan  chan *ChunkResult
+	ResultChan  chan *VectorChunkResult
+	StreamChan  chan *VectorChunkResult
 }
 
-// ChunkResult represents the result of processing a chunk
-type ChunkResult struct {
+// VectorChunkResult represents the result of processing a chunk
+type VectorChunkResult struct {
 	ChunkID int
-	Heap    *TopKHeap
+	Heap    *vector.TopKHeap
 	Error   error
 }
 
 // Worker represents a single worker with optional prefetch support
-type Worker struct {
+type VectorWorker struct {
 	id           int
-	prefetchChan chan *ChunkResult // Channel for prefetched results (Phase 2 optimization)
+	prefetchChan chan *VectorChunkResult // Channel for prefetched results (Phase 2 optimization)
 }
 
 // WorkerPool manages a pool of goroutines for parallel processing
-type WorkerPool struct {
+type VectorWorkerPool struct {
 	maxWorkers int
-	jobChan    chan *ChunkJob
-	workers    []*Worker
+	jobChan    chan *VectorChunkJob
+	workers    []*VectorWorker
 	wg         sync.WaitGroup
 	ctx        context.Context
 	cancel     context.CancelFunc
 }
 
-// NewWorkerPool creates a new worker pool
-func NewWorkerPool(maxWorkers int) *WorkerPool {
+// NewVectorWorkerPool creates a new vector worker pool
+func NewVectorWorkerPool(maxWorkers int) *VectorWorkerPool {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	pool := &WorkerPool{
+	pool := &VectorWorkerPool{
 		maxWorkers: maxWorkers,
-		jobChan:    make(chan *ChunkJob, maxWorkers*2),
-		workers:    make([]*Worker, maxWorkers),
+		jobChan:    make(chan *VectorChunkJob, maxWorkers*2),
+		workers:    make([]*VectorWorker, maxWorkers),
 		ctx:        ctx,
 		cancel:     cancel,
 	}
 
 	for i := 0; i < maxWorkers; i++ {
-		pool.workers[i] = &Worker{
+		pool.workers[i] = &VectorWorker{
 			id:           i,
-			prefetchChan: make(chan *ChunkResult, 1), // Buffered for async prefetch
+			prefetchChan: make(chan *VectorChunkResult, 1), // Buffered for async prefetch
 		}
 
 		pool.wg.Add(1)
@@ -74,7 +76,7 @@ func NewWorkerPool(maxWorkers int) *WorkerPool {
 
 // worker processes jobs from the job channel with prefetching support
 // Phase 2 optimization: Overlaps I/O (prefetch next chunk) with compute (process current chunk)
-func (wp *WorkerPool) worker(w *Worker) {
+func (wp *VectorWorkerPool) worker(w *VectorWorker) {
 	defer wp.wg.Done()
 	defer func() {
 		if r := recover(); r != nil {
@@ -82,12 +84,12 @@ func (wp *WorkerPool) worker(w *Worker) {
 		}
 	}()
 
-	var prefetchedJob *ChunkJob
-	var prefetchedResult *ChunkResult
+	var prefetchedJob *VectorChunkJob
+	var prefetchedResult *VectorChunkResult
 
 	for {
-		var currentJob *ChunkJob
-		var currentResult *ChunkResult
+		var currentJob *VectorChunkJob
+		var currentResult *VectorChunkResult
 
 		// If we have a prefetched result, use it
 		if prefetchedJob != nil {
@@ -115,14 +117,14 @@ func (wp *WorkerPool) worker(w *Worker) {
 		case nextJob, ok := <-wp.jobChan:
 			if ok {
 				// Start prefetching asynchronously
-				go func(job *ChunkJob) {
+				go func(job *VectorChunkJob) {
 					result := wp.executePrefetch(w, job)
 					// Send result to worker's prefetch channel
 					select {
 					case w.prefetchChan <- result:
 					case <-wp.ctx.Done():
 						// Context cancelled, send error result
-						job.ResultChan <- &ChunkResult{
+						job.ResultChan <- &VectorChunkResult{
 							ChunkID: job.ChunkID,
 							Error:   context.Canceled,
 						}
@@ -155,7 +157,7 @@ func (wp *WorkerPool) worker(w *Worker) {
 }
 
 // executeJob executes a job and returns the result (with panic recovery)
-func (wp *WorkerPool) executeJob(w *Worker, job *ChunkJob) *ChunkResult {
+func (wp *VectorWorkerPool) executeJob(w *VectorWorker, job *VectorChunkJob) *VectorChunkResult {
 	defer func() {
 		if r := recover(); r != nil {
 			slog.Error("Job execution panic", "worker_id", w.id, "chunk_id", job.ChunkID, "panic", r)
@@ -165,7 +167,7 @@ func (wp *WorkerPool) executeJob(w *Worker, job *ChunkJob) *ChunkResult {
 	result, err := ExecuteChunkScanWithWorker(w, job)
 
 	if err != nil {
-		return &ChunkResult{
+		return &VectorChunkResult{
 			ChunkID: job.ChunkID,
 			Error:   err,
 		}
@@ -175,19 +177,19 @@ func (wp *WorkerPool) executeJob(w *Worker, job *ChunkJob) *ChunkResult {
 }
 
 // executePrefetch executes a prefetch job (same as executeJob but for async prefetch)
-func (wp *WorkerPool) executePrefetch(w *Worker, job *ChunkJob) *ChunkResult {
+func (wp *VectorWorkerPool) executePrefetch(w *VectorWorker, job *VectorChunkJob) *VectorChunkResult {
 	return wp.executeJob(w, job)
 }
 
-func (wp *WorkerPool) MaxWorkers() int {
+func (wp *VectorWorkerPool) MaxWorkers() int {
 	return wp.maxWorkers
 }
 
 // Submit submits a job to the worker pool
-func (wp *WorkerPool) Submit(job *ChunkJob) {
+func (wp *VectorWorkerPool) Submit(job *VectorChunkJob) {
 	select {
 	case <-wp.ctx.Done():
-		job.ResultChan <- &ChunkResult{
+		job.ResultChan <- &VectorChunkResult{
 			ChunkID: job.ChunkID,
 			Error:   context.Canceled,
 		}
@@ -197,7 +199,7 @@ func (wp *WorkerPool) Submit(job *ChunkJob) {
 }
 
 // Shutdown gracefully shuts down the worker pool
-func (wp *WorkerPool) Shutdown() {
+func (wp *VectorWorkerPool) Shutdown() {
 	wp.cancel()
 	close(wp.jobChan)
 	wp.wg.Wait()

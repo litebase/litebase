@@ -1,17 +1,19 @@
-package vector
+package database
 
 import (
 	"fmt"
+
+	"github.com/litebase/litebase/pkg/vector"
 )
 
 // TablePartition represents a partition of a table for parallel scanning
-type TablePartition struct {
+type VectorTablePartition struct {
 	StartRow int64
 	EndRow   int64
 }
 
 // PartitionTable divides a table into chunks for parallel processing
-func PartitionTable(vfsID, databaseID, branchID, tableName, columnName string, queryVector *VectorBlob, k int, metric string) ([]TablePartition, error) {
+func PartitionTable(vfsID, databaseID, branchID, tableName, columnName string, queryVector *vector.VectorBlob, k int, metric string) ([]VectorTablePartition, error) {
 	// Get connection to count rows
 	conn, err := AcquireConnection(vfsID, databaseID, branchID)
 
@@ -42,10 +44,10 @@ func PartitionTable(vfsID, databaseID, branchID, tableName, columnName string, q
 
 	// Calculate optimal chunk size based on dimensions and available workers
 	dimensions := queryVector.Dimensions
-	chunkSize := int64(CalculateChunkSize(dimensions))
+	chunkSize := int64(vector.CalculateChunkSize(dimensions))
 
 	// Create partitions that split the table among workers
-	var partitions []TablePartition
+	var partitions []VectorTablePartition
 
 	for start := int64(1); start <= rowCount; start += chunkSize {
 		end := start + chunkSize - 1
@@ -54,7 +56,7 @@ func PartitionTable(vfsID, databaseID, branchID, tableName, columnName string, q
 			end = rowCount
 		}
 
-		partitions = append(partitions, TablePartition{
+		partitions = append(partitions, VectorTablePartition{
 			StartRow: start,
 			EndRow:   end,
 		})

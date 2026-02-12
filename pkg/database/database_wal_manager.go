@@ -102,6 +102,17 @@ func (w *DatabaseWALManager) Acquire() (int64, error) {
 	return wal.Timestamp(), nil
 }
 
+func (w *DatabaseWALManager) BeginTransaction(connectionID string, walTimestamp int64) error {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if wal, err := w.Get(walTimestamp); err == nil {
+		return wal.Begin(connectionID)
+	} else {
+		return err
+	}
+}
+
 // Checkpoint the WAL version. This ensures the current WAL is checkpointed
 // atomically and does not allow other operations to interfere with the
 // checkpointing process
@@ -233,6 +244,17 @@ func (w *DatabaseWALManager) createNew(timestamp int64) (*DatabaseWAL, error) {
 	}
 
 	return w.walVersions[timestamp], nil
+}
+
+func (w *DatabaseWALManager) EndTransaction(connectionID string, walTimestamp int64) error {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if wal, err := w.Get(walTimestamp); err == nil {
+		return wal.End(connectionID)
+	} else {
+		return err
+	}
 }
 
 // Find a WAL file for the specified timestamp. The WAL file should have a
@@ -374,7 +396,7 @@ func (w *DatabaseWALManager) IsLatestVersion(timestamp int64) bool {
 }
 
 // Read from a WAL log file that corresponds to the specified timestamp
-func (w *DatabaseWALManager) ReadAt(timestamp int64, p []byte, off int64) (n int, err error) {
+func (w *DatabaseWALManager) ReadAt(timestamp int64, connectionID string, p []byte, off int64) (n int, err error) {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
 
@@ -384,7 +406,7 @@ func (w *DatabaseWALManager) ReadAt(timestamp int64, p []byte, off int64) (n int
 		return 0, err
 	}
 
-	return wal.ReadAt(p, off)
+	return wal.ReadAt(connectionID, p, off)
 }
 
 // Refresh the WAL manager by creating a new WAL version and running garbage
@@ -637,7 +659,7 @@ func (w *DatabaseWALManager) Truncate(timestamp, size int64) error {
 	return w.walVersions[timestamp].Truncate(size)
 }
 
-func (w *DatabaseWALManager) WriteAt(timestamp int64, p []byte, off int64) (n int, err error) {
+func (w *DatabaseWALManager) WriteAt(timestamp int64, connectionID string, p []byte, off int64) (n int, err error) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
@@ -653,7 +675,7 @@ func (w *DatabaseWALManager) WriteAt(timestamp int64, p []byte, off int64) (n in
 		return 0, fmt.Errorf("cannot write to WAL, the version is not the latest: requested=%d, wal=%d, latest=%d", timestamp, wal.Timestamp(), w.getLatestVersionUnsafe())
 	}
 
-	return wal.WriteAt(p, off)
+	return wal.WriteAt(connectionID, p, off)
 }
 
 // getOrCreateCurrent gets the current WAL or creates a new one if needed. All connections should

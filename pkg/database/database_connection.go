@@ -50,7 +50,7 @@ var DatabaseConnectionConfigStatements = func(config *config.Config) []string {
 		"PRAGMA synchronous=NORMAL",
 
 		// PRAGMA busy_timeout will set the timeout for waiting for a lock
-		// to 3 seconds. This will allow clients to wait for a lock to be
+		// to 5 seconds. This will allow clients to wait for a lock to be
 		// released before returning an error.
 		"PRAGMA busy_timeout = 5000",
 
@@ -304,6 +304,13 @@ func (con *DatabaseConnection) performCheckpointOnWAL(wal *DatabaseWAL) error {
 	}()
 
 	// Begin the checkpoint process using the WAL timestamp.
+	// Ensure any buffered transactional writes are flushed before checkpoint
+	if err := wal.FlushBuffer(); err != nil {
+		slog.Error("Error flushing WAL buffer before checkpoint", "error", err)
+
+		return err
+	}
+
 	err := con.checkpointer.Begin(wal.timestamp)
 
 	if err != nil {
@@ -719,6 +726,7 @@ func (con *DatabaseConnection) registerVFS() error {
 		con.config.PageSize,
 		con.fileSystem,
 		con.walManager,
+		con.id,
 	)
 
 	if err != nil {
@@ -974,30 +982,47 @@ func (con *DatabaseConnection) Transaction(
 			if !readOnly {
 				// Start the transaction with a write lock.
 				err = con.sqliteConnection().BeginImmediate()
+				if err != nil {
+					return err
+				}
+
+				con.walManager.BeginTransaction(con.id, con.walTimestamp)
+
 			} else {
 				err = con.sqliteConnection().BeginDeferred()
-			}
 
-			if err != nil {
-				return err
+				if err != nil {
+					return err
+				}
 			}
 
 			handlerError := handler(con)
 
 			if handlerError != nil {
+				slog.Error("Transaction handler error", "error", handlerError)
+
 				err = con.sqliteConnection().Rollback()
 
 				if err != nil {
-					log.Println("Transaction Error:", err)
+					slog.Error("Transaction Rollback Error:", "error", err)
 				}
 
 				return handlerError
 			}
 
+			err = con.walManager.EndTransaction(con.id, con.walTimestamp)
+
+			if err != nil {
+				slog.Error("Error ending WAL transaction:", "error", err)
+
+				return err
+			}
+
 			err = con.sqliteConnection().Commit()
 
 			if err != nil {
-				log.Println("Transaction Error:", err)
+				slog.Error("Transaction Commit Error:", "error", err)
+
 				return err
 			}
 

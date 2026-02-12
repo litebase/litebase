@@ -1,16 +1,17 @@
-package vector_test
+package database_test
 
 import (
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/litebase/litebase/pkg/database"
 	"github.com/litebase/litebase/pkg/vector"
 )
 
-func TestNewWorkerPool(t *testing.T) {
+func TestNewVectorWorkerPool(t *testing.T) {
 	t.Run("Creation", func(t *testing.T) {
-		pool := vector.NewWorkerPool(4)
+		pool := database.NewVectorWorkerPool(4)
 
 		if pool == nil {
 			t.Fatal("Expected non-nil worker pool")
@@ -24,7 +25,7 @@ func TestNewWorkerPool(t *testing.T) {
 	})
 
 	t.Run("SingleWorker", func(t *testing.T) {
-		pool := vector.NewWorkerPool(1)
+		pool := database.NewVectorWorkerPool(1)
 
 		if pool.MaxWorkers() != 1 {
 			t.Errorf("Expected 1 worker, got %d", pool.MaxWorkers())
@@ -34,17 +35,17 @@ func TestNewWorkerPool(t *testing.T) {
 	})
 }
 
-func TestWorkerPoolSubmit(t *testing.T) {
+func TestVectorWorkerPoolSubmit(t *testing.T) {
 	t.Run("BasicSubmit", func(t *testing.T) {
-		pool := vector.NewWorkerPool(2)
+		pool := database.NewVectorWorkerPool(2)
 		defer pool.Shutdown()
 
-		resultChan := make(chan *vector.ChunkResult, 1)
+		resultChan := make(chan *database.VectorChunkResult, 1)
 
 		queryVector, _ := vector.EncodeFloat32([]float32{1.0, 2.0, 3.0})
 		query, _ := vector.ParseVectorBlob(queryVector)
 
-		job := &vector.ChunkJob{
+		job := &database.VectorChunkJob{
 			ChunkID:     0,
 			StartRow:    1,
 			EndRow:      100,
@@ -77,16 +78,16 @@ func TestWorkerPoolSubmit(t *testing.T) {
 	})
 
 	t.Run("MultipleJobs", func(t *testing.T) {
-		pool := vector.NewWorkerPool(4)
+		pool := database.NewVectorWorkerPool(4)
 		defer pool.Shutdown()
 
 		numJobs := 10
-		resultChan := make(chan *vector.ChunkResult, numJobs)
+		resultChan := make(chan *database.VectorChunkResult, numJobs)
 		queryVector, _ := vector.EncodeFloat32([]float32{1.0, 2.0, 3.0})
 		query, _ := vector.ParseVectorBlob(queryVector)
 
 		for i := 0; i < numJobs; i++ {
-			job := &vector.ChunkJob{
+			job := &database.VectorChunkJob{
 				ChunkID:     i,
 				StartRow:    int64(i * 100),
 				EndRow:      int64((i + 1) * 100),
@@ -122,11 +123,11 @@ func TestWorkerPoolSubmit(t *testing.T) {
 	})
 
 	t.Run("ConcurrentSubmit", func(t *testing.T) {
-		pool := vector.NewWorkerPool(4)
+		pool := database.NewVectorWorkerPool(4)
 		defer pool.Shutdown()
 
 		numJobs := 20
-		resultChan := make(chan *vector.ChunkResult, numJobs)
+		resultChan := make(chan *database.VectorChunkResult, numJobs)
 
 		queryVector, _ := vector.EncodeFloat32([]float32{1.0, 2.0, 3.0})
 		query, _ := vector.ParseVectorBlob(queryVector)
@@ -139,7 +140,7 @@ func TestWorkerPoolSubmit(t *testing.T) {
 			go func(id int) {
 				defer wg.Done()
 
-				job := &vector.ChunkJob{
+				job := &database.VectorChunkJob{
 					ChunkID:     id,
 					StartRow:    int64(id * 100),
 					EndRow:      int64((id + 1) * 100),
@@ -180,16 +181,16 @@ func TestWorkerPoolSubmit(t *testing.T) {
 
 func TestWorkerPoolShutdown(t *testing.T) {
 	t.Run("CleanShutdown", func(t *testing.T) {
-		pool := vector.NewWorkerPool(2)
+		pool := database.NewVectorWorkerPool(2)
 
 		// Submit some jobs
-		resultChan := make(chan *vector.ChunkResult, 5)
+		resultChan := make(chan *database.VectorChunkResult, 5)
 
 		queryVector, _ := vector.EncodeFloat32([]float32{1.0, 2.0, 3.0})
 		query, _ := vector.ParseVectorBlob(queryVector)
 
 		for i := 0; i < 5; i++ {
-			job := &vector.ChunkJob{
+			job := &database.VectorChunkJob{
 				ChunkID:     i,
 				StartRow:    int64(i * 100),
 				EndRow:      int64((i + 1) * 100),
@@ -215,7 +216,7 @@ func TestWorkerPoolShutdown(t *testing.T) {
 	})
 
 	t.Run("ShutdownAfterSubmit", func(t *testing.T) {
-		pool := vector.NewWorkerPool(2)
+		pool := database.NewVectorWorkerPool(2)
 
 		// Shutdown pool
 		pool.Shutdown()
@@ -233,7 +234,7 @@ func TestChunkJob(t *testing.T) {
 		queryVector, _ := vector.EncodeFloat32([]float32{1.0, 2.0, 3.0})
 		query, _ := vector.ParseVectorBlob(queryVector)
 
-		job := &vector.ChunkJob{
+		job := &database.VectorChunkJob{
 			ChunkID:     5,
 			StartRow:    1000,
 			EndRow:      2000,
@@ -245,7 +246,7 @@ func TestChunkJob(t *testing.T) {
 			QueryVector: query,
 			Metric:      vector.MetricCosine,
 			K:           20,
-			ResultChan:  make(chan *vector.ChunkResult, 1),
+			ResultChan:  make(chan *database.VectorChunkResult, 1),
 		}
 
 		if job.ChunkID != 5 {
@@ -276,7 +277,7 @@ func TestChunkResult(t *testing.T) {
 		heap.Insert(1, 0.5)
 		heap.Insert(2, 0.3)
 
-		result := &vector.ChunkResult{
+		result := &database.VectorChunkResult{
 			ChunkID: 3,
 			Heap:    heap,
 			Error:   nil,
@@ -303,7 +304,7 @@ func TestChunkResult(t *testing.T) {
 }
 
 func BenchmarkWorkerPool(b *testing.B) {
-	pool := vector.NewWorkerPool(4)
+	pool := database.NewVectorWorkerPool(4)
 	defer pool.Shutdown()
 
 	queryVector, _ := vector.EncodeFloat32([]float32{1.0, 2.0, 3.0})
@@ -311,9 +312,9 @@ func BenchmarkWorkerPool(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		resultChan := make(chan *vector.ChunkResult, 1)
+		resultChan := make(chan *database.VectorChunkResult, 1)
 
-		job := &vector.ChunkJob{
+		job := &database.VectorChunkJob{
 			ChunkID:     i,
 			StartRow:    int64(i * 100),
 			EndRow:      int64((i + 1) * 100),

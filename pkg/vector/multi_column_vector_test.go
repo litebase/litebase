@@ -408,7 +408,6 @@ func TestMultiColumnVectorSearch(t *testing.T) {
 	})
 }
 
-
 // TestMultiColumnVectorIndexing tests indexer processes all columns
 func TestMultiColumnVectorIndexing(t *testing.T) {
 	test.RunWithApp(t, func(app *server.App) {
@@ -460,8 +459,8 @@ func TestMultiColumnVectorIndexing(t *testing.T) {
 
 		t.Log("✓ Inserted 5 vectors successfully")
 
-	// Wait for background indexing to process
-	time.Sleep(2 * time.Second)
+		// Wait for background indexing to process
+		time.Sleep(2 * time.Second)
 
 		// Check that vectors were moved out of cluster 0 for both columns
 		res, err := dbConn.Exec("SELECT COUNT(*) FROM docs_title_cluster_vector_map WHERE cluster_id != 0", nil)
@@ -533,4 +532,3 @@ func EncodeVector(vec []float32) []byte {
 
 	return blob
 }
-

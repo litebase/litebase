@@ -6,6 +6,13 @@ import (
 	"sync"
 )
 
+const (
+	// encoderBufferInitialSize is the initial capacity for encoder buffers
+	encoderBufferInitialSize = 1024 // 1KB
+	// encoderBufferMaxPoolSize prevents oversized buffers from being pooled
+	encoderBufferMaxPoolSize = 64 * 1024 // 64KB
+)
+
 var staticEncoderPool *EncoderPool
 
 type Encoder struct {
@@ -22,7 +29,7 @@ func JsonEncoderPool() *EncoderPool {
 		staticEncoderPool = &EncoderPool{
 			encoders: &sync.Pool{
 				New: func() any {
-					buffer := bytes.NewBuffer(make([]byte, 0, 1024))
+					buffer := bytes.NewBuffer(make([]byte, 0, encoderBufferInitialSize))
 
 					return &Encoder{
 						Buffer:      buffer,
@@ -44,5 +51,9 @@ func (ep *EncoderPool) Get() *Encoder {
 }
 
 func (ep *EncoderPool) Put(encoder *Encoder) {
-	ep.encoders.Put(encoder)
+	// Only return reasonably-sized buffers to pool
+	if encoder.Buffer.Cap() <= encoderBufferMaxPoolSize {
+		ep.encoders.Put(encoder)
+	}
+	// Oversized encoders are discarded and will be garbage collected
 }

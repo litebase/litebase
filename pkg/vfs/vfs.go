@@ -31,6 +31,7 @@ var VfsMap = make(map[uintptr]*LitebaseVFS)
 
 type LitebaseVFS struct {
 	connectionHash         string
+	connectionID           string // Extracted from connectionHash for buffer ownership
 	connectionManager      ConnectionManager
 	databaseHash           string
 	filename               string
@@ -102,6 +103,7 @@ func RegisterVFS(
 	pageSize int64,
 	fileSystem *storage.DurableDatabaseFileSystem,
 	wal WAL,
+	connectionID string, // Connection ID for buffer ownership tracking
 ) (*LitebaseVFS, error) {
 	vfsMutex.Lock()
 	defer vfsMutex.Unlock()
@@ -160,6 +162,7 @@ func RegisterVFS(
 
 	l := &LitebaseVFS{
 		connectionHash: connectionHash,
+		connectionID:   connectionID,
 		databaseHash:   databaseHash,
 		fileSystem:     fileSystem,
 		wal:            wal,
@@ -478,31 +481,41 @@ func goXShmLock(pFile *C.sqlite3_file, offset C.int, n C.int, flags C.int) C.int
 	}
 
 	var rc C.int = C.SQLITE_OK
+	start := int(offset)
+	end := start + int(n)
 
 	// Check for unlock
 	if flags&C.SQLITE_SHM_UNLOCK != 0 {
-		// Unlock logic
+		// Unlock logic (shared/unshared over entire range)
 		if flags&C.SQLITE_SHM_SHARED != 0 {
-			if vfs.shm.locks[int(offset)] > 1 {
-				vfs.shm.locks[int(offset)]--
-			} else {
-				vfs.shm.locks[int(offset)] = 0
+			for i := start; i < end; i++ {
+				if vfs.shm.locks[i] > 1 {
+					vfs.shm.locks[i]--
+				} else {
+					vfs.shm.locks[i] = 0
+				}
 			}
 		} else {
-			for i := int(offset); i < int(offset+n); i++ {
+			for i := start; i < end; i++ {
 				vfs.shm.locks[i] = 0
 			}
 		}
 	} else if flags&C.SQLITE_SHM_SHARED != 0 {
-		// Shared lock logic
-		if vfs.shm.locks[int(offset)] < 0 {
-			rc = C.SQLITE_BUSY // Exclusive lock already held
-		} else {
-			vfs.shm.locks[int(offset)]++
+		// Shared lock logic: ensure no exclusive lock in the whole range
+		for i := start; i < end; i++ {
+			if vfs.shm.locks[i] < 0 {
+				rc = C.SQLITE_BUSY // Exclusive lock already held
+				break
+			}
+		}
+		if rc == C.SQLITE_OK {
+			for i := start; i < end; i++ {
+				vfs.shm.locks[i]++
+			}
 		}
 	} else {
-		// Exclusive lock logic
-		for i := int(offset); i < int(offset+n); i++ {
+		// Exclusive lock logic: ensure entire range is free
+		for i := start; i < end; i++ {
 			if vfs.shm.locks[i] != 0 {
 				rc = C.SQLITE_BUSY // Lock already held
 				break
@@ -510,7 +523,7 @@ func goXShmLock(pFile *C.sqlite3_file, offset C.int, n C.int, flags C.int) C.int
 		}
 
 		if rc == C.SQLITE_OK {
-			for i := int(offset); i < int(offset+n); i++ {
+			for i := start; i < end; i++ {
 				vfs.shm.locks[i] = -1
 			}
 		}
@@ -615,7 +628,7 @@ func goXWALRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.
 
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
 
-	_, err = vfs.wal.ReadAt(vfs.walTimestamp, goBuffer, int64(iOfst))
+	_, err = vfs.wal.ReadAt(vfs.walTimestamp, vfs.connectionID, goBuffer, int64(iOfst))
 
 	if err != nil {
 		if err == io.EOF {
@@ -639,7 +652,7 @@ func goXWALWrite(pFile *C.sqlite3_file, iAmt C.int, iOfst C.sqlite3_int64, zBuf 
 
 	goBuffer := (*[1 << 28]byte)(zBuf)[:int(iAmt):int(iAmt)]
 
-	_, err = vfs.wal.WriteAt(vfs.walTimestamp, goBuffer, int64(iOfst))
+	_, err = vfs.wal.WriteAt(vfs.walTimestamp, vfs.connectionID, goBuffer, int64(iOfst))
 
 	if err != nil {
 		log.Println("Error writing to WAL file", err)
