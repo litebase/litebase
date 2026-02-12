@@ -33,7 +33,7 @@ jobs:
     with:
       project_name: "litebase"
       build_target: "./cmd/litebase"
-          go_version: "1.26"
+      go_version: "1.26"
 
   build-docker:
     needs: [get-version, build]
