@@ -398,13 +398,15 @@ func (w *DatabaseWALManager) IsLatestVersion(timestamp int64) bool {
 // Read from a WAL log file that corresponds to the specified timestamp
 func (w *DatabaseWALManager) ReadAt(timestamp int64, connectionID string, p []byte, off int64) (n int, err error) {
 	w.mutex.RLock()
-	defer w.mutex.RUnlock()
 
 	wal, err := w.Get(timestamp)
 
 	if err != nil {
+		w.mutex.RUnlock()
 		return 0, err
 	}
+
+	w.mutex.RUnlock()
 
 	return wal.ReadAt(connectionID, p, off)
 }

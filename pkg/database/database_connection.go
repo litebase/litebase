@@ -982,6 +982,7 @@ func (con *DatabaseConnection) Transaction(
 			if !readOnly {
 				// Start the transaction with a write lock.
 				err = con.sqliteConnection().BeginImmediate()
+
 				if err != nil {
 					return err
 				}

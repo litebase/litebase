@@ -4,6 +4,10 @@ package vfs
 #cgo linux LDFLAGS: -Wl,--unresolved-symbols=ignore-in-object-files
 #cgo darwin LDFLAGS: -Wl,-undefined,dynamic_lookup
 
+#cgo nocallback newVfs
+#cgo nocallback sqlite3_vfs_find
+#cgo nocallback unregisterVfs
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -288,12 +292,35 @@ func getVfsFromFile(pFile *C.sqlite3_file) (*LitebaseVFS, error) {
 		c1 := (*C.char)(v.vfsIdUnsafePtr)
 		c2 := (*C.char)(file.pVfsId)
 
-		if C.strcmp(c1, c2) == 0 {
+		if cStringsEqual(c1, c2) {
 			return v, nil
 		}
 	}
 
 	return nil, fmt.Errorf("vfs not found")
+}
+
+// cStringsEqual compares two C NUL-terminated strings without calling C.
+// This avoids a cgo call to strcmp which shows up in CPU profiles.
+func cStringsEqual(a, b *C.char) bool {
+	pa := unsafe.Pointer(a)
+	pb := unsafe.Pointer(b)
+
+	for {
+		ba := *(*byte)(pa)
+		bb := *(*byte)(pb)
+
+		if ba != bb {
+			return false
+		}
+
+		if ba == 0 {
+			return true
+		}
+
+		pa = unsafe.Pointer(uintptr(pa) + 1)
+		pb = unsafe.Pointer(uintptr(pb) + 1)
+	}
 }
 
 //export goXOpen
