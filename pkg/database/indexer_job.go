@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math"
 	"strings"
+	"sync"
 
 	"github.com/litebase/litebase/pkg/sqlite3"
 	"github.com/litebase/litebase/pkg/vector"
@@ -131,6 +132,10 @@ type VectorIndexer struct {
 	MinClusterSize int
 }
 
+var statementParamsPool = sync.Pool{
+	New: func() interface{} { return make([]sqlite3.StatementParameter, 10000*3) },
+}
+
 // NewVectorIndexer creates a new vector indexer
 func NewVectorIndexer(db *DatabaseConnection, tableName string, vectorColumns []VectorColumnInfo, maxClusterSize, minClusterSize int) (*VectorIndexer, error) {
 	return &VectorIndexer{
@@ -218,8 +223,12 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 			// Track cluster updates
 			clusterSizeDeltas := make(map[int64]int)       // cluster_id -> size change
 			clusterVectorSums := make(map[int64][]float32) // cluster_id -> sum of vectors for centroid update
-			vectorAssignments := make(map[int64]int64)     // vector_id -> new cluster_id
-			vectorDistances := make(map[int64]float64)     // vector_id -> distance to cluster centroid
+			// Use a preallocated slice for assignments to avoid per-row map allocations
+			assignments := make([]struct {
+				vectorID  int64
+				clusterID int64
+				distance  float64
+			}, 0, len(res.Rows))
 
 			// Pre-load cluster tree into memory to avoid N+1 queries
 			clusterTree, err := vi.loadClusterTree(db, colInfo.Name)
@@ -243,8 +252,8 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 				vectorID := row[0].Int64()
 				vectorBlob := row[1].Blob()
 
-				// Parse vector
-				vb, err := vector.ParseVectorBlob(vectorBlob)
+				// Parse vector using pooled VectorBlob to reduce allocations
+				vb, err := vector.ParseVectorBlobPooled(vectorBlob)
 
 				if err != nil {
 					slog.Error("Failed to parse vector blob",
@@ -255,64 +264,59 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 					continue
 				}
 
-				vector := vb.GetFloat32Slice()
+				vec := vb.GetFloat32Slice()
 
-				if len(vector) != colInfo.Dimensions {
-					slog.Error("Vector dimension mismatch", "id", vectorID, "expected", colInfo.Dimensions, "got", len(vector))
+				if len(vec) != colInfo.Dimensions {
+					slog.Error("Vector dimension mismatch", "id", vectorID, "expected", colInfo.Dimensions, "got", len(vec))
+					vector.PutVectorBlob(vb)
 					continue
 				}
 
 				// Find best cluster using in-memory hierarchical traversal (no DB queries)
-				clusterID, distance := vi.findBestClusterInMemory(clusterTree, colInfo.DistanceMetric, vector)
+				clusterID, distance := vi.findBestClusterInMemory(clusterTree, colInfo.DistanceMetric, vec)
 
 				if clusterID == 0 {
 					slog.Error("Failed to find best cluster", "id", vectorID)
+					vector.PutVectorBlob(vb)
 					continue
 				}
 
-				// Record assignment and distance
-				vectorAssignments[vectorID] = clusterID
-				vectorDistances[vectorID] = distance
+				// Record assignment and distance (append to slice to avoid map allocations)
+				assignments = append(assignments, struct {
+					vectorID  int64
+					clusterID int64
+					distance  float64
+				}{vectorID, clusterID, distance})
 				clusterSizeDeltas[clusterID]++
 
 				// Accumulate vector for centroid update
 				if _, exists := clusterVectorSums[clusterID]; !exists {
-					clusterVectorSums[clusterID] = make([]float32, len(vector))
+					clusterVectorSums[clusterID] = make([]float32, len(vec))
 				}
 
-				for i, v := range vector {
+				for i, v := range vec {
 					clusterVectorSums[clusterID][i] += v
 				}
+
+				// Return pooled VectorBlob immediately to avoid allocations
+				vector.PutVectorBlob(vb)
 			}
 
 			// Return the result to the result pool to free memory
 			db.ResultPool().Put(res)
 
 			// Update cluster mappings in batch
-			if len(vectorAssignments) > 0 {
+			if len(assignments) > 0 {
 				// SQLite has a limit on the number of parameters (default 999, max 32766)
 				// With 3 params per row (vector_id, cluster_id, distance),
 				// we can safely do 10000 rows per chunk (30000 parameters)
 				const maxRowsPerBatch = 10000
 
-				// Convert map to slice for chunking
-				assignments := make([]struct {
-					vectorID  int64
-					clusterID int64
-					distance  float64
-				}, 0, len(vectorAssignments))
-
-				for vectorID, clusterID := range vectorAssignments {
-					assignments = append(assignments, struct {
-						vectorID  int64
-						clusterID int64
-						distance  float64
-					}{vectorID, clusterID, vectorDistances[vectorID]})
-				}
+				// assignments already collected in the loop above (slice), reuse it
 
 				// Process in chunks
-				// Reuse a parameter buffer to avoid allocating a new slice each chunk
-				paramsBuf := make([]sqlite3.StatementParameter, maxRowsPerBatch*3)
+				// Reuse a parameter buffer from the pool to avoid allocating a new slice each chunk
+				paramsBuf := statementParamsPool.Get().([]sqlite3.StatementParameter)
 
 				for i := 0; i < len(assignments); i += maxRowsPerBatch {
 					end := min(i+maxRowsPerBatch, len(assignments))
@@ -358,12 +362,14 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 					// Return the result to the result pool to free memory
 					db.ResultPool().Put(res)
 				}
+				// Return params buffer to pool for reuse
+				statementParamsPool.Put(paramsBuf)
 			}
 
 			// Update cluster sizes for this column
 			if len(clusterSizeDeltas) > 0 {
 				// Decrement cluster 0 size
-				cluster0Delta := -len(vectorAssignments)
+				cluster0Delta := -len(assignments)
 
 				if err := vi.updateClusterSize(db, colInfo.Name, 0, cluster0Delta); err != nil {
 					slog.Error("Failed to update cluster 0 size", "error", err)
@@ -425,7 +431,7 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 				}
 			}
 
-			processed = len(vectorAssignments)
+			processed = len(assignments)
 
 			return nil
 		})
@@ -1031,7 +1037,7 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 		const batchSize = 10000
 
 		// Reuse a parameter buffer for batches to avoid per-batch allocations
-		paramsBuf := make([]sqlite3.StatementParameter, batchSize*3)
+		paramsBuf := statementParamsPool.Get().([]sqlite3.StatementParameter)
 
 		for i := 0; i < len(vectors); i += batchSize {
 			select {
@@ -1092,6 +1098,8 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 				}
 			}
 		}
+		// Return params buffer to pool for reuse
+		statementParamsPool.Put(paramsBuf)
 
 		// Update parent cluster size to 0 (vectors moved to children)
 		_, err = db.Exec(
