@@ -170,6 +170,7 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 	for colIdx, colInfo := range vi.VectorColumns {
 		// Give remainder to last column
 		colBatchSize := perColumnBatch
+
 		if colIdx == len(vi.VectorColumns)-1 {
 			colBatchSize = batchSize - (perColumnBatch * (len(vi.VectorColumns) - 1))
 		}
@@ -185,15 +186,20 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 			}
 
 			// Get vectors currently assigned to cluster 0 (need reassignment) for this column
+			var selQB strings.Builder
+			selQB.Grow(128)
+			selQB.WriteString("SELECT v.id, v.")
+			selQB.WriteString(colInfo.Name)
+			selQB.WriteString(" FROM ")
+			selQB.WriteString(vi.TableName)
+			selQB.WriteString("_vectors v INNER JOIN ")
+			selQB.WriteString(vi.TableName)
+			selQB.WriteString("_")
+			selQB.WriteString(colInfo.Name)
+			selQB.WriteString("_cluster_vector_map m ON v.id = m.vector_id WHERE m.cluster_id = 0 ORDER BY v.rowid ASC LIMIT ?")
+
 			res, err := db.Exec(
-				fmt.Sprintf(`
-					SELECT v.id, v.%s
-					FROM %s_vectors v 
-					INNER JOIN %s_%s_cluster_vector_map m ON v.id = m.vector_id 
-					WHERE m.cluster_id = 0 
-					ORDER BY v.rowid ASC 
-					LIMIT ?`,
-					colInfo.Name, vi.TableName, vi.TableName, colInfo.Name),
+				selQB.String(),
 				[]sqlite3.StatementParameter{
 					{Type: "INTEGER", Value: int64(colBatchSize)},
 				},
@@ -310,22 +316,34 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 				}
 
 				// Process in chunks
+				// Reuse a parameter buffer to avoid allocating a new slice each chunk
+				paramsBuf := make([]sqlite3.StatementParameter, maxRowsPerBatch*3)
+
 				for i := 0; i < len(assignments); i += maxRowsPerBatch {
 					end := min(i+maxRowsPerBatch, len(assignments))
 
 					chunk := assignments[i:end]
+					// Build bulk UPDATE statement for this chunk using a single Builder
+					params := paramsBuf[:len(chunk)*3]
 
-					// Build bulk UPDATE statement for this chunk
-					valuesParts := make([]string, 0, len(chunk))
-					params := make([]sqlite3.StatementParameter, 0, len(chunk)*3)
+					var vbldr strings.Builder
+					// Reserve approximate size: 12 bytes per row is enough for "(?, ?, ?), "
+					vbldr.Grow(len(chunk) * 12)
 
-					for _, assignment := range chunk {
-						valuesParts = append(valuesParts, "(?, ?, ?)")
-						params = append(params,
-							sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: assignment.vectorID},
-							sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: assignment.clusterID},
-							sqlite3.StatementParameter{Type: sqlite3.ParameterTypeFloat, Value: assignment.distance},
-						)
+					p := 0
+
+					for idx, assignment := range chunk {
+						vbldr.WriteString("(?, ?, ?)")
+						if idx != len(chunk)-1 {
+							vbldr.WriteString(", ")
+						}
+
+						params[p] = sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: assignment.vectorID}
+						p++
+						params[p] = sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: assignment.clusterID}
+						p++
+						params[p] = sqlite3.StatementParameter{Type: sqlite3.ParameterTypeFloat, Value: assignment.distance}
+						p++
 					}
 
 					// Use INSERT OR REPLACE to update cluster assignments for this column
@@ -333,7 +351,7 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 						`INSERT OR REPLACE INTO %s_%s_cluster_vector_map (vector_id, cluster_id, distance) VALUES %s`,
 						vi.TableName,
 						colInfo.Name,
-						strings.Join(valuesParts, ", "),
+						vbldr.String(),
 					)
 
 					res, err := db.Exec(query, params)
@@ -456,8 +474,16 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 
 // loadClusterTree loads the entire cluster tree for a column into memory
 func (vi *VectorIndexer) loadClusterTree(db *DatabaseConnection, columnName string) (map[int64]*ClusterNode, error) {
+	var treeQB strings.Builder
+	treeQB.Grow(128)
+	treeQB.WriteString("SELECT cluster_id, parent_id, centroid_blob, is_leaf, cluster_size FROM ")
+	treeQB.WriteString(vi.TableName)
+	treeQB.WriteString("_")
+	treeQB.WriteString(columnName)
+	treeQB.WriteString("_cluster_tree")
+
 	res, err := db.Exec(
-		fmt.Sprintf(`SELECT cluster_id, parent_id, centroid_blob, is_leaf, cluster_size FROM %s_%s_cluster_tree`, vi.TableName, columnName),
+		treeQB.String(),
 		nil,
 	)
 
@@ -643,8 +669,16 @@ func calculateDistance(a, b []float32, distanceMetric int) float64 {
 
 // updateClusterSize updates the size of a single cluster for a specific column
 func (vi *VectorIndexer) updateClusterSize(db *DatabaseConnection, columnName string, clusterID int64, delta int) error {
+	var qb strings.Builder
+	qb.Grow(64)
+	qb.WriteString("UPDATE ")
+	qb.WriteString(vi.TableName)
+	qb.WriteString("_")
+	qb.WriteString(columnName)
+	qb.WriteString("_cluster_tree SET cluster_size = cluster_size + ? WHERE cluster_id = ?")
+
 	_, err := db.Exec(
-		fmt.Sprintf(`UPDATE %s_%s_cluster_tree SET cluster_size = cluster_size + ? WHERE cluster_id = ?`, vi.TableName, columnName),
+		qb.String(),
 		[]sqlite3.StatementParameter{
 			{Type: sqlite3.ParameterTypeInteger, Value: int64(delta)},
 			{Type: sqlite3.ParameterTypeInteger, Value: clusterID},
@@ -656,8 +690,16 @@ func (vi *VectorIndexer) updateClusterSize(db *DatabaseConnection, columnName st
 
 // getClusterCentroid retrieves the current centroid and size for a cluster in a specific column
 func (vi *VectorIndexer) getClusterCentroid(db *DatabaseConnection, columnName string, clusterID int64) ([]float32, int, error) {
+	var qb strings.Builder
+	qb.Grow(96)
+	qb.WriteString("SELECT centroid_blob, cluster_size FROM ")
+	qb.WriteString(vi.TableName)
+	qb.WriteString("_")
+	qb.WriteString(columnName)
+	qb.WriteString("_cluster_tree WHERE cluster_id = ?")
+
 	res, err := db.Exec(
-		fmt.Sprintf(`SELECT centroid_blob, cluster_size FROM %s_%s_cluster_tree WHERE cluster_id = ?`, vi.TableName, columnName),
+		qb.String(),
 		[]sqlite3.StatementParameter{
 			{Type: sqlite3.ParameterTypeInteger, Value: clusterID},
 		},
@@ -696,8 +738,16 @@ func (vi *VectorIndexer) splitOversizedClusters(ctx context.Context, columnName 
 		// This allows some overfill for better tree structure
 		splitThreshold := int64(float64(vi.MaxClusterSize) * 1.5)
 
+		var qb strings.Builder
+		qb.Grow(96)
+		qb.WriteString("SELECT cluster_id, cluster_size FROM ")
+		qb.WriteString(vi.TableName)
+		qb.WriteString("_")
+		qb.WriteString(columnName)
+		qb.WriteString("_cluster_tree WHERE cluster_size > ? AND is_leaf = 1")
+
 		res, err := vi.DB.Exec(
-			fmt.Sprintf(`SELECT cluster_id, cluster_size FROM %s_%s_cluster_tree WHERE cluster_size > ? AND is_leaf = 1`, vi.TableName, columnName),
+			qb.String(),
 			[]sqlite3.StatementParameter{
 				{Type: sqlite3.ParameterTypeInteger, Value: splitThreshold},
 			},
@@ -985,6 +1035,9 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 		// we can safely do 10000 rows per chunk (30000 parameters)
 		const batchSize = 10000
 
+		// Reuse a parameter buffer for batches to avoid per-batch allocations
+		paramsBuf := make([]sqlite3.StatementParameter, batchSize*3)
+
 		for i := 0; i < len(vectors); i += batchSize {
 			select {
 			case <-ctx.Done():
@@ -999,30 +1052,41 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 			}
 
 			batch := vectors[i:end]
-			valuesParts := make([]string, 0, len(batch))
-			params := make([]sqlite3.StatementParameter, 0, len(batch)*3)
+			params := paramsBuf[:len(batch)*3]
 
 			clusterSizes := make(map[int64]int)
 
+			var vbldr strings.Builder
+			vbldr.Grow(len(batch) * 12)
+
+			p := 0
+
 			for j, v := range batch {
 				childClusterID := nextClusterID + int64(assignments[i+j])
-				valuesParts = append(valuesParts, "(?, ?, ?)")
-				params = append(params,
-					sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: v.id},
-					sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: childClusterID},
-					sqlite3.StatementParameter{Type: sqlite3.ParameterTypeFloat, Value: v.distance},
-				)
+				vbldr.WriteString("(?, ?, ?)")
+
+				if j != len(batch)-1 {
+					vbldr.WriteString(", ")
+				}
+				params[p] = sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: v.id}
+				p++
+				params[p] = sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: childClusterID}
+				p++
+				params[p] = sqlite3.StatementParameter{Type: sqlite3.ParameterTypeFloat, Value: v.distance}
+				p++
 				clusterSizes[childClusterID]++
 			}
 
-			query := fmt.Sprintf(
-				`INSERT OR REPLACE INTO %s_%s_cluster_vector_map (vector_id, cluster_id, distance) VALUES %s`,
-				vi.TableName,
-				columnName,
-				strings.Join(valuesParts, ", "),
-			)
+			var ibldr strings.Builder
+			ibldr.Grow(len(vi.TableName) + len(columnName) + len(vbldr.String()) + 64)
+			ibldr.WriteString("INSERT OR REPLACE INTO ")
+			ibldr.WriteString(vi.TableName)
+			ibldr.WriteString("_")
+			ibldr.WriteString(columnName)
+			ibldr.WriteString("_cluster_vector_map (vector_id, cluster_id, distance) VALUES ")
+			ibldr.WriteString(vbldr.String())
 
-			if _, err := db.Exec(query, params); err != nil {
+			if _, err := db.Exec(ibldr.String(), params); err != nil {
 				return err
 			}
 
