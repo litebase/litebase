@@ -427,6 +427,7 @@ func (wal *DatabaseWAL) FlushBuffer() error {
 
 	// Batch-update cache and metadata under wal mutex to minimize lock hold time
 	wal.mutex.Lock()
+
 	for _, w := range writes {
 		cacheKey := wal.getCacheKey(w.offset)
 
@@ -605,8 +606,10 @@ func (wal *DatabaseWAL) ReadAt(connectionID string, p []byte, off int64) (n int,
 	wal.lastReadOffset = off
 
 	// Cache the read data
-	if cacheErr := wal.cache.Put(cacheKey, p[:n]); cacheErr != nil {
-		slog.Error("Error caching WAL data", "error", cacheErr)
+	if n > 0 {
+		if cacheErr := wal.cache.Put(cacheKey, p[:n]); cacheErr != nil {
+			slog.Error("Error caching WAL data", "error", cacheErr)
+		}
 	}
 
 	return n, nil
