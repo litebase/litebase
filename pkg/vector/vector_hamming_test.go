@@ -115,10 +115,6 @@ func TestVectorHammingDistance(t *testing.T) {
 
 			vec2 = res2.Rows[0][0].Blob()
 
-			if err != nil {
-				t.Fatalf("Failed to create vector 2: %v", err)
-			}
-
 			var distance int
 
 			res, err := db.GetConnection().Exec("SELECT vector_hamming_distance(?, ?)", []sqlite3.StatementParameter{{Type: sqlite3.ParameterTypeBlob, Value: vec1}, {Type: sqlite3.ParameterTypeBlob, Value: vec2}})

@@ -45,9 +45,9 @@ func (rp *ResultPool) Put(r *Result) {
 	// Only return reasonably-sized Results to pool to prevent unbounded memory growth
 	// Check capacity of internal slices - even though length is 0 after Reset(),
 	// the underlying arrays can be huge
-	if cap(r.Rows) <= maxResultRows && 
-	   cap(r.Columns) <= maxResultColumns && 
-	   cap(r.ColumnTypes) <= maxResultColumns {
+	if cap(r.Rows) <= maxResultRows &&
+		cap(r.Columns) <= maxResultColumns &&
+		cap(r.ColumnTypes) <= maxResultColumns {
 		rp.results.Put(r)
 	}
 	// Oversized Results are discarded and will be garbage collected

@@ -11,11 +11,6 @@ import (
 	"github.com/litebase/litebase/pkg/vector"
 )
 
-const (
-	// IndexerBatchSize is the number of vectors to process in one batch
-	IndexerBatchSize = 10000
-)
-
 // VectorColumnInfo contains metadata about a vector column
 type VectorColumnInfo struct {
 	Name           string

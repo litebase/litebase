@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	VectorIndexerBatchSize = 100000
+	VectorIndexerBatchSize = 50000
 )
 
 // VectorIndexerJob processes pending vectors for a specific index

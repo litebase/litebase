@@ -125,26 +125,41 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 		err = dbConn.Transaction(false, func(txConn *database.DatabaseConnection) error {
 			for batch := range totalVectors / generateBatchSize {
 				vecGenStart := time.Now()
-				vectors := GenerateBatch(generateBatchSize, dimensions)
+
+				// Generate vectors using the iterator which also returns
+				// their binary blob representation to avoid a second
+				// conversion pass.
+				it := GenerateBatch(generateBatchSize, dimensions)
+
+				// Preallocate exact capacity and fill by index to avoid
+				// repeated slice growth allocations.
+				vectorBlobs := make([][]byte, generateBatchSize)
+				vbIdx := 0
+
+				for {
+					blob, ok := it.NextBlob()
+					if !ok {
+						break
+					}
+					vectorBlobs[vbIdx] = blob
+					vbIdx++
+				}
+				vectorBlobs = vectorBlobs[:vbIdx]
+
 				vectorGenTime += time.Since(vecGenStart)
 
-				// Pre-convert all vectors to binary blobs once
-				vectorBlobs := make([][]byte, len(vectors))
+				// Process vectors in insert batches. Reuse `params` slice to
+				// avoid allocating a new backing array each iteration.
+				params := make([]sqlite3.StatementParameter, 0, insertBatchSize)
 
-				for idx, vec := range vectors {
-					vectorBlobs[idx] = VectorToBlob(vec)
-				}
+				for i := 0; i < len(vectorBlobs); i += insertBatchSize {
+					end := min(i+insertBatchSize, len(vectorBlobs))
 
-				// Process vectors in insert batches
-				for i := 0; i < len(vectors); i += insertBatchSize {
-					end := min(i+insertBatchSize, len(vectors))
+					params = params[:0]
 
-					batchVectors := vectorBlobs[i:end]
-					params := make([]sqlite3.StatementParameter, 0, len(batchVectors))
-
-					for j := range batchVectors {
+					for j := i; j < end; j++ {
 						params = append(params,
-							sqlite3.StatementParameter{Type: sqlite3.ParameterTypeBlob, Value: batchVectors[j]},
+							sqlite3.StatementParameter{Type: sqlite3.ParameterTypeBlob, Value: vectorBlobs[j]},
 						)
 					}
 
@@ -157,7 +172,16 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 						return fmt.Errorf("failed to insert batch at vector %d: %w", batch*generateBatchSize+i, err)
 					}
 
-					insertedCount += len(batchVectors)
+					// After successful execution, return blob buffers to the pool
+					for _, p := range params {
+						if p.Type == sqlite3.ParameterTypeBlob {
+							if bb, ok := p.Value.([]byte); ok {
+								putBlobBuf(bb)
+							}
+						}
+					}
+
+					insertedCount += end - i
 				}
 
 				if (batch+1)%10 == 0 {

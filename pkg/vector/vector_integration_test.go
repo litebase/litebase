@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -27,21 +28,57 @@ func NewTestVector(dim int) []float32 {
 	return vec
 }
 
-// GenerateBatch creates multiple test vectors
-func GenerateBatch(count, dim int) [][]float32 {
-	batch := make([][]float32, count)
+// GenerateBatch returns an iterator that produces test vectors and their
+// pre-serialized binary blobs. This reduces intermediate allocations when
+// callers need the binary representation immediately for insertion.
+type BatchIterator struct {
+	count int
+	dim   int
+	idx   int
+	// reusable buffer to avoid allocating a new float32 slice on each NextBlob
+	vecBuf []float32
+}
 
-	for i := 0; i < count; i++ {
-		vec := make([]float32, dim)
+func GenerateBatch(count, dim int) *BatchIterator {
+	return &BatchIterator{count: count, dim: dim, idx: 0, vecBuf: make([]float32, dim)}
+}
 
-		for j := range vec {
-			vec[j] = rand.Float32()
-		}
-
-		batch[i] = vec
+// Next returns the next vector and its binary blob. When no more vectors
+// remain it returns ok=false.
+func (it *BatchIterator) Next() (vec []float32, blob []byte, ok bool) {
+	if it.idx >= it.count {
+		return nil, nil, false
 	}
 
-	return batch
+	vec = make([]float32, it.dim)
+
+	for i := range vec {
+		vec[i] = rand.Float32()
+	}
+
+	blob = VectorToBlob(vec)
+	it.idx++
+
+	return vec, blob, true
+}
+
+// NextBlob generates the next vector into an internal reusable buffer and
+// returns its binary blob. This avoids allocating a new float32 slice on
+// each call; callers that need the float values can parse the returned
+// blob with vector.ParseVectorBlob.
+func (it *BatchIterator) NextBlob() (blob []byte, ok bool) {
+	if it.idx >= it.count {
+		return nil, false
+	}
+
+	for i := range it.vecBuf {
+		it.vecBuf[i] = rand.Float32()
+	}
+
+	blob = VectorToBlob(it.vecBuf)
+	it.idx++
+
+	return blob, true
 }
 
 // VectorToJSON converts a float32 slice to JSON array string
@@ -79,7 +116,11 @@ func VectorToBlob(vec []float32) []byte {
 
 	// Calculate total size: version + type + dimensions + data
 	blobSize := 1 + 1 + 4 + len(vec)*4
-	blob := make([]byte, blobSize)
+
+	// Try to reuse a buffer from the pool when possible to reduce
+	// GC pressure from many small allocations.
+	buf := getBlobBuf(blobSize)
+	blob := buf[:blobSize]
 
 	// Version byte
 	blob[0] = vectorVersion1
@@ -102,6 +143,28 @@ func VectorToBlob(vec []float32) []byte {
 	return blob
 }
 
+var blobPool sync.Pool
+
+func init() {
+	// Pre-allocate a default capacity for common vector size (128 dims)
+	blobPool.New = func() any { return make([]byte, 0, 6+128*4) }
+}
+
+func getBlobBuf(size int) []byte {
+	b := blobPool.Get().([]byte)
+
+	if cap(b) < size {
+		return make([]byte, size)
+	}
+
+	return b[:size]
+}
+
+func putBlobBuf(b []byte) {
+	// Return zero-length slice keeping capacity for reuse
+	blobPool.Put(b[:0])
+}
+
 func TestVectorHelperFunctions(t *testing.T) {
 	// Test NewTestVector
 	vec := NewTestVector(4)
@@ -110,8 +173,18 @@ func TestVectorHelperFunctions(t *testing.T) {
 		t.Fatalf("Expected vector with 4 dimensions, got %d", len(vec))
 	}
 
-	// Test GenerateBatch
-	batch := GenerateBatch(5, 3)
+	// Test GenerateBatch (iterator)
+	it := GenerateBatch(5, 3)
+	batch := make([][]float32, 0, 5)
+
+	for {
+		vec, _, ok := it.Next()
+
+		if !ok {
+			break
+		}
+		batch = append(batch, vec)
+	}
 
 	if len(batch) != 5 {
 		t.Fatalf("Expected batch of 5 vectors, got %d", len(batch))
@@ -155,10 +228,17 @@ func TestVectorHelperFunctions(t *testing.T) {
 			t.Fatalf("Failed to create table: %v", err)
 		}
 
-		// Use helper to create and insert vectors
-		vectors := GenerateBatch(3, 4)
+		// Use helper to create and insert vectors (iterator)
+		it2 := GenerateBatch(3, 4)
+		i := 0
 
-		for i, vec := range vectors {
+		for {
+			vec, _, ok := it2.Next()
+
+			if !ok {
+				break
+			}
+
 			_, err = conn.GetConnection().Exec(
 				`INSERT INTO test_vectors (id, vector) VALUES (?, vector_f32(?))`,
 				[]sqlite3.StatementParameter{
@@ -169,9 +249,11 @@ func TestVectorHelperFunctions(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to insert vector %d: %v", i, err)
 			}
+
+			i++
 		}
 
-		t.Logf("✓ Successfully used helper functions to create and insert %d vectors", len(vectors))
+		t.Logf("✓ Successfully used helper functions to create and insert %d vectors", i)
 	})
 }
 
@@ -1243,22 +1325,33 @@ func TestVectorScanPerformanceWithMillionProducts(t *testing.T) {
 			t.Fatalf("Failed to prepare insert statement: %v", err)
 		}
 
-		for batch := 0; batch < totalProducts/generateBatchSize; batch++ {
+		for batch := range totalProducts / generateBatchSize {
 			vecGenStart := time.Now()
-			vectors := GenerateBatch(generateBatchSize, vectorDim)
-			vectorGenTime += time.Since(vecGenStart)
+
+			// Use iterator to generate vectors and their blobs without a
+			// separate conversion pass.
+			it := GenerateBatch(generateBatchSize, vectorDim)
 
 			// On first batch, select a random product from the entire range
 			if batch == 0 && randomProductID == 0 {
 				randomProductID = rand.Int()%totalProducts + 1
 			}
 
-			// Pre-convert all vectors to binary blobs once
-			vectorBlobs := make([][]byte, len(vectors))
+			// Only collect blobs to avoid allocating many vec slices.
+			vectorBlobs := make([][]byte, generateBatchSize)
+			vbIdx := 0
 
-			for idx, vec := range vectors {
-				vectorBlobs[idx] = VectorToBlob(vec)
+			for {
+				blob, ok := it.NextBlob()
+				if !ok {
+					break
+				}
+				vectorBlobs[vbIdx] = blob
+				vbIdx++
 			}
+
+			vectorBlobs = vectorBlobs[:vbIdx]
+			vectorGenTime += time.Since(vecGenStart)
 
 			// Calculate the ID range for this batch
 			batchStartID := batch*generateBatchSize + 1
@@ -1267,31 +1360,39 @@ func TestVectorScanPerformanceWithMillionProducts(t *testing.T) {
 			// Capture the query vector if it's in this batch
 			if queryVector == nil && randomProductID >= batchStartID && randomProductID <= batchEndID {
 				vectorIndex := randomProductID - batchStartID // 0-based index within this batch
-				if vectorIndex >= 0 && vectorIndex < len(vectors) {
-					queryVector = vectors[vectorIndex]
-					t.Logf("Captured query vector for product %d: batch=%d, idx=%d, first 3 vals=[%.6f, %.6f, %.6f]",
-						randomProductID, batch, vectorIndex, queryVector[0], queryVector[1], queryVector[2])
+				if vectorIndex >= 0 && vectorIndex < len(vectorBlobs) {
+					// Parse the blob to get a view of the float32 data without
+					// an extra allocation. `ParseVectorBlob` returns a
+					// `VectorBlob` whose `GetFloat32Slice` uses unsafe to
+					// view the underlying bytes as float32s.
+					vb, err := vector.ParseVectorBlob(vectorBlobs[vectorIndex])
+					if err == nil {
+						queryVector = vb.GetFloat32Slice()
+						t.Logf("Captured query vector for product %d: batch=%d, idx=%d, first 3 vals=[%.6f, %.6f, %.6f]",
+							randomProductID, batch, vectorIndex, queryVector[0], queryVector[1], queryVector[2])
+					}
 				}
 			}
 
 			// Process vectors in insert batches
-			for i := 0; i < len(vectors); i += insertBatchSize {
-				end := i + insertBatchSize
-				if end > len(vectors) {
-					end = len(vectors)
-				}
+			for i := 0; i < len(vectorBlobs); i += insertBatchSize {
+				end := min(i+insertBatchSize, len(vectorBlobs))
 
-				batchVectors := vectors[i:end]
-				params := make([]sqlite3.StatementParameter, 0, len(batchVectors)*5)
+				batchSize := end - i
+				params := make([]sqlite3.StatementParameter, 0, batchSize*5)
 
-				for j := range batchVectors {
-					productID := batch*generateBatchSize + i + j + 1
+				for j := i; j < end; j++ {
+					productID := batch*generateBatchSize + j + 1
 
 					// Log when we're inserting the random product
 					if productID == randomProductID {
-						vectorIdx := i + j
-						t.Logf("Inserting random product %d: vectorIdx=%d, first 3 vals=[%.6f, %.6f, %.6f]",
-							productID, vectorIdx, vectors[vectorIdx][0], vectors[vectorIdx][1], vectors[vectorIdx][2])
+						vectorIdx := j
+						// parse blob for logging
+						if vb, err := vector.ParseVectorBlob(vectorBlobs[vectorIdx]); err == nil {
+							fv := vb.GetFloat32Slice()
+							t.Logf("Inserting random product %d: vectorIdx=%d, first 3 vals=[%.6f, %.6f, %.6f]",
+								productID, vectorIdx, fv[0], fv[1], fv[2])
+						}
 					}
 
 					category := categories[productID%len(categories)]
@@ -1299,10 +1400,10 @@ func TestVectorScanPerformanceWithMillionProducts(t *testing.T) {
 
 					params = append(params,
 						sqlite3.StatementParameter{Type: sqlite3.ParameterTypeInteger, Value: int64(productID)},
-						sqlite3.StatementParameter{Type: sqlite3.ParameterTypeText, Value: []byte(fmt.Sprintf("Product %d", productID))},
+						sqlite3.StatementParameter{Type: sqlite3.ParameterTypeText, Value: fmt.Appendf(nil, "Product %d", productID)},
 						sqlite3.StatementParameter{Type: sqlite3.ParameterTypeText, Value: []byte(category)},
 						sqlite3.StatementParameter{Type: sqlite3.ParameterTypeFloat, Value: price},
-						sqlite3.StatementParameter{Type: sqlite3.ParameterTypeBlob, Value: vectorBlobs[i+j]},
+						sqlite3.StatementParameter{Type: sqlite3.ParameterTypeBlob, Value: vectorBlobs[j]},
 					)
 				}
 
@@ -1321,7 +1422,16 @@ func TestVectorScanPerformanceWithMillionProducts(t *testing.T) {
 					t.Fatalf("Failed to insert batch at product %d: %v", batch*generateBatchSize+i, err)
 				}
 
-				insertedCount += len(batchVectors)
+				// Return blob buffers to pool after successful exec
+				for _, p := range params {
+					if p.Type == sqlite3.ParameterTypeBlob {
+						if bb, ok := p.Value.([]byte); ok {
+							putBlobBuf(bb)
+						}
+					}
+				}
+
+				insertedCount += end - i
 			}
 
 			if (batch+1)%10 == 0 {

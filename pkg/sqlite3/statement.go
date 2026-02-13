@@ -21,7 +21,7 @@ import (
 
 var statementBufferPool = sync.Pool{
 	New: func() any {
-		return bytes.NewBuffer(make([]byte, 1024))
+		return bytes.NewBuffer(make([]byte, 128))
 	},
 }
 

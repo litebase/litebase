@@ -207,6 +207,7 @@ func UnregisterVFS(vfsId string) error {
 	vfsIdPtr := uintptr(unsafe.Pointer(pVfs.zName))
 
 	vfs, ok := VfsMap[vfsIdPtr]
+
 	if !ok {
 		return errors.New("vfsId not found")
 	}
@@ -225,7 +226,7 @@ func UnregisterVFS(vfsId string) error {
 
 	var found bool
 	for _, v := range VfsMap {
-		if v != nil && v.nodeHash == nodeHash {
+		if v.nodeHash == nodeHash {
 			found = true
 			break
 		}
@@ -285,7 +286,7 @@ func getVfsFromFile(pFile *C.sqlite3_file) (*LitebaseVFS, error) {
 	// string contents are identical. Compare C strings with strcmp
 	// to avoid allocating a Go string.
 	for _, v := range VfsMap {
-		if v == nil || v.vfsIdUnsafePtr == nil || file.pVfsId == nil {
+		if v.vfsIdUnsafePtr == nil || file.pVfsId == nil {
 			continue
 		}
 
@@ -318,8 +319,8 @@ func cStringsEqual(a, b *C.char) bool {
 			return true
 		}
 
-		pa = unsafe.Pointer(uintptr(pa) + 1)
-		pb = unsafe.Pointer(uintptr(pb) + 1)
+		pa = unsafe.Add(pa, 1)
+		pb = unsafe.Add(pb, 1)
 	}
 }
 
