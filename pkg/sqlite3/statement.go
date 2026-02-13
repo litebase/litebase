@@ -261,6 +261,9 @@ func (s *Statement) ColumnValue(buffer *bytes.Buffer, columnType ColumnType, ind
 		return nil
 	}
 
+	// CRITICAL: Reset buffer to avoid appending to old pooled data
+	buffer.Reset()
+
 	switch columnType {
 	case SQLITE_INTEGER:
 		var columnValueBytes [8]byte
@@ -272,21 +275,17 @@ func (s *Statement) ColumnValue(buffer *bytes.Buffer, columnType ColumnType, ind
 
 		binary.LittleEndian.PutUint64(columnValueBytes[:], uint64Value)
 		buffer.Write(columnValueBytes[:])
-
 		return buffer.Bytes()
 	case SQLITE_FLOAT:
 		var columnValueBytes [8]byte
 		binary.LittleEndian.PutUint64(columnValueBytes[:], math.Float64bits(float64(C.sqlite3_column_double(s.sqlite3_stmt, C.int(int32Index)))))
 		buffer.Write(columnValueBytes[:])
-
 		return buffer.Bytes()
 	case SQLITE_TEXT:
 		buffer.Write(s.getTextData(buffer, index))
-
 		return buffer.Bytes()
 	case SQLITE_BLOB:
 		buffer.Write(s.getBlobData(index))
-
 		return buffer.Bytes()
 	case SQLITE_NULL:
 		return nil
@@ -366,11 +365,154 @@ func (s *Statement) Exec(result *Result, parameters ...StatementParameter) error
 
 					for i := range result.Columns {
 						result.Rows[rowIndex][i].ColumnType = s.columnTypes[i]
-						result.Rows[rowIndex][i].ColumnValue = s.ColumnValue(
+						data := s.ColumnValue(
 							result.GetBuffer(),
 							s.columnTypes[i],
 							i,
 						)
+
+						// Copy data since buffer will be reused
+						if data != nil {
+							result.Rows[rowIndex][i].ColumnValue = append([]byte(nil), data...)
+						} else {
+							result.Rows[rowIndex][i].ColumnValue = nil
+						}
+					}
+				}
+			default:
+				return s.Connection.Error(s.rc)
+			}
+		}
+	}
+}
+
+// ExecStream executes the statement and streams rows to the provided handler
+// callback as they are produced, avoiding buffering all rows in memory.
+// The handler receives a slice of `*Column` which is valid only for the
+// duration of the call; columns are returned to the internal pool after the
+// handler returns. The handler may return an error to stop iteration early.
+func (s *Statement) ExecStream(result *Result, handler func([]*Column) error, parameters ...StatementParameter) error {
+	defer func() {
+		if err := s.Reset(); err != nil {
+			slog.Error("Error resetting statement", "error", err)
+		}
+	}()
+
+	if s.sqlite3_stmt == nil {
+		return errors.New("sqlite3 statement is nil")
+	}
+
+	if len(parameters) > 0 {
+		if err := s.Bind(parameters...); err != nil {
+			return err
+		}
+	}
+
+	if result == nil || handler == nil {
+		return errors.New("result and handler must be non-nil")
+	}
+
+	if result != nil && s.text != "COMMIT" && s.text != "ROLLBACK" {
+		result.Reset()
+		result.SetColumns(s.ColumnNames())
+	}
+
+	rowIndex := -1
+	columnTypesInitialized := false
+
+	for {
+		select {
+		case <-s.context.Done():
+			return errors.New("context done")
+		default:
+			s.rc = s.Step()
+
+			switch s.rc {
+			case SQLITE_DONE:
+				if !columnTypesInitialized && result != nil {
+					s.setColumnTypesFromDeclType(result)
+				}
+
+				return nil
+			case SQLITE_BUSY:
+				return errors.New("database is locked")
+			case SQLITE_ROW:
+				rowIndex++
+
+				if !columnTypesInitialized {
+					s.setColumnTypes(result)
+					columnTypesInitialized = true
+				}
+
+				if result == nil {
+					return errors.New("result is nil")
+				}
+
+				if len(result.Columns) >= 0 {
+					// Acquire a reusable row slice
+					row := result.GetRowSlice(len(result.Columns))
+
+					// Keep buffers alive for the row's lifetime to avoid copying
+					buffers := make([]*bytes.Buffer, len(result.Columns))
+
+					// Fill columns for this row
+					for i := range result.Columns {
+						// Pull a Column from the pool without registering it
+						col := resultColumnPool.Get().(*Column)
+
+						// Ensure column type is set
+						if i < len(s.columnTypes) {
+							col.ColumnType = s.columnTypes[i]
+						} else {
+							col.ColumnType = ColumnTypeUnknown
+						}
+
+						// Get buffer and keep it alive until after handler completes
+						buf := resultBufferPool.Get().(*bytes.Buffer)
+						buf.Reset()
+						buffers[i] = buf
+
+						data := s.ColumnValue(buf, col.ColumnType, i)
+
+						// Reference buffer data directly - no copy needed since
+						// buffers remain valid until after handler completes
+						col.ColumnValue = data
+
+						row[i] = col
+					}
+
+					// Call the handler with the populated row; handler may return
+					// an error to stop iteration early.
+					handlerErr := handler(row)
+
+					// Return buffers to pool now that handler is done
+					for _, buf := range buffers {
+						if buf != nil {
+							resultBufferPool.Put(buf)
+						}
+					}
+
+					if handlerErr != nil {
+						// Return columns to pool on error
+						for _, c := range row {
+							result.PutColumn(c)
+						}
+
+						// Return row slice to pool (bounded in Reset())
+						if len(result.rowPool) < 1024 {
+							result.rowPool = append(result.rowPool, row)
+						}
+
+						return handlerErr
+					}
+
+					// Handler succeeded; return columns to pool and recycle row
+					for _, c := range row {
+						result.PutColumn(c)
+					}
+
+					if len(result.rowPool) < 1024 {
+						result.rowPool = append(result.rowPool, row)
 					}
 				}
 			default:

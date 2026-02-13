@@ -499,6 +499,81 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 	})
 }
 
+// ExecStream executes a query and streams rows to the provided handler to avoid
+// buffering all rows in memory. The handler is invoked for each row with a
+// slice of `*sqlite3.Column`. Returning an error from the handler stops
+// iteration and is propagated back to the caller.
+func (con *DatabaseConnection) ExecStream(sql string, parameters []sqlite3.StatementParameter, handler func([]*sqlite3.Column) error) error {
+	if con.Closed() {
+		return ErrDatabaseConnectionClosed
+	}
+
+	if con.context.Err() != nil {
+		return con.context.Err()
+	}
+
+	// Litebase PRAGMA handling unchanged
+	if IsLitebasePragma(sql) {
+		// ExecStream doesn't make sense for pragma handlers that return a value
+		_, err := con.execLitebasePragma(sql)
+		return err
+	}
+
+	result := con.resultPool.Get()
+	defer func() {
+		con.resultPool.Put(result)
+	}()
+
+	var checkpointBarrier func(func() error) error
+	var compactionBarrier func(func() error) error
+
+	if con.skipBarriers {
+		checkpointBarrier = func(fn func() error) error { return fn() }
+		compactionBarrier = func(fn func() error) error { return fn() }
+	} else if !con.inTransaction {
+		trimmedSQL := strings.TrimSpace(sql)
+		isReadOnly := len(trimmedSQL) >= 6 && strings.EqualFold(trimmedSQL[:6], "SELECT")
+
+		if isReadOnly {
+			checkpointBarrier = con.walManager.CheckpointBarrierRead
+			compactionBarrier = con.fileSystem.CompactionBarrierRead
+		} else {
+			checkpointBarrier = con.walManager.CheckpointBarrier
+			compactionBarrier = con.fileSystem.CompactionBarrier
+		}
+	} else {
+		checkpointBarrier = func(fn func() error) error { return fn() }
+		compactionBarrier = func(fn func() error) error { return fn() }
+	}
+
+	return checkpointBarrier(func() error {
+		return compactionBarrier(func() error {
+			con.mutex.Lock()
+			defer con.mutex.Unlock()
+
+			con.setTimestamps()
+			defer con.releaseTimestamps()
+
+			statement, err := con.Statement(sql)
+
+			if err != nil {
+				return err
+			}
+
+			if err := statement.Sqlite3Statement.ExecStream(result, handler, parameters...); err != nil {
+				return err
+			}
+
+			if con.sqliteConnection().Changes() > 0 {
+				con.committedAt = time.Now().UTC()
+				con.vfs.WALUpdated()
+			}
+
+			return nil
+		})
+	})
+}
+
 // execLitebasePragma handles execution of custom litebase PRAGMA statements
 func (con *DatabaseConnection) execLitebasePragma(sql string) (*sqlite3.Result, error) {
 	handler := NewLitebasePragmaHandler(con, con.branch.DatabaseID, con.branch.DatabaseBranchID)

@@ -198,10 +198,97 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 			selQB.WriteString(colInfo.Name)
 			selQB.WriteString("_cluster_vector_map m ON v.id = m.vector_id WHERE m.cluster_id = 0 ORDER BY v.rowid ASC LIMIT ?")
 
-			res, err := db.Exec(
+			// Pre-load cluster tree into memory to avoid N+1 queries
+			clusterTree, err := vi.loadClusterTree(db, colInfo.Name)
+
+			if err != nil {
+				return fmt.Errorf("failed to load cluster tree: %w", err)
+			}
+
+			// Track cluster updates
+			clusterSizeDeltas := make(map[int64]int)       // cluster_id -> size change
+			clusterVectorSums := make(map[int64][]float32) // cluster_id -> sum of vectors for centroid update
+
+			// Use a preallocated slice for assignments to avoid per-row map allocations
+			assignments := make([]struct {
+				vectorID  int64
+				clusterID int64
+				distance  float64
+			}, 0, colBatchSize)
+
+			foundCount := 0
+
+			// Stream rows to avoid buffering large result sets in memory
+			err = db.ExecStream(
 				selQB.String(),
-				[]sqlite3.StatementParameter{
-					{Type: "INTEGER", Value: int64(colBatchSize)},
+				[]sqlite3.StatementParameter{{Type: "INTEGER", Value: int64(colBatchSize)}},
+				func(row []*sqlite3.Column) error {
+					// Check context during loop processing
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					default:
+					}
+
+					foundCount++
+
+					if len(row) < 2 {
+						return nil
+					}
+
+					vectorID := row[0].Int64()
+					vectorBlob := row[1].Blob()
+
+					// Parse vector using pooled VectorBlob to reduce allocations
+					vb, err := vector.ParseVectorBlobPooled(vectorBlob)
+
+					if err != nil {
+						slog.Error("Failed to parse vector blob",
+							"id", vectorID,
+							"column", colInfo.Name,
+							"blob_size", len(vectorBlob),
+							"error", err)
+						return nil
+					}
+
+					vec := vb.GetFloat32Slice()
+
+					if len(vec) != colInfo.Dimensions {
+						slog.Error("Vector dimension mismatch", "id", vectorID, "expected", colInfo.Dimensions, "got", len(vec))
+						vector.PutVectorBlob(vb)
+						return nil
+					}
+
+					// Find best cluster using in-memory hierarchical traversal (no DB queries)
+					clusterID, distance := vi.findBestClusterInMemory(clusterTree, colInfo.DistanceMetric, vec)
+
+					if clusterID == 0 {
+						slog.Error("Failed to find best cluster", "id", vectorID)
+						vector.PutVectorBlob(vb)
+						return nil
+					}
+
+					// Record assignment and distance (append to slice to avoid map allocations)
+					assignments = append(assignments, struct {
+						vectorID  int64
+						clusterID int64
+						distance  float64
+					}{vectorID, clusterID, distance})
+					clusterSizeDeltas[clusterID]++
+
+					// Accumulate vector for centroid update
+					if _, exists := clusterVectorSums[clusterID]; !exists {
+						clusterVectorSums[clusterID] = make([]float32, len(vec))
+					}
+
+					for i := range vec {
+						clusterVectorSums[clusterID][i] += vec[i]
+					}
+
+					// Return pooled VectorBlob immediately to avoid allocations
+					vector.PutVectorBlob(vb)
+
+					return nil
 				},
 			)
 
@@ -213,97 +300,27 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 				"table", vi.TableName,
 				"column", colInfo.Name,
 				"batch_size", colBatchSize,
-				"found", len(res.Rows))
+				"found", foundCount)
 
-			if len(res.Rows) == 0 {
+			// Diagnostic logging to help debug stalled processing: report scanned vs assigned
+			assignCount := len(assignments)
+			totalDelta := 0
+			for _, d := range clusterSizeDeltas {
+				totalDelta += d
+			}
+			slog.Info("Indexer batch summary",
+				"table", vi.TableName,
+				"column", colInfo.Name,
+				"scanned_rows", foundCount,
+				"assignments", assignCount,
+				"cluster_size_deltas", totalDelta)
+
+			if foundCount == 0 {
 				// No vectors to reassign
 				return nil
 			}
 
-			// Track cluster updates
-			clusterSizeDeltas := make(map[int64]int)       // cluster_id -> size change
-			clusterVectorSums := make(map[int64][]float32) // cluster_id -> sum of vectors for centroid update
-			// Use a preallocated slice for assignments to avoid per-row map allocations
-			assignments := make([]struct {
-				vectorID  int64
-				clusterID int64
-				distance  float64
-			}, 0, len(res.Rows))
-
-			// Pre-load cluster tree into memory to avoid N+1 queries
-			clusterTree, err := vi.loadClusterTree(db, colInfo.Name)
-
-			if err != nil {
-				return fmt.Errorf("failed to load cluster tree: %w", err)
-			}
-
-			for _, row := range res.Rows {
-				// Check context during loop processing
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				default:
-				}
-
-				if len(row) < 2 {
-					continue
-				}
-
-				vectorID := row[0].Int64()
-				vectorBlob := row[1].Blob()
-
-				// Parse vector using pooled VectorBlob to reduce allocations
-				vb, err := vector.ParseVectorBlobPooled(vectorBlob)
-
-				if err != nil {
-					slog.Error("Failed to parse vector blob",
-						"id", vectorID,
-						"column", colInfo.Name,
-						"blob_size", len(vectorBlob),
-						"error", err)
-					continue
-				}
-
-				vec := vb.GetFloat32Slice()
-
-				if len(vec) != colInfo.Dimensions {
-					slog.Error("Vector dimension mismatch", "id", vectorID, "expected", colInfo.Dimensions, "got", len(vec))
-					vector.PutVectorBlob(vb)
-					continue
-				}
-
-				// Find best cluster using in-memory hierarchical traversal (no DB queries)
-				clusterID, distance := vi.findBestClusterInMemory(clusterTree, colInfo.DistanceMetric, vec)
-
-				if clusterID == 0 {
-					slog.Error("Failed to find best cluster", "id", vectorID)
-					vector.PutVectorBlob(vb)
-					continue
-				}
-
-				// Record assignment and distance (append to slice to avoid map allocations)
-				assignments = append(assignments, struct {
-					vectorID  int64
-					clusterID int64
-					distance  float64
-				}{vectorID, clusterID, distance})
-				clusterSizeDeltas[clusterID]++
-
-				// Accumulate vector for centroid update
-				if _, exists := clusterVectorSums[clusterID]; !exists {
-					clusterVectorSums[clusterID] = make([]float32, len(vec))
-				}
-
-				for i, v := range vec {
-					clusterVectorSums[clusterID][i] += v
-				}
-
-				// Return pooled VectorBlob immediately to avoid allocations
-				vector.PutVectorBlob(vb)
-			}
-
-			// Return the result to the result pool to free memory
-			db.ResultPool().Put(res)
+			// No result buffer to return when streaming
 
 			// Update cluster mappings in batch
 			if len(assignments) > 0 {
@@ -431,6 +448,17 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 				}
 			}
 
+			// Consider rows examined as processed so the indexer continues
+			// when rows were found but none produced assignments (e.g. parse errors).
+			if len(assignments) == 0 && foundCount > 0 {
+				slog.Warn("No assignments generated for scanned rows; will retry",
+					"table", vi.TableName,
+					"column", colInfo.Name,
+					"scanned", foundCount)
+			}
+
+			// Only count successful assignments as processed; the caller will
+			// re-check cluster-0 to decide whether more processing is needed.
 			processed = len(assignments)
 
 			return nil
@@ -713,19 +741,59 @@ func (vi *VectorIndexer) getClusterCentroid(db *DatabaseConnection, columnName s
 	centroidBlob := res.Rows[0][0].Blob()
 	size := int(res.Rows[0][1].Int64())
 
+	// Determine expected dimensions for this column
+	dimensions := 0
+
+	for _, col := range vi.VectorColumns {
+		if col.Name == columnName {
+			dimensions = col.Dimensions
+			break
+		}
+	}
+
+	// If no centroid blob or dimensions unknown, return zero vector
+	if len(centroidBlob) == 0 || dimensions == 0 {
+		// Return zeroed centroid of correct length when possible
+		if dimensions > 0 {
+			return make([]float32, dimensions), size, nil
+		}
+
+		return nil, size, nil
+	}
+
 	centroid, err := vector.ParseVectorBlob(centroidBlob)
 
 	if err != nil {
-		return nil, 0, err
+		// Log and return zero centroid instead of failing - tolerate legacy/invalid blobs
+		slog.Warn("Invalid centroid blob, using zero centroid", "cluster", clusterID, "column", columnName, "error", err)
+
+		if dimensions > 0 {
+			return make([]float32, dimensions), size, nil
+		}
+
+		return nil, size, nil
 	}
 
-	return centroid.GetFloat32Slice(), size, nil
+	vec := centroid.GetFloat32Slice()
+
+	// If parsed centroid length mismatches expected dimensions, pad/truncate as needed
+	if dimensions > 0 && len(vec) != dimensions {
+		newVec := make([]float32, dimensions)
+		copy(newVec, vec)
+		vec = newVec
+	}
+
+	return vec, size, nil
 }
 
 // splitOversizedClusters checks all clusters and splits any that exceed MaxClusterSize
 func (vi *VectorIndexer) splitOversizedClusters(ctx context.Context, columnName string, distanceMetric int) error {
 	// Keep splitting until no oversized clusters remain
 	maxIterations := 10 // Prevent infinite loops
+
+	// Track clusters we've already attempted to split in this call
+	// to avoid retry loops on transient failures
+	attemptedSplits := make(map[int64]bool)
 
 	for iteration := 0; iteration < maxIterations; iteration++ {
 		select {
@@ -777,6 +845,8 @@ func (vi *VectorIndexer) splitOversizedClusters(ctx context.Context, columnName 
 			"count", len(res.Rows),
 			"max_size", vi.MaxClusterSize)
 
+		splitSucceeded := false
+
 		for _, row := range res.Rows {
 			select {
 			case <-ctx.Done():
@@ -787,16 +857,39 @@ func (vi *VectorIndexer) splitOversizedClusters(ctx context.Context, columnName 
 			clusterID := row[0].Int64()
 			clusterSize := int(row[1].Int64())
 
+			// Skip clusters we've already attempted in this call
+			if attemptedSplits[clusterID] {
+				slog.Debug("Skipping already-attempted cluster split",
+					"column", columnName,
+					"cluster_id", clusterID,
+					"size", clusterSize)
+				continue
+			}
+
 			slog.Debug("Splitting cluster",
 				"column", columnName,
 				"cluster_id", clusterID,
 				"size", clusterSize,
 				"max_size", vi.MaxClusterSize)
 
+			attemptedSplits[clusterID] = true
+
 			if err := vi.splitCluster(ctx, columnName, distanceMetric, clusterID); err != nil {
 				slog.Error("Failed to split cluster", "column", columnName, "cluster_id", clusterID, "error", err)
 				// Continue with other clusters
+			} else {
+				splitSucceeded = true
 			}
+		}
+
+		// If we successfully split at least one cluster, allow another iteration
+		// Otherwise, exit to avoid infinite loops on permanent failures
+		if !splitSucceeded {
+			slog.Warn("No clusters successfully split in iteration, stopping",
+				"table", vi.TableName,
+				"column", columnName,
+				"iteration", iteration+1)
+			break
 		}
 	}
 
@@ -830,45 +923,70 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 		return fmt.Errorf("column %s not found in vector columns", columnName)
 	}
 
-	// First, we need to get the cluster size
+	// Fetch cluster info and vectors in a single transaction for atomicity
+	// This prevents race conditions where cluster might be split between checks
 	var clusterSize int64
+	var isLeaf bool
+	var k int // Number of child clusters to create
 
-	err := vi.DB.Transaction(false, func(db *DatabaseConnection) error {
-		res, err := db.Exec(
-			fmt.Sprintf(`SELECT cluster_size FROM %s_%s_cluster_tree WHERE cluster_id = ?`, vi.TableName, columnName),
-			[]sqlite3.StatementParameter{
-				{Type: sqlite3.ParameterTypeInteger, Value: clusterID},
-			},
-		)
-
-		if err != nil || len(res.Rows) == 0 {
-			return fmt.Errorf("failed to get cluster size: %w", err)
-		}
-
-		clusterSize = res.Rows[0][0].Int64()
-
-		return nil
-	})
-
-	if err != nil {
-		return err
-	}
-
-	// Calculate optimal k: enough children to keep each near MaxClusterSize
-	// Don't clamp to 16 - we'll handle >16 children by splitting the internal node
-	k := max(int(math.Ceil(float64(clusterSize)/float64(vi.MaxClusterSize))), 2)
-
-	// Note: No max limit - if k > 16, we'll split the internal node later
-
-	// Fetch vectors with their distances and actual vector data
+	// Fetch vectors with their distances and actual vector data using streaming
+	// to avoid buffering all rows (up to 100k) in memory
 	var vectors []struct {
 		id       int64
 		distance float64
 		vector   []float32
 	}
 
-	err = vi.DB.Transaction(false, func(db *DatabaseConnection) error {
-		vectorRes, err := db.Exec(
+	err := vi.DB.Transaction(false, func(db *DatabaseConnection) error {
+		// First, verify cluster is still a leaf and get its size atomically
+		res, err := db.Exec(
+			fmt.Sprintf(`SELECT cluster_size, is_leaf FROM %s_%s_cluster_tree WHERE cluster_id = ?`, vi.TableName, columnName),
+			[]sqlite3.StatementParameter{
+				{Type: sqlite3.ParameterTypeInteger, Value: clusterID},
+			},
+		)
+
+		if err != nil {
+			return fmt.Errorf("failed to get cluster info: %w", err)
+		}
+
+		if len(res.Rows) == 0 {
+			return fmt.Errorf("cluster_id %d not found", clusterID)
+		}
+
+		clusterSize = res.Rows[0][0].Int64()
+		isLeaf = res.Rows[0][1].Int64() != 0
+
+		// Skip if already split (not a leaf anymore)
+		if !isLeaf {
+			slog.Info("Cluster already split, skipping",
+				"cluster_id", clusterID,
+				"column", columnName)
+			return nil
+		}
+
+		// Calculate optimal k: enough children to keep each near MaxClusterSize
+		// Don't clamp to 16 - we'll handle >16 children by splitting the internal node
+		k = max(int(math.Ceil(float64(clusterSize)/float64(vi.MaxClusterSize))), 2)
+
+		slog.Debug("Splitting cluster",
+			"cluster_id", clusterID,
+			"column", columnName,
+			"size", clusterSize,
+			"k", k,
+			"max_cluster_size", vi.MaxClusterSize)
+
+		// Pre-allocate vectors slice based on cluster size (capped at LIMIT)
+		expectedSize := min(int(clusterSize), 100000)
+		vectors = make([]struct {
+			id       int64
+			distance float64
+			vector   []float32
+		}, 0, expectedSize)
+
+		rowCount := 0
+
+		err = db.ExecStream(
 			fmt.Sprintf(`
 				SELECT m.vector_id, IFNULL(m.distance, 0.0), v.%s
 				FROM %s_%s_cluster_vector_map m
@@ -880,52 +998,60 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 			[]sqlite3.StatementParameter{
 				{Type: sqlite3.ParameterTypeInteger, Value: clusterID},
 			},
+			func(row []*sqlite3.Column) error {
+				if len(row) < 3 {
+					return nil
+				}
+
+				rowCount++
+				vectorID := row[0].Int64()
+				distance := row[1].Float64()
+				vectorBlob := row[2].Blob()
+
+				// Parse vector using pooled VectorBlob to reduce allocations
+				vb, err := vector.ParseVectorBlobPooled(vectorBlob)
+
+				if err != nil {
+					slog.Error("Failed to parse vector blob during split", "id", vectorID, "error", err)
+					return nil
+				}
+
+				vectorData := vb.GetFloat32Slice()
+
+				if len(vectorData) != dimensions {
+					slog.Error("Vector dimension mismatch during split", "id", vectorID, "expected", dimensions, "got", len(vectorData))
+					vector.PutVectorBlob(vb)
+					return nil
+				}
+
+				// Copy vector data before returning pooled blob
+				vectorCopy := make([]float32, len(vectorData))
+				copy(vectorCopy, vectorData)
+
+				vectors = append(vectors, struct {
+					id       int64
+					distance float64
+					vector   []float32
+				}{
+					id:       vectorID,
+					distance: distance,
+					vector:   vectorCopy,
+				})
+
+				// Return pooled VectorBlob immediately
+				vector.PutVectorBlob(vb)
+
+				return nil
+			},
 		)
 
 		if err != nil {
 			return err
 		}
 
-		if len(vectorRes.Rows) < k*2 {
+		if rowCount < k*2 {
 			// Not enough vectors to split meaningfully
 			return nil
-		}
-
-		vectors = make([]struct {
-			id       int64
-			distance float64
-			vector   []float32
-		}, 0, len(vectorRes.Rows))
-
-		for _, row := range vectorRes.Rows {
-			vectorID := row[0].Int64()
-			distance := row[1].Float64()
-			vectorBlob := row[2].Blob()
-
-			// Parse vector
-			vb, err := vector.ParseVectorBlob(vectorBlob)
-
-			if err != nil {
-				slog.Error("Failed to parse vector blob during split", "id", vectorID, "error", err)
-				continue
-			}
-
-			vectorData := vb.GetFloat32Slice()
-
-			if len(vectorData) != dimensions {
-				slog.Error("Vector dimension mismatch during split", "id", vectorID, "expected", dimensions, "got", len(vectorData))
-				continue
-			}
-
-			vectors = append(vectors, struct {
-				id       int64
-				distance float64
-				vector   []float32
-			}{
-				id:       vectorID,
-				distance: distance,
-				vector:   vectorData,
-			})
 		}
 
 		return nil

@@ -80,7 +80,7 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 			// With optimizations: ~100k inserts in 0.5s, 1M = 5s insert
 			// Indexing: 100k batches, 10 batches total, ~15s per batch = 150s
 			// Total: ~3 minutes (well under 5 min limit)
-			totalVectors      = 250000
+			totalVectors      = 1000000
 			dimensions        = 128
 			generateBatchSize = 10000 // How many vectors to generate at once
 			insertBatchSize   = 10000 // Increased for speed
@@ -236,9 +236,11 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 		maxWaitTime := 3 * time.Minute
 		checkInterval := 500 * time.Millisecond
 		previousCluster0Count := int64(totalVectors)
+		pollIteration := 0
 
 		for {
 			elapsed := time.Since(indexingStart)
+			pollIteration++
 
 			if elapsed > maxWaitTime {
 				t.Logf("Indexing timeout after %v - continuing with partial indexing", elapsed)
@@ -253,7 +255,7 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 			)
 
 			if err != nil || len(cluster0Res.Rows) == 0 {
-				t.Logf("  - Database busy, waiting...")
+				t.Logf("  - [Poll #%d] Database busy, waiting...", pollIteration)
 				time.Sleep(checkInterval)
 				continue
 			}
@@ -262,23 +264,28 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 			processed := previousCluster0Count - cluster0Count
 
 			if cluster0Count == 0 {
-				t.Logf("✓ All vectors redistributed from cluster 0 in %v", time.Since(indexingStart))
+				t.Logf("✓ All vectors redistributed from cluster 0 in %v (after %d polls)", time.Since(indexingStart), pollIteration)
 				break
 			}
 
-			if processed > 0 {
-				rate := float64(totalVectors-int(cluster0Count)) / time.Since(indexingStart).Seconds()
-				t.Logf("  - Progress: %d/%d (%.1f%%), %d remaining, %.0f vec/sec",
-					totalVectors-int(cluster0Count), totalVectors,
-					float64(totalVectors-int(cluster0Count))/float64(totalVectors)*100,
-					cluster0Count, rate)
-				previousCluster0Count = cluster0Count
-			}
+			// Log on EVERY poll to capture exact progression
+			rate := float64(totalVectors-int(cluster0Count)) / time.Since(indexingStart).Seconds()
+			t.Logf("  - [Poll #%d @ %v] cluster0Count=%d, processed_this_poll=%d, total_done=%d/%d (%.1f%%), rate=%.0f vec/sec",
+				pollIteration,
+				elapsed.Round(100*time.Millisecond),
+				cluster0Count,
+				processed,
+				totalVectors-int(cluster0Count),
+				totalVectors,
+				float64(totalVectors-int(cluster0Count))/float64(totalVectors)*100,
+				rate)
+
+			previousCluster0Count = cluster0Count
 
 			time.Sleep(checkInterval)
 		}
 
-		// Query cluster statistics
+		// Query cluster statistics from shadow table, not virtual table
 		clusterStatsRes, err := dbConn.Exec(
 			"SELECT COUNT(*) FROM embeddings_vector_cluster_tree",
 			nil,

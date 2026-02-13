@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/litebase/litebase/pkg/database"
 )
@@ -172,12 +173,68 @@ func VectorIndexerJob(ctx context.Context, app *App, data map[string]interface{}
 
 		// If we processed less than a full batch, we're done
 		if processed < VectorIndexerBatchSize {
-			slog.Info("VectorIndexer job completed",
-				"db_id", dbID,
-				"branch_id", branchID,
-				"table", tableName,
-				"total_processed", totalProcessed)
-			return nil
+			// Robust completion check: sum cluster-0 counts across all vector columns.
+			// Retry a few times with short backoff to avoid transient races.
+			var totalCluster0 int64
+			var lastErr error
+
+			for attempt := 0; attempt < 3; attempt++ {
+				totalCluster0 = 0
+				lastErr = nil
+
+				for _, col := range vectorColumns {
+					// Build table name for this column's cluster_vector_map
+					table := tableName + "_" + col.Name + "_cluster_vector_map"
+					q := fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE cluster_id = 0", table)
+
+					res, err := dbConn.Exec(q, nil)
+
+					if err != nil {
+						lastErr = err
+						break
+					}
+
+					if len(res.Rows) == 0 {
+						continue
+					}
+
+					cnt := res.Rows[0][0].Int64()
+					totalCluster0 += cnt
+					slog.Debug("Cluster0 count", "table", table, "count", cnt)
+				}
+
+				if lastErr != nil {
+					// transient error; small backoff then retry
+					time.Sleep(50 * time.Millisecond)
+					continue
+				}
+
+				// If any vectors remain, continue processing
+				if totalCluster0 > 0 {
+					slog.Debug("Cluster 0 still has vectors, continuing processing",
+						"db_id", dbID,
+						"branch_id", branchID,
+						"table", tableName,
+						"cluster0_total", totalCluster0)
+					break
+				}
+
+				// No vectors found across columns; safe to finish
+				if totalCluster0 == 0 {
+					slog.Info("VectorIndexer job completed",
+						"db_id", dbID,
+						"branch_id", branchID,
+						"table", tableName,
+						"total_processed", totalProcessed)
+					return nil
+				}
+			}
+
+			if lastErr != nil {
+				// If we couldn't reliably count, log and continue (avoid false completion)
+				slog.Warn("Failed to verify cluster0 counts; will continue processing",
+					"error", lastErr)
+			}
 		}
 	}
 }
