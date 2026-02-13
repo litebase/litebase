@@ -366,8 +366,8 @@ func TestVectorIndexerJobProcessesPendingVectors(t *testing.T) {
 			}
 		}
 
-		// Check pending count before processing
-		res, err := dbConn.Exec("SELECT COUNT(*) FROM process_vectors_pending", nil)
+		// Check pending count before processing (use current cluster map schema)
+		res, err := dbConn.Exec("SELECT COUNT(*) FROM process_vectors_vector_cluster_vector_map WHERE cluster_id = 0", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to count pending vectors: %v", err)
