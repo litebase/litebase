@@ -28,3 +28,5 @@ package sqlite3
 #cgo windows CFLAGS: -std=c99
 */
 import "C"
+
+import _ "github.com/litebase/litebase/pkg/vector"
