@@ -362,29 +362,22 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 						p++
 					}
 
-					// Use INSERT OR REPLACE to update cluster assignments for this column
-					query := fmt.Sprintf(
-						`INSERT OR REPLACE INTO %s_%s_cluster_vector_map (vector_id, cluster_id, distance) VALUES %s`,
-						vi.TableName,
-						colInfo.Name,
-						vbldr.String(),
-					)
+				// Build query without fmt.Sprintf to avoid allocation
+				var qbldr strings.Builder
+				qbldr.Grow(len(vi.TableName) + len(colInfo.Name) + vbldr.Len() + 100)
+				qbldr.WriteString("INSERT OR REPLACE INTO ")
+				qbldr.WriteString(vi.TableName)
+				qbldr.WriteString("_")
+				qbldr.WriteString(colInfo.Name)
+				qbldr.WriteString("_cluster_vector_map (vector_id, cluster_id, distance) VALUES ")
+				qbldr.WriteString(vbldr.String())
 
-					res, err := db.Exec(query, params)
+				_, err := db.Exec(qbldr.String(), params)
 
-					if err != nil {
-						return fmt.Errorf("failed to update cluster mappings chunk %d-%d: %w", i, end, err)
-					}
-
-					// Return the result to the result pool to free memory
-					db.ResultPool().Put(res)
+				if err != nil {
+					return err
 				}
-				// Return params buffer to pool for reuse
-				statementParamsPool.Put(paramsBuf)
-			}
 
-			// Update cluster sizes for this column
-			if len(clusterSizeDeltas) > 0 {
 				// Decrement cluster 0 size
 				cluster0Delta := -len(assignments)
 
@@ -435,8 +428,16 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 				}
 
 				// Update centroid in {table}_{column}_cluster_tree
+				var uqb strings.Builder
+				uqb.Grow(len(vi.TableName) + len(colInfo.Name) + 80)
+				uqb.WriteString("UPDATE ")
+				uqb.WriteString(vi.TableName)
+				uqb.WriteString("_")
+				uqb.WriteString(colInfo.Name)
+				uqb.WriteString("_cluster_tree SET centroid_blob = ? WHERE cluster_id = ?")
+
 				_, err = db.Exec(
-					fmt.Sprintf(`UPDATE %s_%s_cluster_tree SET centroid_blob = ? WHERE cluster_id = ?`, vi.TableName, colInfo.Name),
+					uqb.String(),
 					[]sqlite3.StatementParameter{
 						{Type: sqlite3.ParameterTypeBlob, Value: centroidBlob},
 						{Type: sqlite3.ParameterTypeInteger, Value: clusterID},
@@ -1228,8 +1229,16 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 		statementParamsPool.Put(paramsBuf)
 
 		// Update parent cluster size to 0 (vectors moved to children)
+		var uzb strings.Builder
+		uzb.Grow(len(vi.TableName) + len(columnName) + 80)
+		uzb.WriteString("UPDATE ")
+		uzb.WriteString(vi.TableName)
+		uzb.WriteString("_")
+		uzb.WriteString(columnName)
+		uzb.WriteString("_cluster_tree SET cluster_size = 0 WHERE cluster_id = ?")
+
 		_, err = db.Exec(
-			fmt.Sprintf(`UPDATE %s_%s_cluster_tree SET cluster_size = 0 WHERE cluster_id = ?`, vi.TableName, columnName),
+			uzb.String(),
 			[]sqlite3.StatementParameter{
 				{Type: sqlite3.ParameterTypeInteger, Value: clusterID},
 			},
@@ -1377,8 +1386,16 @@ func (vi *VectorIndexer) splitInternalNode(db *DatabaseConnection, columnName st
 	}
 
 	// Update the original parent's centroid
+	var ucb strings.Builder
+	ucb.Grow(len(vi.TableName) + len(columnName) + 80)
+	ucb.WriteString("UPDATE ")
+	ucb.WriteString(vi.TableName)
+	ucb.WriteString("_")
+	ucb.WriteString(columnName)
+	ucb.WriteString("_cluster_tree SET centroid_blob = ? WHERE cluster_id = ?")
+
 	_, err = db.Exec(
-		fmt.Sprintf(`UPDATE %s_%s_cluster_tree SET centroid_blob = ? WHERE cluster_id = ?`, vi.TableName, columnName),
+		ucb.String(),
 		[]sqlite3.StatementParameter{
 			{Type: sqlite3.ParameterTypeBlob, Value: internalNodeCentroids[0]},
 			{Type: sqlite3.ParameterTypeInteger, Value: parentClusterID},
