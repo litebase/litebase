@@ -105,14 +105,6 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 
 		insertSQL := fmt.Sprintf("INSERT INTO embeddings(vector) VALUES %s", placeholders)
 
-		insertStmt, err := dbConn.Prepare(t.Context(), insertSQL)
-
-		if err != nil {
-			t.Fatalf("Failed to prepare insert statement: %v", err)
-		}
-
-		result := sqlite3.NewResult()
-
 		t.Logf("Inserting %d vectors in batches of %d...", totalVectors, insertBatchSize)
 
 		insertStart := time.Now()
@@ -124,53 +116,50 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 		// Use Transaction wrapper to ensure setTimestamps() is called properly
 		err = dbConn.Transaction(false, func(txConn *database.DatabaseConnection) error {
 			for batch := range totalVectors / generateBatchSize {
-				vecGenStart := time.Now()
-
 				// Generate vectors using the iterator which also returns
 				// their binary blob representation to avoid a second
-				// conversion pass.
+				// conversion pass. Stream them directly into batched
+				// INSERTs to avoid allocating a large `vectorBlobs` slice.
 				it := GenerateBatch(generateBatchSize, dimensions)
 
-				// Preallocate exact capacity and fill by index to avoid
-				// repeated slice growth allocations.
-				vectorBlobs := make([][]byte, generateBatchSize)
-				vbIdx := 0
-
-				for {
-					blob, ok := it.NextBlob()
-					if !ok {
-						break
-					}
-					vectorBlobs[vbIdx] = blob
-					vbIdx++
-				}
-				vectorBlobs = vectorBlobs[:vbIdx]
-
-				vectorGenTime += time.Since(vecGenStart)
-
-				// Process vectors in insert batches. Reuse `params` slice to
-				// avoid allocating a new backing array each iteration.
+				// Reuse params slice across insert batches to avoid repeated
+				// allocations. Capacity is preallocated to `insertBatchSize`.
 				params := make([]sqlite3.StatementParameter, 0, insertBatchSize)
 
-				for i := 0; i < len(vectorBlobs); i += insertBatchSize {
-					end := min(i+insertBatchSize, len(vectorBlobs))
+				// Fill params up to `insertBatchSize` by repeatedly calling
+				// the iterator. We separate generation timing from insert
+				// timing by measuring only the generation loop.
+				for {
+					// generation phase: fill params
+					genStart := time.Now()
+					for len(params) < insertBatchSize {
+						blob, ok := it.NextBlob()
 
-					params = params[:0]
+						if !ok {
+							break
+						}
 
-					for j := i; j < end; j++ {
-						params = append(params,
-							sqlite3.StatementParameter{Type: sqlite3.ParameterTypeBlob, Value: vectorBlobs[j]},
-						)
+						params = append(params, sqlite3.StatementParameter{Type: sqlite3.ParameterTypeBlob, Value: blob})
 					}
 
-					// Execute the prepared statement with batched parameters
+					vectorGenTime += time.Since(genStart)
+
+					// If we have nothing to insert (iterator exhausted), break
+					if len(params) == 0 {
+						break
+					}
+
+					// Execute via DatabaseConnection.Exec for proper barrier and timestamp management
 					insertStmtStart := time.Now()
-					err = insertStmt.Sqlite3Statement.Exec(result, params...)
+					result, err := txConn.Exec(insertSQL, params)
 					insertTime += time.Since(insertStmtStart)
 
 					if err != nil {
-						return fmt.Errorf("failed to insert batch at vector %d: %w", batch*generateBatchSize+i, err)
+						return fmt.Errorf("failed to insert batch at vector %d: %w", batch*generateBatchSize+insertedCount, err)
 					}
+
+					// Return result to pool to release accumulated memory
+					txConn.ResultPool().Put(result)
 
 					// After successful execution, return blob buffers to the pool
 					for _, p := range params {
@@ -181,7 +170,10 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 						}
 					}
 
-					insertedCount += end - i
+					insertedCount += len(params)
+
+					// Reuse params backing array for next batch
+					params = params[:0]
 				}
 
 				if (batch+1)%10 == 0 {
@@ -213,17 +205,19 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 		t.Logf("    • INSERT execution: %v (%.1f%%)", insertTime, 100*insertTime.Seconds()/insertDuration.Seconds())
 
 		// Verify count (query shadow table, not virtual table)
-		res, err := dbConn.Exec("SELECT COUNT(*) FROM embeddings_vectors", nil)
+		var count int64
+		err = dbConn.ExecStream("SELECT COUNT(*) FROM embeddings_vectors", nil, func(row []*sqlite3.Column) error {
+			if len(row) > 0 {
+				count = row[0].Int64()
+			}
+
+			return nil
+		})
 
 		if err != nil {
 			t.Fatalf("Failed to get count: %v", err)
 		}
 
-		if len(res.Rows) == 0 {
-			t.Fatal("No count result")
-		}
-
-		count := (res.Rows[0][0].Int64())
 		t.Logf("✓ Verified count: %d vectors in table", count)
 
 		// Skip baseline brute-force search for 1M vectors (way too slow)
@@ -249,18 +243,25 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 
 			// Check how many vectors remain in cluster 0
 			var cluster0Count int64
-			cluster0Res, err := dbConn.Exec(
+			var rowFound bool
+			err = dbConn.ExecStream(
 				"SELECT COUNT(*) FROM embeddings_vector_cluster_vector_map WHERE cluster_id = 0",
 				nil,
+				func(row []*sqlite3.Column) error {
+					if len(row) > 0 {
+						cluster0Count = row[0].Int64()
+						rowFound = true
+					}
+
+					return nil
+				},
 			)
 
-			if err != nil || len(cluster0Res.Rows) == 0 {
+			if err != nil || !rowFound {
 				t.Logf("  - [Poll #%d] Database busy, waiting...", pollIteration)
 				time.Sleep(checkInterval)
 				continue
 			}
-
-			cluster0Count = cluster0Res.Rows[0][0].Int64()
 			processed := previousCluster0Count - cluster0Count
 
 			if cluster0Count == 0 {
@@ -286,36 +287,57 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 		}
 
 		// Query cluster statistics from shadow table, not virtual table
-		clusterStatsRes, err := dbConn.Exec(
+		var totalClusters int64
+		err = dbConn.ExecStream(
 			"SELECT COUNT(*) FROM embeddings_vector_cluster_tree",
 			nil,
+			func(row []*sqlite3.Column) error {
+				if len(row) > 0 {
+					totalClusters = row[0].Int64()
+				}
+
+				return nil
+			},
 		)
 
-		if err == nil && len(clusterStatsRes.Rows) > 0 {
-			totalClusters := clusterStatsRes.Rows[0][0].Int64()
+		if err == nil && totalClusters > 0 {
 			t.Logf("✓ Cluster tree statistics:")
 			t.Logf("  - Total clusters: %d", totalClusters)
 
 			// Count leaf vs non-leaf clusters
-			leafRes, _ := dbConn.Exec(
+			var leafClusters int64
+			err = dbConn.ExecStream(
 				"SELECT COUNT(*) FROM embeddings_vector_cluster_tree WHERE is_leaf = 1",
 				nil,
+				func(row []*sqlite3.Column) error {
+					if len(row) > 0 {
+						leafClusters = row[0].Int64()
+					}
+
+					return nil
+				},
 			)
 
-			if len(leafRes.Rows) > 0 {
-				leafClusters := leafRes.Rows[0][0].Int64()
+			if err == nil {
 				t.Logf("  - Leaf clusters: %d", leafClusters)
 				t.Logf("  - Internal clusters: %d", totalClusters-leafClusters)
 			}
 
 			// Check max cluster size
-			maxSizeRes, _ := dbConn.Exec(
+			var maxSize int64
+			err = dbConn.ExecStream(
 				"SELECT MAX(cluster_size) FROM embeddings_vector_cluster_tree WHERE is_leaf = 1",
 				nil,
+				func(row []*sqlite3.Column) error {
+					if len(row) > 0 {
+						maxSize = row[0].Int64()
+					}
+
+					return nil
+				},
 			)
 
-			if len(maxSizeRes.Rows) > 0 {
-				maxSize := maxSizeRes.Rows[0][0].Int64()
+			if err == nil {
 				t.Logf("  - Largest leaf cluster: %d vectors", maxSize)
 			}
 		}
@@ -330,13 +352,24 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 		// Use vector_search as a table-valued function (ANN using clustered index)
 		// Arguments: table_name, column_name, query_vector, k
 		// Note: distance metric is read from the table's metadata (defined during CREATE VIRTUAL TABLE)
-		res, err = dbConn.Exec(
+		var resultCount int
+		err = dbConn.ExecStream(
 			`SELECT rowid, distance 
 		FROM vector_search('embeddings', 'vector', ?, ?) 
 		ORDER BY distance`,
 			[]sqlite3.StatementParameter{
 				{Type: sqlite3.ParameterTypeBlob, Value: queryBlob},
 				{Type: sqlite3.ParameterTypeInteger, Value: int64(k)},
+			},
+			func(row []*sqlite3.Column) error {
+				// Verify each row has rowid and distance
+				if len(row) < 2 {
+					return fmt.Errorf("row %d doesn't have rowid and distance", resultCount)
+				}
+
+				resultCount++
+
+				return nil
 			},
 		)
 		searchDuration := time.Since(searchStart)
@@ -345,19 +378,12 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 			t.Fatalf("vector_search query failed: %v", err)
 		}
 
-		if len(res.Rows) != k {
-			t.Errorf("Expected %d results, got %d", k, len(res.Rows))
-		}
-
-		// Verify each row has rowid and distance
-		for i, row := range res.Rows {
-			if len(row) < 2 {
-				t.Fatalf("Row %d doesn't have rowid and distance", i)
-			}
+		if resultCount != k {
+			t.Errorf("Expected %d results, got %d", k, resultCount)
 		}
 
 		t.Logf("✓ Vector search completed in %v", searchDuration)
-		t.Logf("  - Returned %d results", len(res.Rows))
+		t.Logf("  - Returned %d results", resultCount)
 		t.Logf("  - Query rate: %.2f queries/sec", 1.0/searchDuration.Seconds())
 
 	})

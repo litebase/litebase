@@ -305,9 +305,11 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 			// Diagnostic logging to help debug stalled processing: report scanned vs assigned
 			assignCount := len(assignments)
 			totalDelta := 0
+
 			for _, d := range clusterSizeDeltas {
 				totalDelta += d
 			}
+
 			slog.Info("Indexer batch summary",
 				"table", vi.TableName,
 				"column", colInfo.Name,
@@ -350,6 +352,7 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 
 					for idx, assignment := range chunk {
 						vbldr.WriteString("(?, ?, ?)")
+
 						if idx != len(chunk)-1 {
 							vbldr.WriteString(", ")
 						}
@@ -362,20 +365,21 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 						p++
 					}
 
-				// Build query without fmt.Sprintf to avoid allocation
-				var qbldr strings.Builder
-				qbldr.Grow(len(vi.TableName) + len(colInfo.Name) + vbldr.Len() + 100)
-				qbldr.WriteString("INSERT OR REPLACE INTO ")
-				qbldr.WriteString(vi.TableName)
-				qbldr.WriteString("_")
-				qbldr.WriteString(colInfo.Name)
-				qbldr.WriteString("_cluster_vector_map (vector_id, cluster_id, distance) VALUES ")
-				qbldr.WriteString(vbldr.String())
+					// Build query without fmt.Sprintf to avoid allocation
+					var qbldr strings.Builder
+					qbldr.Grow(len(vi.TableName) + len(colInfo.Name) + vbldr.Len() + 100)
+					qbldr.WriteString("INSERT OR REPLACE INTO ")
+					qbldr.WriteString(vi.TableName)
+					qbldr.WriteString("_")
+					qbldr.WriteString(colInfo.Name)
+					qbldr.WriteString("_cluster_vector_map (vector_id, cluster_id, distance) VALUES ")
+					qbldr.WriteString(vbldr.String())
 
-				_, err := db.Exec(qbldr.String(), params)
+					_, err := db.Exec(qbldr.String(), params)
 
-				if err != nil {
-					return err
+					if err != nil {
+						return err
+					}
 				}
 
 				// Decrement cluster 0 size
