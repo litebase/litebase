@@ -53,6 +53,7 @@ typedef struct LitebaseVFSFile
 	int isJournal;
 	const char *pName;
 	char *pVfsId;
+	uintptr_t vfsMapKey; /* Resolved VfsMap key set once at goXOpen; avoids per-callback string scan */
 	LitebaseShm *pShm;
 } LitebaseVFSFile;
 

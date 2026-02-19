@@ -43,7 +43,6 @@ type LitebaseVFS struct {
 	nodeHash               string
 	transactionalTimestamp int64
 	VfsIdPtr               uintptr
-	vfsIdUnsafePtr         unsafe.Pointer
 	wal                    WAL
 	walTimestamp           int64
 	shm                    *ShmMemory
@@ -175,7 +174,6 @@ func RegisterVFS(
 	}
 
 	l.VfsIdPtr = vfsIdPtr
-	l.vfsIdUnsafePtr = unsafe.Pointer(pVfs.zName)
 
 	VfsMap[vfsIdPtr] = l
 
@@ -271,57 +269,20 @@ func (vfs *LitebaseVFS) WALTimestamp() int64 {
 
 func getVfsFromFile(pFile *C.sqlite3_file) (*LitebaseVFS, error) {
 	file := (*C.LitebaseVFSFile)(unsafe.Pointer(pFile))
-	vfsIdPtr := uintptr(unsafe.Pointer(file.pVfsId))
 
-	vfsMutex.Lock()
-	defer vfsMutex.Unlock()
+	// Use the key stamped into the file struct by goXOpen — a direct map
+	// read with a shared lock, no string comparison or fallback scan.
+	vfsMapKey := uintptr(file.vfsMapKey)
 
-	// Fast path: exact pointer match
-	if vfs, ok := VfsMap[vfsIdPtr]; ok {
-		return vfs, nil
+	vfsMutex.RLock()
+	vfs, ok := VfsMap[vfsMapKey]
+	vfsMutex.RUnlock()
+
+	if !ok {
+		return nil, fmt.Errorf("vfs not found")
 	}
 
-	// Fallback: the C code may allocate a separate copy of the VFS id
-	// when opening a file, so the pointer differs even though the
-	// string contents are identical. Compare C strings with strcmp
-	// to avoid allocating a Go string.
-	for _, v := range VfsMap {
-		if v.vfsIdUnsafePtr == nil || file.pVfsId == nil {
-			continue
-		}
-
-		c1 := (*C.char)(v.vfsIdUnsafePtr)
-		c2 := (*C.char)(file.pVfsId)
-
-		if cStringsEqual(c1, c2) {
-			return v, nil
-		}
-	}
-
-	return nil, fmt.Errorf("vfs not found")
-}
-
-// cStringsEqual compares two C NUL-terminated strings without calling C.
-// This avoids a cgo call to strcmp which shows up in CPU profiles.
-func cStringsEqual(a, b *C.char) bool {
-	pa := unsafe.Pointer(a)
-	pb := unsafe.Pointer(b)
-
-	for {
-		ba := *(*byte)(pa)
-		bb := *(*byte)(pb)
-
-		if ba != bb {
-			return false
-		}
-
-		if ba == 0 {
-			return true
-		}
-
-		pa = unsafe.Add(pa, 1)
-		pb = unsafe.Add(pb, 1)
-	}
+	return vfs, nil
 }
 
 //export goXOpen
@@ -641,6 +602,7 @@ func goXWALFileSize(pFile *C.sqlite3_file, pSize *C.sqlite3_int64) C.int {
 }
 
 //export goXWALRead
+//go:nosplit
 func goXWALRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.sqlite3_int64) C.int {
 	vfs, err := getVfsFromFile(pFile)
 
@@ -670,6 +632,7 @@ func goXWALRead(pFile *C.sqlite3_file, zBuf unsafe.Pointer, iAmt C.int, iOfst C.
 }
 
 //export goXWALWrite
+//go:nosplit
 func goXWALWrite(pFile *C.sqlite3_file, iAmt C.int, iOfst C.sqlite3_int64, zBuf unsafe.Pointer) C.int {
 	vfs, err := getVfsFromFile(pFile)
 

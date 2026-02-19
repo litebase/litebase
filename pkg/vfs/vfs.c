@@ -209,6 +209,7 @@ int xOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, 
   p->pName = zName;
   p->isJournal = litebase_is_journal_file(pFile);
   p->pVfsId = fileVfsId;
+  p->vfsMapKey = (uintptr_t)pVfs->zName; /* authoritative VfsMap key; set here for all file types including WAL/journal */
   p->pReal = (sqlite3_file *)&p[1];
 
   if (p->isJournal == 0)
