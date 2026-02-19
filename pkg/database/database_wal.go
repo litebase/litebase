@@ -22,10 +22,8 @@ import (
 
 const (
 	// WAL cache configuration
-	WALCacheCapacity    = 32000 // Number of pages to cache (10000 pages × 4KB = 40MB per WAL)
+	WALCacheCapacity    = 32000 // Number of pages to cache (32000 pages × 128MB =  per WAL)
 	WALCacheDefaultSize = 4096  // 4KB per page
-	// Read-ahead configuration for sequential scans
-	WALReadAheadPages = 64 // Prefetch 64 pages (256KB) ahead for sequential reads
 )
 
 var (
@@ -60,7 +58,6 @@ type DatabaseWAL struct {
 	mutex                   *sync.RWMutex
 	node                    *cluster.Node
 	Path                    string
-	prefetchInFlight        sync.Map // Track in-flight prefetch operations to avoid duplicates
 	syncMutex               *sync.Mutex
 	timestamp               int64
 	walManager              *DatabaseWALManager
@@ -626,66 +623,6 @@ func (wal *DatabaseWAL) ReadAt(connectionID string, p []byte, off int64) (n int,
 	return n, nil
 }
 
-// prefetchPages asynchronously prefetches pages into the cache for sequential scans.
-// This reduces I/O latency by reading ahead of the current position.
-// Note: Takes file handle as parameter to avoid lock acquisition.
-func (wal *DatabaseWAL) prefetchPages(file internalStorage.File, startOffset int64, numPages int) {
-	// Check if prefetch is already in flight for this offset range
-	prefetchKey := fmt.Sprintf("%d-%d", startOffset, numPages)
-
-	if _, inFlight := wal.prefetchInFlight.LoadOrStore(prefetchKey, true); inFlight {
-		return // Prefetch already in progress
-	}
-
-	defer wal.prefetchInFlight.Delete(prefetchKey)
-
-	// Prefetch pages in a single large read to reduce syscalls
-	pageSize := int64(WALCacheDefaultSize)
-	batchSize := int64(numPages) * pageSize
-	buf := make([]byte, batchSize)
-
-	// Read batch of pages without holding any locks
-	n, err := file.ReadAt(buf, startOffset)
-
-	if err != nil && n == 0 {
-		return // End of file or read error
-	}
-
-	// Cache each page from the batch
-	// Only acquire lock when updating cache
-	for i := int64(0); i < int64(n)/pageSize; i++ {
-		pageOffset := startOffset + (i * pageSize)
-		pageStart := i * pageSize
-		pageEnd := pageStart + pageSize
-
-		if pageEnd > int64(n) {
-			pageEnd = int64(n)
-		}
-
-		pageData := buf[pageStart:pageEnd]
-		cacheKey := wal.getCacheKey(pageOffset)
-
-		// Check cache without lock first
-		wal.mutex.RLock()
-		_, found := wal.cache.Get(cacheKey)
-		wal.mutex.RUnlock()
-
-		if !found {
-			// Acquire write lock only to insert
-			wal.mutex.Lock()
-			// Double-check after acquiring lock
-			if _, stillNotFound := wal.cache.Get(cacheKey); stillNotFound {
-				if err := wal.cache.Put(cacheKey, pageData); err != nil {
-					wal.mutex.Unlock()
-					// Cache full, stop prefetching
-					break
-				}
-			}
-			wal.mutex.Unlock()
-		}
-	}
-}
-
 func (wal *DatabaseWAL) RequiresCheckpoint() bool {
 	if wal.lastKnownSize < 0 {
 		_, err := wal.Size()
@@ -811,6 +748,7 @@ func (wal *DatabaseWAL) WriteAt(connectionID string, p []byte, off int64) (n int
 					// If flush fails, fall back to direct write to avoid data loss.
 					wal.mutex.Lock()
 					defer wal.mutex.Unlock()
+
 					return wal.writeAtDirect(p, off)
 				}
 
