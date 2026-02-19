@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+	"unsafe"
 
 	"github.com/litebase/litebase/pkg/memory"
 )
@@ -198,6 +199,60 @@ func (b *TransactionBuffer) GetWrites() []walWrite {
 	writesCopy := make([]walWrite, len(b.writes))
 	copy(writesCopy, b.writes)
 	return writesCopy
+}
+
+// GetCoalescedWrites returns writes merged into the fewest possible contiguous
+// spans, for use in the flush path to reduce file.WriteAt call count.
+//
+// Two adjacent entries can be merged when:
+//  1. Their WAL offsets are contiguous: writes[j].offset == writes[j-1].offset + len(writes[j-1].data)
+//  2. Their data slices are adjacent in the slab (no gap, no overwrite hole).
+//
+// Merging is zero-allocation: it re-slices the already-slab-backed data slice
+// (the slab capacity covers all later entries in the same bump region).
+// The returned []walWrite is a new slice of structs (small), but the underlying
+// byte data is never copied.
+func (b *TransactionBuffer) GetCoalescedWrites() []walWrite {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+
+	if len(b.writes) == 0 {
+		return nil
+	}
+
+	coalesced := make([]walWrite, 0, len(b.writes))
+	cur := b.writes[0]
+
+	for i := 1; i < len(b.writes); i++ {
+		next := b.writes[i]
+
+		// Condition 1: sequential WAL offsets.
+		sequential := next.offset == cur.offset+int64(len(cur.data))
+
+		// Condition 2: data slices are adjacent in the slab (no allocation holes
+		// from overwrites). We compare raw pointers to avoid any allocation.
+		var slabAdjacent bool
+
+		if sequential && len(cur.data) > 0 && len(next.data) > 0 {
+			curEnd := unsafe.Add(unsafe.Pointer(unsafe.SliceData(cur.data)), len(cur.data))
+			nextStart := unsafe.Pointer(unsafe.SliceData(next.data))
+			slabAdjacent = curEnd == nextStart
+		}
+
+		if sequential && slabAdjacent {
+			// Extend cur.data to span next — zero allocation: the slab backing
+			// provides the capacity because next.data occupies the immediately
+			// following bytes in the same slab allocation.
+			cur.data = cur.data[:len(cur.data)+len(next.data)]
+		} else {
+			coalesced = append(coalesced, cur)
+			cur = next
+		}
+	}
+
+	coalesced = append(coalesced, cur)
+
+	return coalesced
 }
 
 // Clear resets the buffer after successful flush.

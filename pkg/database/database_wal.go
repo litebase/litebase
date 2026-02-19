@@ -404,11 +404,17 @@ func (wal *DatabaseWAL) FlushBuffer() error {
 		return nil
 	}
 
-	writes := wal.txnBuffer.GetWrites()
+	// Two separate views of the same buffer:
+	//   coalesced — sequential, slab-adjacent entries merged into single spans
+	//               so that file.WriteAt is called once per run (not once per page).
+	//   writes    — original per-page entries kept for per-offset cache population.
+	coalesced := wal.txnBuffer.GetCoalescedWrites()
 
-	if len(writes) == 0 {
+	if len(coalesced) == 0 {
 		return nil
 	}
+
+	writes := wal.txnBuffer.GetWrites()
 
 	file, err := wal.File()
 
@@ -416,16 +422,21 @@ func (wal *DatabaseWAL) FlushBuffer() error {
 		return fmt.Errorf("failed to get WAL file for flush: %w", err)
 	}
 
-	slog.Debug("Flushing transaction buffer", "writes", len(writes), "timestamp", wal.timestamp)
+	slog.Debug("Flushing transaction buffer",
+		"writes", len(writes),
+		"coalesced_writes", len(coalesced),
+		"timestamp", wal.timestamp)
 
-	for _, w := range writes {
+	// Coalesced loop: one syscall per run of contiguous pages instead of one per page.
+	for _, w := range coalesced {
 		if _, err := file.WriteAt(w.data, w.offset); err != nil {
 			slog.Error("Failed to write buffered data during flush", "error", err, "offset", w.offset)
 			return fmt.Errorf("failed to flush transaction buffer at offset %d: %w", w.offset, err)
 		}
 	}
 
-	// Batch-update cache and metadata under wal mutex to minimize lock hold time
+	// Batch-update cache and metadata under wal mutex to minimize lock hold time.
+	// Use original per-page writes so the cache retains per-offset granularity.
 	wal.mutex.Lock()
 
 	for _, w := range writes {
