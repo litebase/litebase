@@ -70,8 +70,10 @@ func TestVectorIndexInsert(t *testing.T) {
 			t.Errorf("Expected 3 vectors in _vectors table, got %d", count)
 		}
 
-		// Verify all vectors are assigned to cluster 0 (for the 'embedding' column)
-		res, err = dbConn.Exec("SELECT COUNT(*) FROM product_vectors_embedding_cluster_vector_map WHERE cluster_id = 0", nil)
+		// Verify all vectors are assigned to a valid cluster (cluster_id > 0).
+		// Vectors are now assigned inline to real leaf clusters via goAssignVectorsInBatch,
+		// so cluster_id=0 is never written.
+		res, err = dbConn.Exec("SELECT COUNT(*) FROM product_vectors_embedding_cluster_vector_map WHERE cluster_id > 0", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to count cluster assignments: %v", err)
@@ -80,7 +82,7 @@ func TestVectorIndexInsert(t *testing.T) {
 		clusterCount := res.Rows[0][0].Int64()
 
 		if clusterCount != 3 {
-			t.Errorf("Expected 3 vectors in cluster 0, got %d", clusterCount)
+			t.Errorf("Expected 3 vectors assigned to real clusters, got %d", clusterCount)
 		}
 
 		// Verify we can read the vectors back

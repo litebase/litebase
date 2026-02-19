@@ -224,64 +224,71 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 		// It would take 6+ seconds and we need to complete test in <5 minutes
 		t.Logf("⚠ Skipping baseline brute-force search (1M vectors, would exceed test timeout)")
 
-		// Wait for background indexing to redistribute vectors from cluster 0
-		t.Logf("Waiting for background indexing to redistribute vectors from cluster 0...")
-		indexingStart := time.Now()
+		// With inline cluster assignment (no cluster_id=0), vectors are already in the
+		// correct clusters.  goTriggerClusterSplits fires from xCommit (after the transaction
+		// committed) so split goroutines may still be running.  Wait up to 3 minutes for the
+		// cluster tree to converge to multiple leaf clusters (max_cluster_size=5000).
+		t.Logf("Waiting for cluster splits to converge (max_cluster_size=5000, 1M vectors → ~200 leaf clusters)...")
+		splitStart := time.Now()
 		maxWaitTime := 3 * time.Minute
-		checkInterval := 500 * time.Millisecond
-		previousCluster0Count := int64(totalVectors)
+		checkInterval := 2 * time.Second
 		pollIteration := 0
 
 		for {
-			elapsed := time.Since(indexingStart)
+			elapsed := time.Since(splitStart)
 			pollIteration++
 
 			if elapsed > maxWaitTime {
-				t.Logf("Indexing timeout after %v - continuing with partial indexing", elapsed)
+				t.Logf("Split wait timeout after %v - continuing with current cluster state", elapsed)
 				break
 			}
 
-			// Check how many vectors remain in cluster 0
-			var cluster0Count int64
-			var rowFound bool
+			var leafClusters int64
+			var maxSize int64
+
 			err = dbConn.ExecStream(
-				"SELECT COUNT(*) FROM embeddings_vector_cluster_vector_map WHERE cluster_id = 0",
+				"SELECT COUNT(*) FROM embeddings_vector_cluster_tree WHERE is_leaf = 1",
 				nil,
 				func(row []*sqlite3.Column) error {
 					if len(row) > 0 {
-						cluster0Count = row[0].Int64()
-						rowFound = true
+						leafClusters = row[0].Int64()
 					}
 
 					return nil
 				},
 			)
 
-			if err != nil || !rowFound {
-				t.Logf("  - [Poll #%d] Database busy, waiting...", pollIteration)
+			if err != nil {
 				time.Sleep(checkInterval)
 				continue
 			}
-			processed := previousCluster0Count - cluster0Count
 
-			if cluster0Count == 0 {
-				t.Logf("✓ All vectors redistributed from cluster 0 in %v (after %d polls)", time.Since(indexingStart), pollIteration)
-				break
+			err = dbConn.ExecStream(
+				"SELECT MAX(cluster_size) FROM embeddings_vector_cluster_tree WHERE is_leaf = 1",
+				nil,
+				func(row []*sqlite3.Column) error {
+					if len(row) > 0 {
+						maxSize = row[0].Int64()
+					}
+
+					return nil
+				},
+			)
+
+			if err != nil {
+				time.Sleep(checkInterval)
+				continue
 			}
 
-			// Log on EVERY poll to capture exact progression
-			rate := float64(totalVectors-int(cluster0Count)) / time.Since(indexingStart).Seconds()
-			t.Logf("  - [Poll #%d @ %v] cluster0Count=%d, processed_this_poll=%d, total_done=%d/%d (%.1f%%), rate=%.0f vec/sec",
-				pollIteration,
-				elapsed.Round(100*time.Millisecond),
-				cluster0Count,
-				processed,
-				totalVectors-int(cluster0Count),
-				totalVectors,
-				float64(totalVectors-int(cluster0Count))/float64(totalVectors)*100,
-				rate)
+			t.Logf("  - [Poll #%d @ %v] leaf_clusters=%d, max_leaf_size=%d",
+				pollIteration, elapsed.Round(100*time.Millisecond), leafClusters, maxSize)
 
-			previousCluster0Count = cluster0Count
+			// Converged when every leaf is at or below max_cluster_size (5000)
+			if leafClusters > 1 && maxSize <= 5000 {
+				t.Logf("✓ Splits converged in %v: %d leaf clusters, max size=%d",
+					time.Since(splitStart), leafClusters, maxSize)
+				break
+			}
 
 			time.Sleep(checkInterval)
 		}

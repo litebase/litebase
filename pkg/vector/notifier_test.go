@@ -27,6 +27,12 @@ func (m *MockIndexManager) MarkPending(databaseID, branchID, tableName string) {
 	m.pending[key]++
 }
 
+// ProcessInline is a no-op in the test mock (satisfies VectorIndexManagerInterface).
+func (m *MockIndexManager) ProcessInline(databaseID, branchID, tableName string) {}
+
+// RunSplits is a no-op in the test mock (satisfies VectorIndexManagerInterface).
+func (m *MockIndexManager) RunSplits(databaseID, branchID, tableName string) {}
+
 func (m *MockIndexManager) GetPendingCount(databaseID, branchID, tableName string) int {
 	m.mu.Lock()
 	defer m.mu.Unlock()

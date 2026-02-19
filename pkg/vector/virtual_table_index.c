@@ -42,8 +42,38 @@ typedef struct
 // So max batch size = 32766 / 3 = 10922 vectors
 #define INSERT_BUFFER_CAPACITY 10922
 
-// Forward declaration for Go callback
-extern void goNotifyVectorInsert(char *databaseID, char *branchID, char *tableName);
+// goAssignVectorsInBatch assigns each vector in the batch to its correct leaf
+// cluster using the same sqlite3* connection that holds the current write
+// transaction.  This eliminates cluster_id=0 entirely — no background job needed.
+extern int goAssignVectorsInBatch(
+    sqlite3 *db,
+    char *tableName,
+    char *colName,
+    int distanceMetric,
+    int count,
+    void **blobPtrs,
+    int *blobLens,
+    sqlite3_int64 *clusterIDsOut,
+    double *distancesOut
+);
+
+// goUpdateClusterStats updates cluster_size and centroid_blob for the clusters
+// that received vectors in this batch.  Same connection, same transaction.
+extern int goUpdateClusterStats(
+    sqlite3 *db,
+    char *tableName,
+    char *colName,
+    int dimensions,
+    int numClusters,
+    sqlite3_int64 *clusterIDs,
+    int *counts,
+    void **vectorSumBlobs,
+    int *sumBlobLens
+);
+
+// goTriggerClusterSplits fires a goroutine to split oversized clusters after
+// the transaction commits (uses a separate connection).
+extern void goTriggerClusterSplits(char *databaseID, char *branchID, char *tableName);
 
 // Forward declarations for virtual table module callbacks
 int vector_index_create(sqlite3 *db, void *pAux, int argc, const char *const *argv, sqlite3_vtab **ppVtab, char **pzErr);
@@ -1416,20 +1446,75 @@ static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr)
         sqlite3_finalize(max_stmt);
     }
 
-    // Build multi-row INSERT for each vector column's cluster_vector_map table
-    // INSERT INTO {table}_{column}_cluster_vector_map (vector_id, cluster_id, distance) VALUES (?,0,0.0),(?,0,0.0),...
+    // Assign vectors to their correct leaf clusters inline using the same db
+    // connection that owns this transaction.  goAssignVectorsInBatch reads the
+    // cluster tree on vtab->db, so there is no WAL lock contention.
+    // cluster_id=0 is never written — no background job is required.
     for (int col_idx = 0; col_idx < vtab->num_columns; col_idx++)
     {
         if (!vtab->columns[col_idx].is_vector)
             continue;
 
         const char *col_name = vtab->columns[col_idx].name;
+        int col_dist_metric = vtab->columns[col_idx].distance_metric;
+        int val_idx = col_idx + 1; // +1 to skip id slot in column_values
 
-        // Build VALUES clause for this column
-        values_clause = (char *)sqlite3_malloc(vtab->buffer_size * 50 + 1); // ~50 chars per row
+        // Build blob pointer/length arrays from the buffered insert values.
+        void **blob_ptrs = (void **)sqlite3_malloc(sizeof(void *) * vtab->buffer_size);
+        int *blob_lens = (int *)sqlite3_malloc(sizeof(int) * vtab->buffer_size);
+        sqlite3_int64 *cluster_ids = (sqlite3_int64 *)sqlite3_malloc(sizeof(sqlite3_int64) * vtab->buffer_size);
+        double *distances = (double *)sqlite3_malloc(sizeof(double) * vtab->buffer_size);
+
+        if (!blob_ptrs || !blob_lens || !cluster_ids || !distances)
+        {
+            sqlite3_free(blob_ptrs);
+            sqlite3_free(blob_lens);
+            sqlite3_free(cluster_ids);
+            sqlite3_free(distances);
+            *pzErr = sqlite3_mprintf("Out of memory for inline cluster assignment");
+            return SQLITE_NOMEM;
+        }
+
+        for (int i = 0; i < vtab->buffer_size; i++)
+        {
+            cluster_ids[i] = 1; // safe default: root cluster
+            distances[i] = 0.0;
+
+            if (val_idx < vtab->insert_buffer[i].num_columns &&
+                vtab->insert_buffer[i].column_values[val_idx] != NULL)
+            {
+                blob_ptrs[i] = (void *)sqlite3_value_blob(vtab->insert_buffer[i].column_values[val_idx]);
+                blob_lens[i] = sqlite3_value_bytes(vtab->insert_buffer[i].column_values[val_idx]);
+            }
+            else
+            {
+                blob_ptrs[i] = NULL;
+                blob_lens[i] = 0;
+            }
+        }
+
+        goAssignVectorsInBatch(
+            vtab->db,
+            vtab->table_name,
+            (char *)col_name,
+            col_dist_metric,
+            vtab->buffer_size,
+            blob_ptrs,
+            blob_lens,
+            cluster_ids,
+            distances
+        );
+
+        // Build VALUES clause with actual cluster assignments (never cluster_id=0).
+        // Each row: (vector_id, cluster_id, distance) — ~80 chars worst case.
+        values_clause = (char *)sqlite3_malloc(vtab->buffer_size * 80 + 1);
         if (!values_clause)
         {
-            *pzErr = sqlite3_mprintf("Out of memory building map INSERT for column %s", col_name);
+            sqlite3_free(blob_ptrs);
+            sqlite3_free(blob_lens);
+            sqlite3_free(cluster_ids);
+            sqlite3_free(distances);
+            *pzErr = sqlite3_mprintf("Out of memory building map INSERT values");
             return SQLITE_NOMEM;
         }
 
@@ -1437,13 +1522,13 @@ static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr)
         for (int i = 0; i < vtab->buffer_size; i++)
         {
             if (i > 0)
-            {
                 ptr += sprintf(ptr, ",");
-            }
-            ptr += sprintf(ptr, "(%lld,0,0.0)",
-                           (long long)(first_rowid + i));
+            ptr += sprintf(ptr, "(%lld,%lld,%.17g)",
+                           (long long)(first_rowid + i),
+                           (long long)cluster_ids[i],
+                           distances[i]);
         }
-        *ptr = '\0'; // Ensure null termination
+        *ptr = '\0';
 
         sql = sqlite3_mprintf(
             "INSERT INTO %s_%s_cluster_vector_map (vector_id, cluster_id, distance) VALUES %s",
@@ -1454,18 +1539,42 @@ static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr)
         sqlite3_free(sql);
         if (rc != SQLITE_OK)
         {
+            sqlite3_free(blob_ptrs);
+            sqlite3_free(blob_lens);
+            sqlite3_free(cluster_ids);
+            sqlite3_free(distances);
             *pzErr = sqlite3_mprintf("Batch map insert failed for column %s: %s", col_name, err_msg);
             sqlite3_free(err_msg);
             return rc;
         }
+
+        // ---- Cluster stats (size + centroid) update ----
+        // Pass per-row cluster IDs and blob data to Go; it will aggregate
+        // per-cluster vector sums and update cluster_size + centroid_blob.
+        // blob_ptrs and blob_lens are still valid (not freed yet).
+        goUpdateClusterStats(
+            vtab->db,
+            vtab->table_name,
+            (char *)col_name,
+            vtab->columns[col_idx].dimensions,
+            vtab->buffer_size,
+            cluster_ids,
+            blob_lens,
+            blob_ptrs,
+            blob_lens
+        );
+
+        sqlite3_free(blob_ptrs);
+        sqlite3_free(blob_lens);
+        sqlite3_free(cluster_ids);
+        sqlite3_free(distances);
     }
 
-    // Notify Go once for the entire batch (not per vector)
-    VectorIndexContext *ctx = (VectorIndexContext *)vtab->pAux;
-    if (ctx && ctx->databaseID && ctx->branchID)
-    {
-        goNotifyVectorInsert(ctx->databaseID, ctx->branchID, vtab->table_name);
-    }
+    // NOTE: goTriggerClusterSplits is intentionally NOT called here.
+    // flush_insert_buffer runs during xSync (before SQLite COMMIT), so the write
+    // lock is still held.  Firing a split goroutine here causes it to block in
+    // CompactionPassiveBarrier waiting for that lock.  Instead, the split is
+    // triggered from xCommit, after the transaction has fully committed.
 
     // Free buffered column values
     for (int i = 0; i < vtab->buffer_size; i++)
@@ -1525,6 +1634,16 @@ int vector_index_commit(sqlite3_vtab *pVtab)
     }
 
     vtab->in_transaction = 0;
+
+    // Trigger cluster splits AFTER the SQLite transaction commits so the write
+    // lock has been released.  This prevents the split goroutine from blocking
+    // in CompactionPassiveBarrier while waiting for a lock held by this commit.
+    VectorIndexContext *ctx = (VectorIndexContext *)vtab->pAux;
+    if (ctx && ctx->databaseID && ctx->branchID)
+    {
+        goTriggerClusterSplits(ctx->databaseID, ctx->branchID, vtab->table_name);
+    }
+
     return SQLITE_OK;
 }
 
@@ -1961,13 +2080,6 @@ int vector_index_update(
                                                  vtab->table_name, vtab->columns[i].name, sqlite3_errmsg(vtab->db));
                 return rc;
             }
-        }
-
-        // Notify for background reassignment
-        VectorIndexContext *ctx = (VectorIndexContext *)vtab->pAux;
-        if (ctx)
-        {
-            goNotifyVectorInsert(ctx->databaseID, ctx->branchID, vtab->table_name);
         }
 
         *pRowid = new_vector_id;

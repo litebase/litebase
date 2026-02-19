@@ -65,16 +65,4 @@ func (app *App) InitQueueJobs() {
 	if err != nil {
 		panic(err)
 	}
-
-	// Register vector indexer job for async indexing of vector data.
-	err = app.QueueWorkerPool.RegisterJob(
-		"VectorIndexer",
-		app.VectorIndexerJob,
-		queue.WithRetries(3, 5*time.Second),
-		queue.WithTimeout(10*time.Minute),
-	)
-
-	if err != nil {
-		panic(err)
-	}
 }

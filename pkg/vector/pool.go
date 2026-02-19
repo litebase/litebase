@@ -12,6 +12,96 @@ var vectorBlobPool = sync.Pool{
 	},
 }
 
+// inlineClusterNodePool pools inlineClusterNode objects to reduce per-batch
+// heap allocations when loading the cluster tree.
+var inlineClusterNodePool = sync.Pool{
+	New: func() interface{} {
+		return &inlineClusterNode{
+			children: make([]int64, 0, 8),
+		}
+	},
+}
+
+// getInlineClusterNode acquires a node from the pool and resets it.
+func getInlineClusterNode() *inlineClusterNode {
+	n := inlineClusterNodePool.Get().(*inlineClusterNode)
+	n.clusterID = 0
+	n.parentID = nil
+	n.centroid = nil
+	n.isLeaf = false
+	n.children = n.children[:0]
+
+	return n
+}
+
+// putInlineClusterNode returns a node to the pool.
+func putInlineClusterNode(n *inlineClusterNode) {
+	if n == nil {
+		return
+	}
+
+	inlineClusterNodePool.Put(n)
+}
+
+// float64SlicePool pools []float64 slices used for centroid sum accumulation in
+// goUpdateClusterStats. Slices are keyed by capacity bucket (dims).
+var float64SlicePool sync.Pool
+
+// getFloat64Slice returns a zeroed []float64 of length dims from the pool.
+func getFloat64Slice(dims int) []float64 {
+	if v := float64SlicePool.Get(); v != nil {
+		s := v.([]float64)
+
+		if cap(s) >= dims {
+			s = s[:dims]
+
+			for i := range s {
+				s[i] = 0
+			}
+
+			return s
+		}
+	}
+
+	return make([]float64, dims)
+}
+
+// putFloat64Slice returns a []float64 slice to the pool.
+func putFloat64Slice(s []float64) {
+	if s == nil {
+		return
+	}
+
+	float64SlicePool.Put(s)
+}
+
+// encodeBlobPool pools byte slices for centroid blob encoding in
+// goUpdateClusterStats to avoid per-cluster heap allocations.
+// Each blob is 6 + dims*4 bytes for float32 vectors.
+var encodeBlobPool sync.Pool
+
+// getEncodeBlob returns a []byte of length n from the pool.
+func getEncodeBlob(n int) []byte {
+	if v := encodeBlobPool.Get(); v != nil {
+		b := v.([]byte)
+
+		if cap(b) >= n {
+			return b[:n]
+		}
+	}
+
+	return make([]byte, n)
+}
+
+// putEncodeBlob returns a blob slice to the pool.
+func putEncodeBlob(b []byte) {
+	if b == nil {
+		return
+	}
+
+	encodeBlobPool.Put(b)
+}
+
 // GetVectorBlob acquires a VectorBlob from the pool
 func GetVectorBlob() *VectorBlob {
 	return vectorBlobPool.Get().(*VectorBlob)
