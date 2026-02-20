@@ -18,8 +18,80 @@ import "C"
 import (
 	"fmt"
 	"log/slog"
+	"sync"
 	"unsafe"
 )
+
+// clusterStmtKey identifies a cached prepared-statement entry by SQLite
+// connection pointer and a table+column name pair.
+type clusterStmtKey struct {
+	db  uintptr
+	key string // "{table}_{col}"
+}
+
+// clusterUpdateStmts holds the two persistent prepared statements used by
+// goUpdateClusterStats for a specific (connection, table, column) triple.
+// Preparing once and reusing across flushes avoids ~3 prepare/finalize cycles
+// per cluster per flush.
+type clusterUpdateStmts struct {
+	// sel: SELECT centroid_blob, cluster_size … WHERE cluster_id = ?
+	sel *C.sqlite3_stmt
+	// upd: UPDATE … SET cluster_size = ?, centroid_blob = ? WHERE cluster_id = ?
+	upd *C.sqlite3_stmt
+}
+
+// clusterUpdateStmtCache maps (db pointer, "table_col") to the persistent
+// prepared statements used by goUpdateClusterStats.
+var clusterUpdateStmtCache sync.Map
+
+// clusterTreeStmtCache maps (db pointer, "table_col") to the persistent
+// prepared SELECT statement used by loadInlineClusterTree, so that the full
+// cluster tree SELECT is not re-prepared on every flush.
+var clusterTreeStmtCache sync.Map
+
+// getOrPrepareClusterUpdateStmts returns (possibly cached) persistent prepared
+// statements for reading and updating cluster statistics on the given connection.
+func getOrPrepareClusterUpdateStmts(sdb *C.sqlite3, tbl, col string) (*clusterUpdateStmts, bool) {
+	key := clusterStmtKey{db: uintptr(unsafe.Pointer(sdb)), key: tbl + "_" + col}
+
+	if v, ok := clusterUpdateStmtCache.Load(key); ok {
+		return v.(*clusterUpdateStmts), true
+	}
+
+	selSQL := fmt.Sprintf(
+		"SELECT centroid_blob, cluster_size FROM %s_%s_cluster_tree WHERE cluster_id = ?",
+		tbl, col,
+	)
+
+	cSelSQL := C.CString(selSQL)
+	var selStmt *C.sqlite3_stmt
+	rcSel := C.sqlite3_prepare_v3(sdb, cSelSQL, -1, C.SQLITE_PREPARE_PERSISTENT, &selStmt, nil)
+	C.free(unsafe.Pointer(cSelSQL))
+
+	if rcSel != C.SQLITE_OK {
+		return nil, false
+	}
+
+	updSQL := fmt.Sprintf(
+		"UPDATE %s_%s_cluster_tree SET cluster_size = ?, centroid_blob = ? WHERE cluster_id = ?",
+		tbl, col,
+	)
+
+	cUpdSQL := C.CString(updSQL)
+	var updStmt *C.sqlite3_stmt
+	rcUpd := C.sqlite3_prepare_v3(sdb, cUpdSQL, -1, C.SQLITE_PREPARE_PERSISTENT, &updStmt, nil)
+	C.free(unsafe.Pointer(cUpdSQL))
+
+	if rcUpd != C.SQLITE_OK {
+		C.sqlite3_finalize(selStmt)
+		return nil, false
+	}
+
+	stmts := &clusterUpdateStmts{sel: selStmt, upd: updStmt}
+	clusterUpdateStmtCache.Store(key, stmts)
+
+	return stmts, true
+}
 
 // inlineClusterNode is a minimal local copy of the cluster tree node, kept
 // separate from database.ClusterNode to avoid a circular import.
@@ -35,24 +107,39 @@ type inlineClusterNode struct {
 // using the raw sqlite3* that owns the active write transaction.  Reading
 // within the same write transaction is safe in SQLite WAL mode.
 //
+// The underlying SELECT statement is cached per (connection, table, column)
+// with SQLITE_PREPARE_PERSISTENT to avoid re-preparing on every flush.
+//
 // Nodes are acquired from inlineClusterNodePool. Callers must call
 // releaseInlineClusterTree to return nodes to the pool after use.
 func loadInlineClusterTree(db *C.sqlite3, tableName, colName string) (map[int64]*inlineClusterNode, error) {
-	query := fmt.Sprintf(
-		"SELECT cluster_id, parent_id, centroid_blob, is_leaf FROM %s_%s_cluster_tree",
-		tableName, colName,
-	)
-
-	cQuery := C.CString(query)
-	defer C.free(unsafe.Pointer(cQuery))
+	key := clusterStmtKey{db: uintptr(unsafe.Pointer(db)), key: tableName + "_" + colName}
 
 	var stmt *C.sqlite3_stmt
 
-	if rc := C.sqlite3_prepare_v2(db, cQuery, -1, &stmt, nil); rc != C.SQLITE_OK {
-		return nil, fmt.Errorf("prepare cluster tree query: rc=%d", int(rc))
+	if v, ok := clusterTreeStmtCache.Load(key); ok {
+		stmt = (*C.sqlite3_stmt)(v.(unsafe.Pointer))
+		// Reset any lingering state from a previous (possibly interrupted) call.
+		C.sqlite3_reset(stmt)
+	} else {
+		query := fmt.Sprintf(
+			"SELECT cluster_id, parent_id, centroid_blob, is_leaf FROM %s_%s_cluster_tree",
+			tableName, colName,
+		)
+
+		cQuery := C.CString(query)
+		rc := C.sqlite3_prepare_v3(db, cQuery, -1, C.SQLITE_PREPARE_PERSISTENT, &stmt, nil)
+		C.free(unsafe.Pointer(cQuery))
+
+		if rc != C.SQLITE_OK {
+			return nil, fmt.Errorf("prepare cluster tree query: rc=%d", int(rc))
+		}
+
+		clusterTreeStmtCache.Store(key, unsafe.Pointer(stmt))
 	}
 
-	defer C.sqlite3_finalize(stmt)
+	// Reset at exit so the cached statement is clean for the next call.
+	defer C.sqlite3_reset(stmt)
 
 	tree := make(map[int64]*inlineClusterNode, 64)
 
@@ -343,6 +430,8 @@ func goAssignVectorsInBatch(
 //	_unused       unused (same as blobLens — kept for C signature compat)
 //
 // The function aggregates per-cluster then updates cluster_size + centroid_blob.
+// Prepared statements are cached per (connection, table, column) to avoid
+// re-preparing on every flush (~91 times for a 1 M-vector insertion).
 //
 //export goUpdateClusterStats
 func goUpdateClusterStats(
@@ -424,55 +513,56 @@ func goUpdateClusterStats(
 		}
 	}
 
+	if len(agg) == 0 {
+		return C.SQLITE_OK
+	}
+
+	// Get or prepare cached persistent statements for this (connection, column).
+	// Two operations per cluster: a SELECT to read the current state and a
+	// single UPDATE that sets both cluster_size and centroid_blob, replacing the
+	// previous three-statement per-cluster pattern (exec + prepare + prepare).
+	stmts, ok := getOrPrepareClusterUpdateStmts(sdb, tbl, col)
+
+	if !ok {
+		return C.SQLITE_OK
+	}
+
+	blobSize := 6 + dims*4
+
 	for clusterID, a := range agg {
 		if a.count == 0 {
-			continue
-		}
-
-		// Increment cluster_size.
-		sizeSQL := fmt.Sprintf(
-			"UPDATE %s_%s_cluster_tree SET cluster_size = cluster_size + %d WHERE cluster_id = %d",
-			tbl, col, a.count, clusterID,
-		)
-
-		cSizeSQL := C.CString(sizeSQL)
-
-		if rc := C.sqlite3_exec(sdb, cSizeSQL, nil, nil, nil); rc != C.SQLITE_OK {
-			C.free(unsafe.Pointer(cSizeSQL))
-			slog.Error("goUpdateClusterStats: cluster_size update failed",
-				"table", tbl, "col", col, "cluster", clusterID, "rc", int(rc))
 			putFloat64Slice(a.sum)
 			continue
 		}
 
-		C.free(unsafe.Pointer(cSizeSQL))
+		// --- Step 1: read current centroid and cluster_size ---
+		C.sqlite3_reset(stmts.sel)
+		C.sqlite3_bind_int64(stmts.sel, 1, C.sqlite3_int64(clusterID))
 
-		// Read current centroid + (now-updated) size to recompute running mean.
-		fetchSQL := fmt.Sprintf(
-			"SELECT centroid_blob, cluster_size FROM %s_%s_cluster_tree WHERE cluster_id = %d",
-			tbl, col, clusterID,
-		)
+		centroidBlob := getEncodeBlob(blobSize)
+		centroidBlob[0] = VectorVersion1
+		centroidBlob[1] = VectorTypeFloat32
+		centroidBlob[2] = byte(dims)
+		centroidBlob[3] = byte(dims >> 8)
+		centroidBlob[4] = byte(dims >> 16)
+		centroidBlob[5] = byte(dims >> 24)
 
-		cFetchSQL := C.CString(fetchSQL)
-		var fetchStmt *C.sqlite3_stmt
-		rc2 := C.sqlite3_prepare_v2(sdb, cFetchSQL, -1, &fetchStmt, nil)
-		C.free(unsafe.Pointer(cFetchSQL))
+		// newCentroid is written directly into centroidBlob[6:] to avoid a
+		// separate float32 slice allocation.
+		newCentroid := unsafe.Slice((*float32)(unsafe.Pointer(&centroidBlob[6])), dims)
 
-		if rc2 != C.SQLITE_OK {
-			putFloat64Slice(a.sum)
-			continue
-		}
+		oldSize := 0
+		newSize := 0
 
-		var oldCentroid []float32
-		var newSize int
+		if C.sqlite3_step(stmts.sel) == C.SQLITE_ROW {
+			oldSize = int(C.sqlite3_column_int(stmts.sel, 1))
+			newSize = oldSize + a.count
 
-		if C.sqlite3_step(fetchStmt) == C.SQLITE_ROW {
-			blobPtr := C.sqlite3_column_blob(fetchStmt, 0)
-			blobLen := int(C.sqlite3_column_bytes(fetchStmt, 0))
-			newSize = int(C.sqlite3_column_int(fetchStmt, 1))
+			blobPtr := C.sqlite3_column_blob(stmts.sel, 0)
+			blobLen := int(C.sqlite3_column_bytes(stmts.sel, 0))
 
-			// Read centroid inline without C.GoBytes: interpret the SQLite blob
-			// pointer directly for the duration of this row fetch.
+			// Compute running mean while the SQLite row buffer (oldCentroid)
+			// is still live — i.e. before stmts.sel is reset below.
 			if blobLen > 6 && blobPtr != nil {
 				base := unsafe.Pointer(blobPtr)
 				version := *(*byte)(base)
@@ -486,74 +576,87 @@ func goUpdateClusterStats(
 					cdims := int(uint32(b2) | uint32(b3)<<8 | uint32(b4)<<16 | uint32(b5)<<24)
 
 					if cdims == dims && blobLen == 6+dims*4 {
+						// oldCentroid points into the SQLite row buffer; safe until
+						// stmts.sel is reset (which happens a few lines below).
 						dataPtr := unsafe.Pointer(uintptr(base) + 6)
-						// Point directly into the SQLite buffer; valid only
-						// until sqlite3_finalize below.
-						oldCentroid = unsafe.Slice((*float32)(dataPtr), dims)
+						oldCentroid := unsafe.Slice((*float32)(dataPtr), dims)
+
+						for j := 0; j < dims; j++ {
+							newCentroid[j] = (oldCentroid[j]*float32(oldSize) + float32(a.sum[j])) / float32(newSize)
+						}
+					} else {
+						for j := 0; j < dims; j++ {
+							newCentroid[j] = float32(a.sum[j]) / float32(newSize)
+						}
 					}
+				} else {
+					for j := 0; j < dims; j++ {
+						newCentroid[j] = float32(a.sum[j]) / float32(newSize)
+					}
+				}
+			} else {
+				for j := 0; j < dims; j++ {
+					newCentroid[j] = float32(a.sum[j]) / float32(newSize)
 				}
 			}
 		}
 
+		// Free the select row buffer before using the update statement.
+		C.sqlite3_reset(stmts.sel)
+
 		if newSize == 0 {
-			C.sqlite3_finalize(fetchStmt)
+			putEncodeBlob(centroidBlob)
 			putFloat64Slice(a.sum)
 			continue
 		}
 
-		// Running mean: new_centroid = (old * oldSize + sumOfNewVecs) / newSize
-		oldSize := newSize - a.count
-		blobSize := 6 + dims*4
-		centroidBlob := getEncodeBlob(blobSize)
+		// --- Step 2: write cluster_size and centroid_blob in one UPDATE ---
+		// Pass the centroid blob directly via unsafe.Pointer; SQLITE_TRANSIENT
+		// makes SQLite copy the data immediately, so no C.CBytes allocation needed.
+		C.sqlite3_reset(stmts.upd)
+		C.sqlite3_bind_int64(stmts.upd, 1, C.sqlite3_int64(newSize))
+		C.sqlite3_bind_blob(stmts.upd, 2, unsafe.Pointer(&centroidBlob[0]), C.int(blobSize), (*[0]byte)(C.SQLITE_TRANSIENT))
+		C.sqlite3_bind_int64(stmts.upd, 3, C.sqlite3_int64(clusterID))
 
-		// Write the vector blob header into the pooled buffer.
-		centroidBlob[0] = VectorVersion1
-		centroidBlob[1] = VectorTypeFloat32
-		centroidBlob[2] = byte(dims)
-		centroidBlob[3] = byte(dims >> 8)
-		centroidBlob[4] = byte(dims >> 16)
-		centroidBlob[5] = byte(dims >> 24)
-
-		// newCentroid is written directly into centroidBlob[6:] to avoid a
-		// separate float32 slice allocation.
-		newCentroid := unsafe.Slice((*float32)(unsafe.Pointer(&centroidBlob[6])), dims)
-
-		if len(oldCentroid) == dims {
-			for j := 0; j < dims; j++ {
-				newCentroid[j] = (oldCentroid[j]*float32(oldSize) + float32(a.sum[j])) / float32(newSize)
-			}
-		} else {
-			for j := 0; j < dims; j++ {
-				newCentroid[j] = float32(a.sum[j]) / float32(newSize)
-			}
+		if rc := C.sqlite3_step(stmts.upd); rc != C.SQLITE_DONE {
+			slog.Error("goUpdateClusterStats: cluster update failed",
+				"table", tbl, "col", col, "cluster", clusterID, "rc", int(rc))
 		}
 
-		// Finalize the fetch statement now that we have copied all data from
-		// the SQLite-owned buffer (oldCentroid slice above).
-		C.sqlite3_finalize(fetchStmt)
-
-		updateSQL := fmt.Sprintf(
-			"UPDATE %s_%s_cluster_tree SET centroid_blob = ? WHERE cluster_id = %d",
-			tbl, col, clusterID,
-		)
-
-		cUpdateSQL := C.CString(updateSQL)
-		var updateStmt *C.sqlite3_stmt
-
-		if C.sqlite3_prepare_v2(sdb, cUpdateSQL, -1, &updateStmt, nil) == C.SQLITE_OK {
-			cBlob := C.CBytes(centroidBlob)
-			C.sqlite3_bind_blob(updateStmt, 1, cBlob, C.int(len(centroidBlob)), (*[0]byte)(C.SQLITE_TRANSIENT))
-			C.sqlite3_step(updateStmt)
-			C.sqlite3_finalize(updateStmt)
-			C.free(cBlob)
-		}
-
-		C.free(unsafe.Pointer(cUpdateSQL))
 		putEncodeBlob(centroidBlob)
 		putFloat64Slice(a.sum)
 	}
 
 	return C.SQLITE_OK
+}
+
+// goFinalizeClusterStmts finalizes all cached prepared statements associated
+// with the given SQLite connection.  Called from the C-side xDisconnect handler
+// to prevent leaking VDBE objects after the connection closes.
+//
+//export goFinalizeClusterStmts
+func goFinalizeClusterStmts(db unsafe.Pointer) {
+	dbKey := uintptr(db)
+
+	clusterUpdateStmtCache.Range(func(k, v any) bool {
+		if k.(clusterStmtKey).db == dbKey {
+			stmts := v.(*clusterUpdateStmts)
+			C.sqlite3_finalize(stmts.sel)
+			C.sqlite3_finalize(stmts.upd)
+			clusterUpdateStmtCache.Delete(k)
+		}
+
+		return true
+	})
+
+	clusterTreeStmtCache.Range(func(k, v any) bool {
+		if k.(clusterStmtKey).db == dbKey {
+			C.sqlite3_finalize((*C.sqlite3_stmt)(v.(unsafe.Pointer)))
+			clusterTreeStmtCache.Delete(k)
+		}
+
+		return true
+	})
 }
 
 // goTriggerClusterSplits fires a goroutine to split oversized clusters after

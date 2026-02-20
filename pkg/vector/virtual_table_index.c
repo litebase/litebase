@@ -54,8 +54,7 @@ extern int goAssignVectorsInBatch(
     void **blobPtrs,
     int *blobLens,
     sqlite3_int64 *clusterIDsOut,
-    double *distancesOut
-);
+    double *distancesOut);
 
 // goUpdateClusterStats updates cluster_size and centroid_blob for the clusters
 // that received vectors in this batch.  Same connection, same transaction.
@@ -68,12 +67,16 @@ extern int goUpdateClusterStats(
     sqlite3_int64 *clusterIDs,
     int *counts,
     void **vectorSumBlobs,
-    int *sumBlobLens
-);
+    int *sumBlobLens);
 
 // goTriggerClusterSplits fires a goroutine to split oversized clusters after
 // the transaction commits (uses a separate connection).
 extern void goTriggerClusterSplits(char *databaseID, char *branchID, char *tableName);
+
+// goFinalizeClusterStmts finalizes all cached Go-side prepared statements
+// associated with the given SQLite connection.  Must be called from
+// xDisconnect to avoid leaking statement objects after the connection closes.
+extern void goFinalizeClusterStmts(sqlite3 *db);
 
 // Forward declarations for virtual table module callbacks
 int vector_index_create(sqlite3 *db, void *pAux, int argc, const char *const *argv, sqlite3_vtab **ppVtab, char **pzErr);
@@ -146,8 +149,8 @@ typedef struct vector_index_vtab
     int buffer_capacity; // Maximum buffer capacity
     int in_transaction;  // Flag to track if we're in a transaction
     // Cached prepared statements for batched operations, indexed by row count
-    sqlite3_stmt **batch_vectors_stmt;    // array length buffer_capacity+1
-    sqlite3_stmt ***batch_map_stmt;       // [col_idx][rows] arrays, each length buffer_capacity+1
+    sqlite3_stmt **batch_vectors_stmt; // array length buffer_capacity+1
+    sqlite3_stmt ***batch_map_stmt;    // [col_idx][rows] arrays, each length buffer_capacity+1
 } vector_index_vtab;
 
 // Vector index cursor structure
@@ -1597,6 +1600,10 @@ int vector_index_disconnect(sqlite3_vtab *pVtab)
         vtab->columns = NULL;
     }
 
+    // Finalize all cached Go-side prepared statements (cluster tree SELECT,
+    // cluster size/centroid UPDATE) before the connection is closed.
+    goFinalizeClusterStmts(vtab->db);
+
     sqlite3_free(vtab->table_name);
     sqlite3_free(vtab);
     return SQLITE_OK;
@@ -1774,26 +1781,12 @@ static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr)
     /* Reset cached stmt for reuse (do not finalize) */
     sqlite3_reset(stmt);
 
-    // Get the first and last inserted rowids
-    // For multi-row INSERT, last_insert_rowid() should give us the first rowid
-    sqlite3_int64 first_rowid = sqlite3_last_insert_rowid(vtab->db);
-
-    // Verify by getting the max ID (last inserted row)
-    // This is more reliable than assuming sequential IDs
-    sql = sqlite3_mprintf("SELECT MAX(id) FROM %s_vectors", vtab->table_name);
-    sqlite3_stmt *max_stmt;
-    rc = sqlite3_prepare_v2(vtab->db, sql, -1, &max_stmt, NULL);
-    sqlite3_free(sql);
-    if (rc == SQLITE_OK)
-    {
-        if (sqlite3_step(max_stmt) == SQLITE_ROW)
-        {
-            sqlite3_int64 last_rowid = sqlite3_column_int64(max_stmt, 0);
-            // Recalculate first_rowid from last_rowid
-            first_rowid = last_rowid - vtab->buffer_size + 1;
-        }
-        sqlite3_finalize(max_stmt);
-    }
+    // For a batched multi-row INSERT, sqlite3_last_insert_rowid returns the
+    // rowid of the last row inserted.  Rows receive sequential IDs, so the
+    // first rowid of this batch is simply last - buffer_size + 1.
+    // Using arithmetic here avoids a per-flush SELECT MAX(id) prepare+step.
+    sqlite3_int64 last_rowid = sqlite3_last_insert_rowid(vtab->db);
+    sqlite3_int64 first_rowid = last_rowid - vtab->buffer_size + 1;
 
     // Assign vectors to their correct leaf clusters inline using the same db
     // connection that owns this transaction.  goAssignVectorsInBatch reads the
@@ -1851,8 +1844,7 @@ static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr)
             blob_ptrs,
             blob_lens,
             cluster_ids,
-            distances
-        );
+            distances);
 
         // Use cached prepared statement for map insert per column and bind triplets
         sqlite3_stmt *map_stmt = NULL;
@@ -1904,8 +1896,7 @@ static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr)
             cluster_ids,
             blob_lens,
             blob_ptrs,
-            blob_lens
-        );
+            blob_lens);
 
         sqlite3_free(blob_ptrs);
         sqlite3_free(blob_lens);
