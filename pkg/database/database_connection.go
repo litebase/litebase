@@ -1077,6 +1077,12 @@ func (con *DatabaseConnection) Transaction(
 			if handlerError != nil {
 				slog.Error("Transaction handler error", "error", handlerError)
 
+				if !readOnly {
+					if abortErr := con.walManager.AbortTransaction(con.id, con.walTimestamp); abortErr != nil {
+						slog.Error("Error aborting WAL transaction:", "error", abortErr)
+					}
+				}
+
 				err = con.sqliteConnection().Rollback()
 
 				if err != nil {

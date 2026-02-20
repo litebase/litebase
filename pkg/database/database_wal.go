@@ -207,6 +207,32 @@ func (wal *DatabaseWAL) Delete() error {
 	return nil
 }
 
+// Abort aborts the current transaction, discarding any buffered writes without
+// flushing them to the WAL file. This must be called instead of End when the
+// SQLite transaction is being rolled back.
+func (wal *DatabaseWAL) Abort(connectionID string) error {
+	wal.mutex.Lock()
+	defer wal.mutex.Unlock()
+
+	if !wal.inTransaction {
+		return nil // Transaction already ended - this is okay
+	}
+
+	if wal.transactionConnectionId != connectionID {
+		return errors.New("connection does not own the active transaction")
+	}
+
+	// Discard buffered writes since the SQLite transaction is being rolled back.
+	if wal.txnBuffer != nil {
+		wal.txnBuffer.Discard()
+	}
+
+	wal.inTransaction = false
+	wal.transactionConnectionId = ""
+
+	return nil
+}
+
 // End ends the current transaction, flushing any buffered writes to the WAL file.
 func (wal *DatabaseWAL) End(connectionID string) error {
 	wal.mutex.Lock()

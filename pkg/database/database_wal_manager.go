@@ -257,6 +257,20 @@ func (w *DatabaseWALManager) EndTransaction(connectionID string, walTimestamp in
 	}
 }
 
+// AbortTransaction aborts the WAL transaction for the given connection, discarding
+// any buffered writes. This must be called when the SQLite transaction is rolled back
+// to ensure the WAL is left in a consistent state for future transactions.
+func (w *DatabaseWALManager) AbortTransaction(connectionID string, walTimestamp int64) error {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	if wal, err := w.Get(walTimestamp); err == nil {
+		return wal.Abort(connectionID)
+	} else {
+		return err
+	}
+}
+
 // Find a WAL file for the specified timestamp. The WAL file should have a
 // timestamp that is less than or equal to the specified timestamp
 func (w *DatabaseWALManager) Get(timestamp int64) (*DatabaseWAL, error) {
