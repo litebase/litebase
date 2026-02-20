@@ -163,7 +163,7 @@ func (q *QueryStatementIndex) Get(key string) ([]byte, bool) {
 		return nil, false
 	}
 
-	err = q.cache.Put(key, slices.Clone(value))
+	_, _, err = q.cache.Put(key, slices.Clone(value))
 
 	if err != nil {
 		slog.Error("Failed to put entry in cache", "error", err)
@@ -183,7 +183,7 @@ func (q *QueryStatementIndex) Set(key string, value string) error {
 		return err
 	}
 
-	err = q.cache.Put(key, []byte(value))
+	_, _, err = q.cache.Put(key, []byte(value))
 
 	if err != nil {
 		slog.Error("Failed to put entry in cache", "error", err)

@@ -10,13 +10,13 @@ func TestLFUCacheDelete(t *testing.T) {
 	c := cache.NewLFUCache(2)
 
 	// Add items to the cache
-	err := c.Put("key1", []byte("value1"))
+	_, _, err := c.Put("key1", []byte("value1"))
 
 	if err != nil {
 		t.Fatalf("Expected no error when adding item to cache, got: %v", err)
 	}
 
-	err = c.Put("key2", []byte("value2"))
+	_, _, err = c.Put("key2", []byte("value2"))
 
 	if err != nil {
 		t.Fatalf("Expected no error when adding item to cache, got: %v", err)
@@ -43,13 +43,13 @@ func TestLFUCache_PutAndGet(t *testing.T) {
 	c := cache.NewLFUCache(2)
 
 	// Add items to the cache
-	err := c.Put("key1", []byte("value1"))
+	_, _, err := c.Put("key1", []byte("value1"))
 
 	if err != nil {
 		t.Fatalf("Expected no error when adding item to cache, got: %v", err)
 	}
 
-	err = c.Put("key2", []byte("value2"))
+	_, _, err = c.Put("key2", []byte("value2"))
 
 	if err != nil {
 		t.Fatalf("Expected no error when adding item to cache, got: %v", err)
@@ -73,13 +73,13 @@ func TestLFUCache_EvictLeastFrequentlyUsed(t *testing.T) {
 	c := cache.NewLFUCache(2)
 
 	// Add items to the cache
-	err := c.Put("key1", []byte("value1"))
+	_, _, err := c.Put("key1", []byte("value1"))
 
 	if err != nil {
 		t.Fatalf("Expected no error when adding key1, got: %v", err)
 	}
 
-	err = c.Put("key2", []byte("value2"))
+	_, _, err = c.Put("key2", []byte("value2"))
 
 	if err != nil {
 		t.Fatalf("Expected no error when adding key2, got: %v", err)
@@ -89,7 +89,7 @@ func TestLFUCache_EvictLeastFrequentlyUsed(t *testing.T) {
 	c.Get("key1")
 
 	// Add a new item, causing eviction
-	err = c.Put("key3", []byte("value3"))
+	_, _, err = c.Put("key3", []byte("value3"))
 
 	if err != nil {
 		t.Fatalf("Expected no error when adding key3, got: %v", err)
@@ -120,14 +120,14 @@ func TestLFUCache_UpdateExistingKey(t *testing.T) {
 	c := cache.NewLFUCache(2)
 
 	// Add an item to the cache
-	err := c.Put("key1", []byte("value1"))
+	_, _, err := c.Put("key1", []byte("value1"))
 
 	if err != nil {
 		t.Fatalf("Expected no error when adding item to cache, got: %v", err)
 	}
 
 	// Update the value of the existing key
-	err = c.Put("key1", []byte("value1_updated"))
+	_, _, err = c.Put("key1", []byte("value1_updated"))
 
 	if err != nil {
 		t.Fatalf("Expected no error when updating item in cache, got: %v", err)
@@ -145,7 +145,7 @@ func TestLFUCache_CapacityZero(t *testing.T) {
 	c := cache.NewLFUCache(0)
 
 	// Attempt to add an item to the cache
-	err := c.Put("key1", []byte("value1"))
+	_, _, err := c.Put("key1", []byte("value1"))
 
 	if err != nil {
 		t.Fatalf("Expected no error when adding item to cache with capacity 0, got: %v", err)
@@ -163,13 +163,13 @@ func TestLFUCache_FrequencyUpdate(t *testing.T) {
 	c := cache.NewLFUCache(2)
 
 	// Add items to the cache
-	err := c.Put("key1", []byte("value1"))
+	_, _, err := c.Put("key1", []byte("value1"))
 
 	if err != nil {
 		t.Fatalf("Expected no error when adding item to cache, got: %v", err)
 	}
 
-	err = c.Put("key2", []byte("value2"))
+	_, _, err = c.Put("key2", []byte("value2"))
 
 	if err != nil {
 		t.Fatalf("Expected no error when adding item to cache, got: %v", err)
@@ -180,7 +180,7 @@ func TestLFUCache_FrequencyUpdate(t *testing.T) {
 	c.Get("key1")
 
 	// Add a new item, causing eviction
-	err = c.Put("key3", []byte("value3"))
+	_, _, err = c.Put("key3", []byte("value3"))
 
 	if err != nil {
 		t.Fatalf("Expected no error when adding key3, got: %v", err)

@@ -104,11 +104,11 @@ func (mc *ManagedLFUCache) Put(key any, value any) error {
 		return err
 	}
 
-	// Store in cache
-	err = mc.cache.Put(key, value)
+	// Store in cache; capture the evicted key (if any) so we can release its lease.
+	evicted, evictedKey, err := mc.cache.Put(key, value)
 
 	if err != nil {
-		// If cache put fails, release the lease
+		// If cache put fails, release the lease we just allocated.
 		releaseErr := mc.manager.Release(lease)
 
 		if releaseErr != nil {
@@ -116,6 +116,20 @@ func (mc *ManagedLFUCache) Put(key any, value any) error {
 		}
 
 		return err
+	}
+
+	// Release the memory lease for the item that was silently evicted by the
+	// LFU cache to make room for the new entry.  Without this the manager
+	// accumulates one unreleased lease per eviction, causing the LRU sort in
+	// Manager.evict to grow O(n) and eventually take hundreds of ms per write.
+	if evicted {
+		if evictedLease, exists := mc.leases[evictedKey]; exists {
+			if releaseErr := mc.manager.Release(evictedLease); releaseErr != nil {
+				slog.Warn("Failed to release evicted cache lease", "key", evictedKey, "error", releaseErr)
+			}
+
+			delete(mc.leases, evictedKey)
+		}
 	}
 
 	// Attach the cache key to the lease so the owner-level handler can find it

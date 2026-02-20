@@ -112,7 +112,9 @@ func (c *LFUCache) Get(key any) (any, bool) {
 }
 
 // Put adds an item to the cache.
-func (c *LFUCache) Put(key any, value any) error {
+// If an existing item is evicted to make room, its key is returned as evictedKey
+// with evicted=true so callers can release associated resources.
+func (c *LFUCache) Put(key any, value any) (evicted bool, evictedKey any, err error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -145,7 +147,7 @@ func (c *LFUCache) Put(key any, value any) error {
 		item.frequency++
 		heap.Fix(&c.pq, item.index)
 
-		return nil
+		return false, nil, nil
 	}
 
 	if len(c.items) >= c.capacity {
@@ -156,6 +158,7 @@ func (c *LFUCache) Put(key any, value any) error {
 				lfuBufferPool.Put(&evictedBuf)
 			}
 
+			deleted := lfuItem.key
 			delete(c.items, lfuItem.key)
 
 			// Return CacheItem to pool
@@ -163,6 +166,16 @@ func (c *LFUCache) Put(key any, value any) error {
 			lfuItem.value = nil
 			lfuItem.frequency = 0
 			lfuCacheItemPool.Put(lfuItem)
+
+			// Insert new item then return the evicted key.
+			newItem := lfuCacheItemPool.Get().(*CacheItem)
+			newItem.key = key
+			newItem.value = storedValue
+			newItem.frequency = 1
+			heap.Push(&c.pq, newItem)
+			c.items[key] = newItem
+
+			return true, deleted, nil
 		}
 	}
 
@@ -176,7 +189,7 @@ func (c *LFUCache) Put(key any, value any) error {
 
 	c.items[key] = newItem
 
-	return nil
+	return false, nil, nil
 }
 
 // DeleteIf removes all cache entries where predicate(key) returns true.
