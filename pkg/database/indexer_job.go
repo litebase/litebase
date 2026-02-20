@@ -808,6 +808,22 @@ func (vi *VectorIndexer) SplitOversizedClusters(ctx context.Context, columnName 
 
 // splitOversizedClusters checks all clusters and splits any that exceed MaxClusterSize
 func (vi *VectorIndexer) splitOversizedClusters(ctx context.Context, columnName string, distanceMetric int) error {
+	// Enlarge the per-connection page cache for the duration of cluster splitting.
+	// PRAGMA cache_size is connection-local and has no effect on WAL mode, other
+	// connections, or checkpoint behaviour.  Each splitCluster call runs a write
+	// transaction that repeatedly reads centroid blobs and updates cluster_tree
+	// rows; keeping those B-tree pages warm across iterations reduces VFS
+	// round-trips.  Restored unconditionally via defer.
+	if _, err := vi.DB.Exec("PRAGMA cache_size = -65536", nil); err != nil {
+		slog.Warn("splitOversizedClusters: could not set cache_size", "error", err)
+	}
+
+	defer func() {
+		if _, err := vi.DB.Exec("PRAGMA cache_size = 0", nil); err != nil {
+			slog.Warn("splitOversizedClusters: could not restore cache_size", "error", err)
+		}
+	}()
+
 	// Keep splitting until no oversized clusters remain
 	maxIterations := 10 // Prevent infinite loops
 

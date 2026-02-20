@@ -1933,6 +1933,15 @@ int vector_index_begin(sqlite3_vtab *pVtab)
 {
     vector_index_vtab *vtab = (vector_index_vtab *)pVtab;
     vtab->in_transaction = 1;
+
+    // Enlarge the per-connection page cache for the duration of the insert
+    // transaction.  PRAGMA cache_size is connection-local and has no effect on
+    // WAL mode, other connections, or checkpoint behaviour.  Keeping hot B-tree
+    // internal pages in memory across flush_insert_buffer batches reduces VFS
+    // round-trips per sqlite3_step.  Negative value = kibibytes (SQLite 3.7.10+).
+    // Restored to 0 in xCommit / xRollback.
+    sqlite3_exec(vtab->db, "PRAGMA cache_size = -65536", NULL, NULL, NULL);
+
     return SQLITE_OK;
 }
 
@@ -1967,6 +1976,10 @@ int vector_index_commit(sqlite3_vtab *pVtab)
         }
     }
 
+    // Restore page cache to 0 (disabled) so subsequent reads go through the
+    // distributed VFS layer as required by the normal connection configuration.
+    sqlite3_exec(vtab->db, "PRAGMA cache_size = 0", NULL, NULL, NULL);
+
     vtab->in_transaction = 0;
 
     // Trigger cluster splits AFTER the SQLite transaction commits so the write
@@ -1985,6 +1998,9 @@ int vector_index_commit(sqlite3_vtab *pVtab)
 int vector_index_rollback(sqlite3_vtab *pVtab)
 {
     vector_index_vtab *vtab = (vector_index_vtab *)pVtab;
+
+    // Restore page cache to 0 on rollback as well.
+    sqlite3_exec(vtab->db, "PRAGMA cache_size = 0", NULL, NULL, NULL);
 
     // Free buffered column values without flushing
     for (int i = 0; i < vtab->buffer_size; i++)
