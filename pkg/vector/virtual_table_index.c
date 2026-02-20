@@ -145,6 +145,9 @@ typedef struct vector_index_vtab
     int buffer_size;     // Current number of buffered inserts
     int buffer_capacity; // Maximum buffer capacity
     int in_transaction;  // Flag to track if we're in a transaction
+    // Cached prepared statements for batched operations, indexed by row count
+    sqlite3_stmt **batch_vectors_stmt;    // array length buffer_capacity+1
+    sqlite3_stmt ***batch_map_stmt;       // [col_idx][rows] arrays, each length buffer_capacity+1
 } vector_index_vtab;
 
 // Vector index cursor structure
@@ -157,6 +160,150 @@ typedef struct vector_index_cursor
 
 // Forward declaration for helper function (after typedef)
 static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr);
+
+// Prepare (and cache) a multi-row INSERT statement for the _vectors table
+static int prepare_batch_vector_stmt(vector_index_vtab *vtab, int rows, sqlite3_stmt **pStmt, char **pzErr)
+{
+    if (rows <= 0 || rows > vtab->buffer_capacity)
+    {
+        *pzErr = sqlite3_mprintf("Invalid batch rows: %d", rows);
+        return SQLITE_ERROR;
+    }
+
+    // Return cached if present
+    if (vtab->batch_vectors_stmt && vtab->batch_vectors_stmt[rows] != NULL)
+    {
+        *pStmt = vtab->batch_vectors_stmt[rows];
+        return SQLITE_OK;
+    }
+
+    // Build column list
+    char *col_list = sqlite3_mprintf("");
+    if (!col_list)
+    {
+        *pzErr = sqlite3_mprintf("Out of memory building col_list");
+        return SQLITE_NOMEM;
+    }
+    for (int i = 0; i < vtab->num_columns; i++)
+    {
+        char *new_col_list = sqlite3_mprintf("%s%s%s",
+                                             col_list,
+                                             (i > 0 ? ", " : ""),
+                                             vtab->columns[i].name);
+        sqlite3_free(col_list);
+        col_list = new_col_list;
+        if (!col_list)
+        {
+            *pzErr = sqlite3_mprintf("Out of memory building col_list");
+            return SQLITE_NOMEM;
+        }
+    }
+
+    int params_per_row = vtab->num_columns;
+    int values_size = rows * (params_per_row * 3 + 4);
+    char *values_clause = (char *)sqlite3_malloc(values_size);
+    if (!values_clause)
+    {
+        sqlite3_free(col_list);
+        *pzErr = sqlite3_mprintf("Out of memory building VALUES clause");
+        return SQLITE_NOMEM;
+    }
+
+    char *ptr = values_clause;
+    for (int i = 0; i < rows; i++)
+    {
+        if (i > 0)
+            ptr += sprintf(ptr, ",");
+        ptr += sprintf(ptr, "(");
+        for (int j = 0; j < params_per_row; j++)
+        {
+            if (j > 0)
+                ptr += sprintf(ptr, ",");
+            ptr += sprintf(ptr, "?");
+        }
+        ptr += sprintf(ptr, ")");
+    }
+
+    char *sql = sqlite3_mprintf(
+        "INSERT INTO %s_vectors (%s) VALUES %s",
+        vtab->table_name, col_list, values_clause);
+    sqlite3_free(col_list);
+    sqlite3_free(values_clause);
+
+    sqlite3_stmt *stmt = NULL;
+    int rc = sqlite3_prepare_v3(vtab->db, sql, -1, SQLITE_PREPARE_PERSISTENT, &stmt, NULL);
+    sqlite3_free(sql);
+    if (rc != SQLITE_OK)
+    {
+        *pzErr = sqlite3_mprintf("Failed to prepare batch insert: %s", sqlite3_errmsg(vtab->db));
+        return rc;
+    }
+
+    // Store in cache
+    if (vtab->batch_vectors_stmt)
+    {
+        vtab->batch_vectors_stmt[rows] = stmt;
+    }
+
+    *pStmt = stmt;
+    return SQLITE_OK;
+}
+
+// Prepare (and cache) a multi-row INSERT for a per-column cluster_vector_map table
+static int prepare_batch_map_stmt(vector_index_vtab *vtab, int col_idx, int rows, sqlite3_stmt **pStmt, char **pzErr)
+{
+    if (rows <= 0 || rows > vtab->buffer_capacity)
+    {
+        *pzErr = sqlite3_mprintf("Invalid batch rows for map: %d", rows);
+        return SQLITE_ERROR;
+    }
+
+    if (!vtab->batch_map_stmt || !vtab->batch_map_stmt[col_idx])
+    {
+        *pStmt = NULL;
+        return SQLITE_ERROR;
+    }
+
+    if (vtab->batch_map_stmt[col_idx][rows] != NULL)
+    {
+        *pStmt = vtab->batch_map_stmt[col_idx][rows];
+        return SQLITE_OK;
+    }
+
+    int values_size = rows * (3 * 3 + 4);
+    char *values_clause = (char *)sqlite3_malloc(values_size);
+    if (!values_clause)
+    {
+        *pzErr = sqlite3_mprintf("Out of memory building map VALUES clause");
+        return SQLITE_NOMEM;
+    }
+
+    char *ptr = values_clause;
+    for (int i = 0; i < rows; i++)
+    {
+        if (i > 0)
+            ptr += sprintf(ptr, ",");
+        ptr += sprintf(ptr, "(?, ?, ?)");
+    }
+
+    char *sql = sqlite3_mprintf(
+        "INSERT INTO %s_%s_cluster_vector_map (vector_id, cluster_id, distance) VALUES %s",
+        vtab->table_name, vtab->columns[col_idx].name, values_clause);
+    sqlite3_free(values_clause);
+
+    sqlite3_stmt *stmt = NULL;
+    int rc = sqlite3_prepare_v3(vtab->db, sql, -1, SQLITE_PREPARE_PERSISTENT, &stmt, NULL);
+    sqlite3_free(sql);
+    if (rc != SQLITE_OK)
+    {
+        *pzErr = sqlite3_mprintf("Failed to prepare batch map insert: %s", sqlite3_errmsg(vtab->db));
+        return rc;
+    }
+
+    vtab->batch_map_stmt[col_idx][rows] = stmt;
+    *pStmt = stmt;
+    return SQLITE_OK;
+}
 
 // Prepare cached statements for a vtab (helper)
 static int prepare_vtab_statements(vector_index_vtab *vtab, char **pzErr)
@@ -982,6 +1129,78 @@ int vector_index_create(
         sqlite3_free(vtab);
         return SQLITE_NOMEM;
     }
+    // Allocate cached prepared-statement arrays (indexed by row count)
+    vtab->batch_vectors_stmt = (sqlite3_stmt **)sqlite3_malloc(sizeof(sqlite3_stmt *) * (vtab->buffer_capacity + 1));
+    if (!vtab->batch_vectors_stmt)
+    {
+        sqlite3_free(vtab->insert_buffer);
+        if (vtab->insert_vector_stmt)
+            sqlite3_finalize(vtab->insert_vector_stmt);
+        if (vtab->upsert_map_stmt)
+            sqlite3_finalize(vtab->upsert_map_stmt);
+        if (vtab->delete_map_stmt)
+            sqlite3_finalize(vtab->delete_map_stmt);
+        if (vtab->inc_cluster_size_stmt)
+            sqlite3_finalize(vtab->inc_cluster_size_stmt);
+        sqlite3_free(vtab->table_name);
+        sqlite3_free(vtab);
+        return SQLITE_NOMEM;
+    }
+    for (int i = 0; i <= vtab->buffer_capacity; i++)
+        vtab->batch_vectors_stmt[i] = NULL;
+
+    vtab->batch_map_stmt = (sqlite3_stmt ***)sqlite3_malloc(sizeof(sqlite3_stmt **) * vtab->num_columns);
+    if (!vtab->batch_map_stmt)
+    {
+        sqlite3_free(vtab->batch_vectors_stmt);
+        sqlite3_free(vtab->insert_buffer);
+        if (vtab->insert_vector_stmt)
+            sqlite3_finalize(vtab->insert_vector_stmt);
+        if (vtab->upsert_map_stmt)
+            sqlite3_finalize(vtab->upsert_map_stmt);
+        if (vtab->delete_map_stmt)
+            sqlite3_finalize(vtab->delete_map_stmt);
+        if (vtab->inc_cluster_size_stmt)
+            sqlite3_finalize(vtab->inc_cluster_size_stmt);
+        sqlite3_free(vtab->table_name);
+        sqlite3_free(vtab);
+        return SQLITE_NOMEM;
+    }
+    for (int c = 0; c < vtab->num_columns; c++)
+    {
+        if (!vtab->columns[c].is_vector)
+        {
+            vtab->batch_map_stmt[c] = NULL;
+            continue;
+        }
+
+        vtab->batch_map_stmt[c] = (sqlite3_stmt **)sqlite3_malloc(sizeof(sqlite3_stmt *) * (vtab->buffer_capacity + 1));
+        if (!vtab->batch_map_stmt[c])
+        {
+            for (int k = 0; k < c; k++)
+            {
+                if (vtab->batch_map_stmt[k])
+                    sqlite3_free(vtab->batch_map_stmt[k]);
+            }
+            sqlite3_free(vtab->batch_map_stmt);
+            sqlite3_free(vtab->batch_vectors_stmt);
+            sqlite3_free(vtab->insert_buffer);
+            if (vtab->insert_vector_stmt)
+                sqlite3_finalize(vtab->insert_vector_stmt);
+            if (vtab->upsert_map_stmt)
+                sqlite3_finalize(vtab->upsert_map_stmt);
+            if (vtab->delete_map_stmt)
+                sqlite3_finalize(vtab->delete_map_stmt);
+            if (vtab->inc_cluster_size_stmt)
+                sqlite3_finalize(vtab->inc_cluster_size_stmt);
+            sqlite3_free(vtab->table_name);
+            sqlite3_free(vtab);
+            return SQLITE_NOMEM;
+        }
+        for (int r = 0; r <= vtab->buffer_capacity; r++)
+            vtab->batch_map_stmt[c][r] = NULL;
+    }
+
     vtab->buffer_size = 0;
     vtab->in_transaction = 0;
 
@@ -1192,6 +1411,78 @@ int vector_index_connect(
         sqlite3_free(vtab);
         return SQLITE_NOMEM;
     }
+    // Allocate cached prepared-statement arrays (indexed by row count)
+    vtab->batch_vectors_stmt = (sqlite3_stmt **)sqlite3_malloc(sizeof(sqlite3_stmt *) * (vtab->buffer_capacity + 1));
+    if (!vtab->batch_vectors_stmt)
+    {
+        sqlite3_free(vtab->insert_buffer);
+        if (vtab->insert_vector_stmt)
+            sqlite3_finalize(vtab->insert_vector_stmt);
+        if (vtab->upsert_map_stmt)
+            sqlite3_finalize(vtab->upsert_map_stmt);
+        if (vtab->delete_map_stmt)
+            sqlite3_finalize(vtab->delete_map_stmt);
+        if (vtab->inc_cluster_size_stmt)
+            sqlite3_finalize(vtab->inc_cluster_size_stmt);
+        sqlite3_free(vtab->table_name);
+        sqlite3_free(vtab);
+        return SQLITE_NOMEM;
+    }
+    for (int i = 0; i <= vtab->buffer_capacity; i++)
+        vtab->batch_vectors_stmt[i] = NULL;
+
+    vtab->batch_map_stmt = (sqlite3_stmt ***)sqlite3_malloc(sizeof(sqlite3_stmt **) * vtab->num_columns);
+    if (!vtab->batch_map_stmt)
+    {
+        sqlite3_free(vtab->batch_vectors_stmt);
+        sqlite3_free(vtab->insert_buffer);
+        if (vtab->insert_vector_stmt)
+            sqlite3_finalize(vtab->insert_vector_stmt);
+        if (vtab->upsert_map_stmt)
+            sqlite3_finalize(vtab->upsert_map_stmt);
+        if (vtab->delete_map_stmt)
+            sqlite3_finalize(vtab->delete_map_stmt);
+        if (vtab->inc_cluster_size_stmt)
+            sqlite3_finalize(vtab->inc_cluster_size_stmt);
+        sqlite3_free(vtab->table_name);
+        sqlite3_free(vtab);
+        return SQLITE_NOMEM;
+    }
+    for (int c = 0; c < vtab->num_columns; c++)
+    {
+        if (!vtab->columns[c].is_vector)
+        {
+            vtab->batch_map_stmt[c] = NULL;
+            continue;
+        }
+
+        vtab->batch_map_stmt[c] = (sqlite3_stmt **)sqlite3_malloc(sizeof(sqlite3_stmt *) * (vtab->buffer_capacity + 1));
+        if (!vtab->batch_map_stmt[c])
+        {
+            for (int k = 0; k < c; k++)
+            {
+                if (vtab->batch_map_stmt[k])
+                    sqlite3_free(vtab->batch_map_stmt[k]);
+            }
+            sqlite3_free(vtab->batch_map_stmt);
+            sqlite3_free(vtab->batch_vectors_stmt);
+            sqlite3_free(vtab->insert_buffer);
+            if (vtab->insert_vector_stmt)
+                sqlite3_finalize(vtab->insert_vector_stmt);
+            if (vtab->upsert_map_stmt)
+                sqlite3_finalize(vtab->upsert_map_stmt);
+            if (vtab->delete_map_stmt)
+                sqlite3_finalize(vtab->delete_map_stmt);
+            if (vtab->inc_cluster_size_stmt)
+                sqlite3_finalize(vtab->inc_cluster_size_stmt);
+            sqlite3_free(vtab->table_name);
+            sqlite3_free(vtab);
+            return SQLITE_NOMEM;
+        }
+        for (int r = 0; r <= vtab->buffer_capacity; r++)
+            vtab->batch_map_stmt[c][r] = NULL;
+    }
+
     vtab->buffer_size = 0;
     vtab->in_transaction = 0;
 
@@ -1262,6 +1553,36 @@ int vector_index_disconnect(sqlite3_vtab *pVtab)
     {
         sqlite3_finalize(vtab->inc_cluster_size_stmt);
         vtab->inc_cluster_size_stmt = NULL;
+    }
+
+    // Finalize and free cached batch prepared statements
+    if (vtab->batch_vectors_stmt)
+    {
+        for (int i = 0; i <= vtab->buffer_capacity; i++)
+        {
+            if (vtab->batch_vectors_stmt[i])
+                sqlite3_finalize(vtab->batch_vectors_stmt[i]);
+        }
+        sqlite3_free(vtab->batch_vectors_stmt);
+        vtab->batch_vectors_stmt = NULL;
+    }
+
+    if (vtab->batch_map_stmt)
+    {
+        for (int c = 0; c < vtab->num_columns; c++)
+        {
+            if (vtab->batch_map_stmt[c])
+            {
+                for (int r = 0; r <= vtab->buffer_capacity; r++)
+                {
+                    if (vtab->batch_map_stmt[c][r])
+                        sqlite3_finalize(vtab->batch_map_stmt[c][r]);
+                }
+                sqlite3_free(vtab->batch_map_stmt[c]);
+            }
+        }
+        sqlite3_free(vtab->batch_map_stmt);
+        vtab->batch_map_stmt = NULL;
     }
 
     // Free column definitions
@@ -1379,51 +1700,79 @@ static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr)
         ptr += sprintf(ptr, ")");
     }
 
-    sql = sqlite3_mprintf(
-        "INSERT INTO %s_vectors (%s) VALUES %s",
-        vtab->table_name, col_list, values_clause);
+    /* Free the locally-built column/values buffers before using cached prepared statements */
     sqlite3_free(col_list);
     sqlite3_free(values_clause);
 
-    sqlite3_stmt *stmt;
-    rc = sqlite3_prepare_v2(vtab->db, sql, -1, &stmt, NULL);
-    sqlite3_free(sql);
+    sqlite3_stmt *stmt = NULL;
+    rc = prepare_batch_vector_stmt(vtab, vtab->buffer_size, &stmt, pzErr);
     if (rc != SQLITE_OK)
     {
-        *pzErr = sqlite3_mprintf("Failed to prepare batch insert: %s", sqlite3_errmsg(vtab->db));
         return rc;
     }
+
+    sqlite3_reset(stmt);
+    sqlite3_clear_bindings(stmt);
 
     // Bind all parameters for all rows
     int param_idx = 1;
     for (int i = 0; i < vtab->buffer_size; i++)
     {
-        // Bind column values
         // Note: column_values[0] is the id column (from argv[2]), skip it
-        // column_values[1..n] are the user columns (from argv[3..n+2])
         for (int j = 0; j < vtab->num_columns; j++)
         {
             int col_values_idx = j + 1; // +1 to skip id column at index 0
 
             if (col_values_idx < vtab->insert_buffer[i].num_columns)
             {
-                sqlite3_bind_value(stmt, param_idx++, vtab->insert_buffer[i].column_values[col_values_idx]);
+                sqlite3_value *val = vtab->insert_buffer[i].column_values[col_values_idx];
+                int vtype = sqlite3_value_type(val);
+
+                switch (vtype)
+                {
+                case SQLITE_INTEGER:
+                    sqlite3_bind_int64(stmt, param_idx++, sqlite3_value_int64(val));
+                    break;
+                case SQLITE_FLOAT:
+                    sqlite3_bind_double(stmt, param_idx++, sqlite3_value_double(val));
+                    break;
+                case SQLITE_TEXT:
+                {
+                    const char *txt = (const char *)sqlite3_value_text(val);
+                    int len = sqlite3_value_bytes(val);
+                    sqlite3_bind_text(stmt, param_idx++, txt, len, SQLITE_STATIC);
+                    break;
+                }
+                case SQLITE_BLOB:
+                {
+                    const void *blob = sqlite3_value_blob(val);
+                    int blen = sqlite3_value_bytes(val);
+                    sqlite3_bind_blob(stmt, param_idx++, blob, blen, SQLITE_STATIC);
+                    break;
+                }
+                case SQLITE_NULL:
+                default:
+                    sqlite3_bind_null(stmt, param_idx++);
+                    break;
+                }
             }
             else
             {
-                // Column not provided, bind NULL
                 sqlite3_bind_null(stmt, param_idx++);
             }
         }
     }
 
     rc = sqlite3_step(stmt);
-    sqlite3_finalize(stmt);
     if (rc != SQLITE_DONE)
     {
         *pzErr = sqlite3_mprintf("Batch insert failed: %s", sqlite3_errmsg(vtab->db));
+        sqlite3_reset(stmt);
         return rc;
     }
+
+    /* Reset cached stmt for reuse (do not finalize) */
+    sqlite3_reset(stmt);
 
     // Get the first and last inserted rowids
     // For multi-row INSERT, last_insert_rowid() should give us the first rowid
@@ -1505,48 +1854,42 @@ static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr)
             distances
         );
 
-        // Build VALUES clause with actual cluster assignments (never cluster_id=0).
-        // Each row: (vector_id, cluster_id, distance) — ~80 chars worst case.
-        values_clause = (char *)sqlite3_malloc(vtab->buffer_size * 80 + 1);
-        if (!values_clause)
-        {
-            sqlite3_free(blob_ptrs);
-            sqlite3_free(blob_lens);
-            sqlite3_free(cluster_ids);
-            sqlite3_free(distances);
-            *pzErr = sqlite3_mprintf("Out of memory building map INSERT values");
-            return SQLITE_NOMEM;
-        }
-
-        ptr = values_clause;
-        for (int i = 0; i < vtab->buffer_size; i++)
-        {
-            if (i > 0)
-                ptr += sprintf(ptr, ",");
-            ptr += sprintf(ptr, "(%lld,%lld,%.17g)",
-                           (long long)(first_rowid + i),
-                           (long long)cluster_ids[i],
-                           distances[i]);
-        }
-        *ptr = '\0';
-
-        sql = sqlite3_mprintf(
-            "INSERT INTO %s_%s_cluster_vector_map (vector_id, cluster_id, distance) VALUES %s",
-            vtab->table_name, col_name, values_clause);
-        sqlite3_free(values_clause);
-
-        rc = sqlite3_exec(vtab->db, sql, NULL, NULL, &err_msg);
-        sqlite3_free(sql);
+        // Use cached prepared statement for map insert per column and bind triplets
+        sqlite3_stmt *map_stmt = NULL;
+        rc = prepare_batch_map_stmt(vtab, col_idx, vtab->buffer_size, &map_stmt, pzErr);
         if (rc != SQLITE_OK)
         {
             sqlite3_free(blob_ptrs);
             sqlite3_free(blob_lens);
             sqlite3_free(cluster_ids);
             sqlite3_free(distances);
-            *pzErr = sqlite3_mprintf("Batch map insert failed for column %s: %s", col_name, err_msg);
-            sqlite3_free(err_msg);
             return rc;
         }
+
+        sqlite3_reset(map_stmt);
+        sqlite3_clear_bindings(map_stmt);
+
+        int map_param_idx = 1;
+        for (int i = 0; i < vtab->buffer_size; i++)
+        {
+            sqlite3_bind_int64(map_stmt, map_param_idx++, first_rowid + i);
+            sqlite3_bind_int64(map_stmt, map_param_idx++, cluster_ids[i]);
+            sqlite3_bind_double(map_stmt, map_param_idx++, distances[i]);
+        }
+
+        rc = sqlite3_step(map_stmt);
+        if (rc != SQLITE_DONE)
+        {
+            sqlite3_reset(map_stmt);
+            sqlite3_free(blob_ptrs);
+            sqlite3_free(blob_lens);
+            sqlite3_free(cluster_ids);
+            sqlite3_free(distances);
+            *pzErr = sqlite3_mprintf("Batch map insert failed for column %s: %s", col_name, sqlite3_errmsg(vtab->db));
+            return rc;
+        }
+
+        sqlite3_reset(map_stmt);
 
         // ---- Cluster stats (size + centroid) update ----
         // Pass per-row cluster IDs and blob data to Go; it will aggregate
