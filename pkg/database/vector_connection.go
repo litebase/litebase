@@ -111,16 +111,11 @@ func ExecuteChunkScan(job *VectorChunkJob) (*VectorChunkResult, error) {
 	}
 
 	// Get a pooled result object to reuse memory allocations
-	result := conn.GetConnection().ResultPool().Get()
-	defer conn.GetConnection().ResultPool().Put(result)
 
 	// Process chunk in batches, streaming heaps to central processor
 	for batchStart := job.StartRow; batchStart <= job.EndRow; batchStart += batchSize {
-		batchEnd := batchStart + batchSize - 1
-
-		if batchEnd > job.EndRow {
-			batchEnd = job.EndRow
-		}
+		result := conn.GetConnection().ResultPool().Get()
+		batchEnd := min(batchStart+batchSize-1, job.EndRow)
 
 		// Execute batch query
 		err = stmt.Sqlite3Statement.Exec(result,
@@ -202,6 +197,7 @@ func ExecuteChunkScan(job *VectorChunkJob) (*VectorChunkResult, error) {
 
 		// Clear result for next batch to avoid memory buildup
 		result.Rows = nil
+		conn.GetConnection().ResultPool().Put(result)
 	}
 
 	// Return empty result (actual results streamed via StreamChan)
