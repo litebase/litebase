@@ -69,9 +69,10 @@ extern int goUpdateClusterStats(
     void **vectorSumBlobs,
     int *sumBlobLens);
 
-// goTriggerClusterSplits fires a goroutine to split oversized clusters after
-// the transaction commits (uses a separate connection).
-extern void goTriggerClusterSplits(char *databaseID, char *branchID, char *tableName);
+// goTriggerClusterSplits schedules cluster splits on the same connection as a
+// post-commit hook, so the warm page cache is reused.  The dbPtr is the
+// sqlite3* pointer used to correlate the C callback with the Go connection.
+extern void goTriggerClusterSplits(char *databaseID, char *branchID, char *tableName, uintptr_t dbPtr);
 
 // goFinalizeClusterStmts finalizes all cached Go-side prepared statements
 // associated with the given SQLite connection.  Must be called from
@@ -1983,12 +1984,12 @@ int vector_index_commit(sqlite3_vtab *pVtab)
     vtab->in_transaction = 0;
 
     // Trigger cluster splits AFTER the SQLite transaction commits so the write
-    // lock has been released.  This prevents the split goroutine from blocking
-    // in CompactionPassiveBarrier while waiting for a lock held by this commit.
+    // lock has been released.  Splits are scheduled as a post-commit hook on
+    // the same connection to reuse the warm page cache.
     VectorIndexContext *ctx = (VectorIndexContext *)vtab->pAux;
     if (ctx && ctx->databaseID && ctx->branchID)
     {
-        goTriggerClusterSplits(ctx->databaseID, ctx->branchID, vtab->table_name);
+        goTriggerClusterSplits(ctx->databaseID, ctx->branchID, vtab->table_name, (uintptr_t)vtab->db);
     }
 
     return SQLITE_OK;

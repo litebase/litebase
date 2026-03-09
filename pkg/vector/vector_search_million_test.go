@@ -16,8 +16,24 @@ import (
 )
 
 func TestVectorSearchWithMillionVectors(t *testing.T) {
+	runVectorSearchWithMillionVectors(t, 128)
+}
+
+func TestVectorSearchWithMillionVectors1536Dimensions(t *testing.T) {
+	runVectorSearchWithMillionVectors(t, 1536)
+}
+
+func TestVectorSearchWithMillionVectors3072Dimensions(t *testing.T) {
+	runVectorSearchWithMillionVectors(t, 3072)
+}
+
+// runVectorSearchWithMillionVectors executes the 1M vector index and ANN query
+// benchmark-style integration test for a given embedding dimension.
+func runVectorSearchWithMillionVectors(t *testing.T, dimensions int) {
+	t.Helper()
+
 	if testing.Short() {
-		t.Skip("Skipping million-vector test in short mode")
+		t.Skipf("Skipping million-vector test in short mode (dimensions=%d)", dimensions)
 	}
 
 	test.RunWithApp(t, func(app *server.App) {
@@ -34,21 +50,28 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 		dbConn := conn.GetConnection()
 
 		// Create vector index table
-		_, err = dbConn.Exec(`
+		createSQL := fmt.Sprintf(`
 			CREATE VIRTUAL TABLE embeddings USING vector_index(
 				vector BLOB,
-				dimensions=128,
+				dimensions=%d,
 				distance_metric=0,
 				max_cluster_size=5000,
 				min_cluster_size=200
 			)
-		`, nil)
+		`, dimensions)
+
+		createRes, err := dbConn.Exec(createSQL, nil)
+
+		if createRes != nil {
+			dbConn.ResultPool().Put(createRes)
+		}
 
 		if err != nil {
 			t.Fatalf("Failed to create vector index: %v", err)
 		}
 
-		cpuProfileFile, err := os.Create("cpu_profile.prof")
+		cpuProfileFileName := fmt.Sprintf("cpu_profile_dim_%d.prof", dimensions)
+		cpuProfileFile, err := os.Create(cpuProfileFileName)
 		if err != nil {
 			t.Fatalf("Failed to create CPU profile file: %v", err)
 		}
@@ -59,7 +82,8 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 			pprof.StopCPUProfile()
 		}()
 
-		memprofileFile, err := os.Create("mem_profile.prof")
+		memProfileFileName := fmt.Sprintf("mem_profile_dim_%d.prof", dimensions)
+		memprofileFile, err := os.Create(memProfileFileName)
 		if err != nil {
 			t.Fatalf("Failed to create memory profile file: %v", err)
 		}
@@ -81,7 +105,6 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 			// Indexing: 100k batches, 10 batches total, ~15s per batch = 150s
 			// Total: ~3 minutes (well under 5 min limit)
 			totalVectors      = 1000000
-			dimensions        = 128
 			generateBatchSize = 10000 // How many vectors to generate at once
 			insertBatchSize   = 10000 // Increased for speed
 			k                 = 10    // Number of nearest neighbors to return
@@ -113,7 +136,7 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 		var vectorGenTime, insertTime time.Duration
 		insertedCount := 0
 
-		// Use Transaction wrapper to ensure setTimestamps() is called properly
+		// Use a single Transaction for all inserts.
 		err = dbConn.Transaction(false, func(txConn *database.DatabaseConnection) error {
 			for batch := range totalVectors / generateBatchSize {
 				// Generate vectors using the iterator which also returns
@@ -224,14 +247,17 @@ func TestVectorSearchWithMillionVectors(t *testing.T) {
 		// It would take 6+ seconds and we need to complete test in <5 minutes
 		t.Logf("⚠ Skipping baseline brute-force search (1M vectors, would exceed test timeout)")
 
-		// With inline cluster assignment (no cluster_id=0), vectors are already in the
-		// correct clusters.  goTriggerClusterSplits fires from xCommit (after the transaction
-		// committed) so split goroutines may still be running.  Wait up to 3 minutes for the
-		// cluster tree to converge to multiple leaf clusters (max_cluster_size=5000).
-		t.Logf("Waiting for cluster splits to converge (max_cluster_size=5000, 1M vectors → ~200 leaf clusters)...")
+		// Splits run automatically via post-commit hooks in Transaction().
+		// After the insert transaction committed, xCommit registered a
+		// hook via goTriggerClusterSplits that ran splits on the same
+		// warm-cache connection. Poll to confirm convergence.
 		splitStart := time.Now()
-		maxWaitTime := 3 * time.Minute
-		checkInterval := 2 * time.Second
+		t.Logf("Waiting for transparent post-commit splits to converge...")
+
+		// Allow any remaining background split goroutines to finish and then
+		// poll briefly to confirm convergence.
+		maxWaitTime := 30 * time.Second
+		checkInterval := 500 * time.Millisecond
 		pollIteration := 0
 
 		for {

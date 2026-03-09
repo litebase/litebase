@@ -20,6 +20,8 @@ import (
 	"log/slog"
 	"sync"
 	"unsafe"
+
+	"github.com/litebase/litebase/internal/utils"
 )
 
 // clusterStmtKey identifies a cached prepared-statement entry by SQLite
@@ -659,18 +661,28 @@ func goFinalizeClusterStmts(db unsafe.Pointer) {
 	})
 }
 
-// goTriggerClusterSplits fires a goroutine to split oversized clusters after
-// the current transaction commits.  Uses the VectorIndexManager's inline path
-// which obtains its own connection.
+// goTriggerClusterSplits registers a post-commit hook that will run cluster
+// splits on the same connection that just committed.  The hook is executed by
+// DatabaseConnection.Transaction() (or Exec() in auto-commit mode) after the
+// SQLite commit completes and barriers are released, so the page cache is
+// still warm from the insert transaction.
+//
+// The dbPtr is the sqlite3* pointer from the C vtab, used to correlate this
+// callback with the Go DatabaseConnection that owns the pointer.
 //
 //export goTriggerClusterSplits
-func goTriggerClusterSplits(databaseID, branchID, tableName *C.char) {
+func goTriggerClusterSplits(databaseID, branchID, tableName *C.char, dbPtr C.uintptr_t) {
 	mgr := GetGlobalIndexManager()
 
-	if mgr != nil {
-		db := C.GoString(databaseID)
-		br := C.GoString(branchID)
-		tbl := C.GoString(tableName)
-		go mgr.RunSplits(db, br, tbl)
+	if mgr == nil {
+		return
 	}
+
+	db := C.GoString(databaseID)
+	br := C.GoString(branchID)
+	tbl := C.GoString(tableName)
+
+	utils.RegisterPostCommitHook(uintptr(dbPtr), func(conn any) {
+		mgr.RunSplitsWithConnection(conn, db, br, tbl)
+	})
 }

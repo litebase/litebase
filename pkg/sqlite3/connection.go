@@ -253,6 +253,13 @@ func (c *Connection) Commit() error {
 	return nil
 }
 
+// DBPointer returns the raw sqlite3* pointer as a uintptr, suitable for use
+// as a map key to correlate C-level callbacks (e.g. xCommit) with the Go
+// connection wrapper.
+func (c *Connection) DBPointer() uintptr {
+	return uintptr(unsafe.Pointer(c.sqlite3))
+}
+
 func (c *Connection) Error(code int) error {
 	if code >= 10000 {
 		return constants.ErrorFromCode(code)

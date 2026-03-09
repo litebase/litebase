@@ -33,6 +33,10 @@ func getVectorColumns(db *DatabaseConnection, tableName string) ([]VectorColumnI
 		nil,
 	)
 
+	if res != nil {
+		defer db.ResultPool().Put(res)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to query metadata: %w", err)
 	}
@@ -296,26 +300,11 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 				return fmt.Errorf("failed to query vectors in cluster 0: %w", err)
 			}
 
-			slog.Debug("Queried cluster 0 vectors",
-				"table", vi.TableName,
-				"column", colInfo.Name,
-				"batch_size", colBatchSize,
-				"found", foundCount)
-
-			// Diagnostic logging to help debug stalled processing: report scanned vs assigned
-			assignCount := len(assignments)
 			totalDelta := 0
 
 			for _, d := range clusterSizeDeltas {
 				totalDelta += d
 			}
-
-			slog.Info("Indexer batch summary",
-				"table", vi.TableName,
-				"column", colInfo.Name,
-				"scanned_rows", foundCount,
-				"assignments", assignCount,
-				"cluster_size_deltas", totalDelta)
 
 			if foundCount == 0 {
 				// No vectors to reassign
@@ -375,7 +364,11 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 					qbldr.WriteString("_cluster_vector_map (vector_id, cluster_id, distance) VALUES ")
 					qbldr.WriteString(vbldr.String())
 
-					_, err := db.Exec(qbldr.String(), params)
+					insRes, err := db.Exec(qbldr.String(), params)
+
+					if insRes != nil {
+						db.ResultPool().Put(insRes)
+					}
 
 					if err != nil {
 						return err
@@ -440,13 +433,17 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 				uqb.WriteString(colInfo.Name)
 				uqb.WriteString("_cluster_tree SET centroid_blob = ? WHERE cluster_id = ?")
 
-				_, err = db.Exec(
+				updRes, err := db.Exec(
 					uqb.String(),
 					[]sqlite3.StatementParameter{
 						{Type: sqlite3.ParameterTypeBlob, Value: centroidBlob},
 						{Type: sqlite3.ParameterTypeInteger, Value: clusterID},
 					},
 				)
+
+				if updRes != nil {
+					db.ResultPool().Put(updRes)
+				}
 
 				if err != nil {
 					slog.Error("Failed to update centroid", "cluster", clusterID, "error", err)
@@ -484,22 +481,10 @@ func (vi *VectorIndexer) ProcessBatch(ctx context.Context, batchSize int) (int, 
 			default:
 			}
 
-			slog.Info("Checking for oversized clusters after batch",
-				"table", vi.TableName,
-				"column", colInfo.Name,
-				"processed", processed,
-				"max_cluster_size", vi.MaxClusterSize)
-
 			if err := vi.splitOversizedClusters(ctx, colInfo.Name, colInfo.DistanceMetric); err != nil {
 				slog.Error("Failed to split oversized clusters", "column", colInfo.Name, "error", err)
 				// Don't fail the batch - splitting can be retried later
 			}
-		} else {
-			slog.Debug("Skipping cluster splitting",
-				"table", vi.TableName,
-				"column", colInfo.Name,
-				"processed", processed,
-				"max_cluster_size", vi.MaxClusterSize)
 		}
 	}
 
@@ -520,6 +505,10 @@ func (vi *VectorIndexer) loadClusterTree(db *DatabaseConnection, columnName stri
 		treeQB.String(),
 		nil,
 	)
+
+	if res != nil {
+		defer db.ResultPool().Put(res)
+	}
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to query cluster tree: %w", err)
@@ -668,6 +657,10 @@ func (vi *VectorIndexer) getOrCreateRootCluster(db *DatabaseConnection, columnNa
 		nil,
 	)
 
+	if res != nil {
+		defer db.ResultPool().Put(res)
+	}
+
 	if err == nil && len(res.Rows) > 0 {
 		return res.Rows[0][0].Int64(), nil
 	}
@@ -721,13 +714,17 @@ func (vi *VectorIndexer) updateClusterSize(db *DatabaseConnection, columnName st
 	qb.WriteString(columnName)
 	qb.WriteString("_cluster_tree SET cluster_size = cluster_size + ? WHERE cluster_id = ?")
 
-	_, err := db.Exec(
+	res, err := db.Exec(
 		qb.String(),
 		[]sqlite3.StatementParameter{
 			{Type: sqlite3.ParameterTypeInteger, Value: int64(delta)},
 			{Type: sqlite3.ParameterTypeInteger, Value: clusterID},
 		},
 	)
+
+	if res != nil {
+		db.ResultPool().Put(res)
+	}
 
 	return err
 }
@@ -748,6 +745,10 @@ func (vi *VectorIndexer) getClusterCentroid(db *DatabaseConnection, columnName s
 			{Type: sqlite3.ParameterTypeInteger, Value: clusterID},
 		},
 	)
+
+	if res != nil {
+		defer db.ResultPool().Put(res)
+	}
 
 	if err != nil || len(res.Rows) == 0 {
 		return nil, 0, fmt.Errorf("cluster not found")
@@ -814,12 +815,24 @@ func (vi *VectorIndexer) splitOversizedClusters(ctx context.Context, columnName 
 	// transaction that repeatedly reads centroid blobs and updates cluster_tree
 	// rows; keeping those B-tree pages warm across iterations reduces VFS
 	// round-trips.  Restored unconditionally via defer.
-	if _, err := vi.DB.Exec("PRAGMA cache_size = -65536", nil); err != nil {
-		slog.Warn("splitOversizedClusters: could not set cache_size", "error", err)
+	pragmaSetRes, pragmaSetErr := vi.DB.Exec("PRAGMA cache_size = -65536", nil)
+
+	if pragmaSetRes != nil {
+		vi.DB.ResultPool().Put(pragmaSetRes)
+	}
+
+	if pragmaSetErr != nil {
+		slog.Warn("splitOversizedClusters: could not set cache_size", "error", pragmaSetErr)
 	}
 
 	defer func() {
-		if _, err := vi.DB.Exec("PRAGMA cache_size = 0", nil); err != nil {
+		res, err := vi.DB.Exec("PRAGMA cache_size = 0", nil)
+
+		if res != nil {
+			vi.DB.ResultPool().Put(res)
+		}
+
+		if err != nil {
 			slog.Warn("splitOversizedClusters: could not restore cache_size", "error", err)
 		}
 	}()
@@ -859,54 +872,47 @@ func (vi *VectorIndexer) splitOversizedClusters(ctx context.Context, columnName 
 		)
 
 		if err != nil {
+			if res != nil {
+				vi.DB.ResultPool().Put(res)
+			}
+
 			return err
 		}
 
-		if len(res.Rows) == 0 {
-			if iteration > 0 {
-				slog.Info("Cluster splitting converged",
-					"table", vi.TableName,
-					"column", columnName,
-					"iterations", iteration,
-					"max_size", vi.MaxClusterSize)
-			}
+		// Extract cluster info before returning the result to the pool.
+		// Row data becomes invalid after Put (Reset releases Column objects).
+		type oversizedCluster struct {
+			id   int64
+			size int
+		}
 
+		oversized := make([]oversizedCluster, len(res.Rows))
+
+		for i, row := range res.Rows {
+			oversized[i] = oversizedCluster{row[0].Int64(), int(row[1].Int64())}
+		}
+
+		vi.DB.ResultPool().Put(res)
+
+		if len(oversized) == 0 {
 			return nil // No more clusters need splitting
 		}
 
-		slog.Info("Splitting oversized clusters",
-			"table", vi.TableName,
-			"column", columnName,
-			"iteration", iteration+1,
-			"count", len(res.Rows),
-			"max_size", vi.MaxClusterSize)
-
 		splitSucceeded := false
 
-		for _, row := range res.Rows {
+		for _, oc := range oversized {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
 			default:
 			}
 
-			clusterID := row[0].Int64()
-			clusterSize := int(row[1].Int64())
+			clusterID := oc.id
 
 			// Skip clusters we've already attempted in this call
 			if attemptedSplits[clusterID] {
-				slog.Debug("Skipping already-attempted cluster split",
-					"column", columnName,
-					"cluster_id", clusterID,
-					"size", clusterSize)
 				continue
 			}
-
-			slog.Debug("Splitting cluster",
-				"column", columnName,
-				"cluster_id", clusterID,
-				"size", clusterSize,
-				"max_size", vi.MaxClusterSize)
 
 			attemptedSplits[clusterID] = true
 
@@ -939,9 +945,18 @@ func (vi *VectorIndexer) splitOversizedClusters(ctx context.Context, columnName 
 
 // splitCluster splits a single cluster into k child clusters using distance-based quantile split.
 //
+// The operation is split into three phases to minimize write-lock hold time:
+//
+//   - Phase 1 (read-only tx): Fetch cluster info and all vectors. Uses BEGIN DEFERRED
+//     so concurrent writers (e.g. insert transactions) are not blocked.
+//   - Phase 2 (no tx): Compute assignments and centroids in-memory.
+//   - Phase 3 (write tx): Apply the split — create children, reassign vectors, update stats.
+//     Uses BEGIN IMMEDIATE but holds the write lock only for the short write phase.
+//
+// This separation allows split reads to overlap with insert transactions, reducing
+// end-to-end latency when inserts and splits run concurrently.
+//
 // Performance notes:
-//   - The entire operation runs in a single write transaction to avoid two
-//     BEGIN/COMMIT + barrier lock round-trips.
 //   - Vector float32 slices are taken from splitVecPool and returned after use.
 //   - The INSERT OR REPLACE batch SQL and UPDATE CASE WHEN for cluster sizes are
 //     built once per call, not once per inner loop iteration.
@@ -984,20 +999,31 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 		ORDER BY IFNULL(m.distance, 0.0) ASC
 		LIMIT 100000`
 
-	// All work happens in a single write transaction: we read the cluster info,
-	// fetch its vectors, compute centroids, and write the split results without
-	// ever releasing the write lock between phases. This eliminates one full
-	// BEGIN IMMEDIATE + COMMIT + barrier cycle compared to two separate
-	// transactions, and also guarantees that no concurrent writer can modify this
-	// cluster between the read and write phases.
-	return vi.DB.Transaction(false, func(db *DatabaseConnection) error {
-		// Verify cluster is still a leaf and get its current size atomically.
+	// ---- Phase 1: Read-only transaction — fetch cluster info and vectors ----
+	// Uses BEGIN DEFERRED so no write lock is held, allowing concurrent inserts
+	// to proceed while we read the (potentially large) vector data from WAL.
+	type vecEntry struct {
+		id       int64
+		distance float64
+		vector   []float32
+	}
+
+	var vectors []vecEntry
+	var clusterSize int64
+	var isLeaf bool
+
+	readErr := vi.DB.Transaction(true, func(db *DatabaseConnection) error {
+		// Read cluster info
 		res, err := db.Exec(
 			infoSQL,
 			[]sqlite3.StatementParameter{
 				{Type: sqlite3.ParameterTypeInteger, Value: clusterID},
 			},
 		)
+
+		if res != nil {
+			defer db.ResultPool().Put(res)
+		}
 
 		if err != nil {
 			return fmt.Errorf("failed to get cluster info: %w", err)
@@ -1007,39 +1033,19 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 			return fmt.Errorf("cluster_id %d not found", clusterID)
 		}
 
-		clusterSize := res.Rows[0][0].Int64()
-		isLeaf := res.Rows[0][1].Int64() != 0
+		clusterSize = res.Rows[0][0].Int64()
+		isLeaf = res.Rows[0][1].Int64() != 0
 
 		// Skip if already split (not a leaf anymore).
 		if !isLeaf {
-			slog.Info("Cluster already split, skipping",
-				"cluster_id", clusterID,
-				"column", columnName)
 			return nil
 		}
-
-		// Calculate optimal k: enough children to keep each near MaxClusterSize.
-		// Don't clamp to 16 — we'll handle >16 children by splitting the internal node.
-		k := max(int(math.Ceil(float64(clusterSize)/float64(vi.MaxClusterSize))), 2)
-
-		slog.Debug("Splitting cluster",
-			"cluster_id", clusterID,
-			"column", columnName,
-			"size", clusterSize,
-			"k", k,
-			"max_cluster_size", vi.MaxClusterSize)
 
 		// Fetch vectors for this cluster using ExecStream to avoid buffering all rows.
 		// Each vector's float32 slice is allocated from splitVecPool and returned
 		// after centroid computation to reduce GC pressure.
-		type vecEntry struct {
-			id       int64
-			distance float64
-			vector   []float32
-		}
-
 		expectedSize := min(int(clusterSize), 100000)
-		vectors := make([]vecEntry, 0, expectedSize)
+		vectors = make([]vecEntry, 0, expectedSize)
 
 		rowCount := 0
 
@@ -1090,78 +1096,128 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 			},
 		)
 
-		if err != nil {
-			return err
-		}
+		return err
+	})
 
-		if rowCount < k*2 {
-			// Not enough vectors to split meaningfully; return pooled slices.
-			for _, v := range vectors {
-				putSplitVec(v.vector)
-			}
-			return nil
-		}
+	if readErr != nil {
+		return readErr
+	}
 
-		// Split vectors by distance into k equal-sized quantiles (B+ tree style).
-		// Vectors are already sorted by distance from closest to furthest.
-		vectorsPerChild := len(vectors) / k
-		assignments := make([]int, len(vectors))
+	// Early exit if not a leaf (already split by another goroutine).
+	if !isLeaf {
+		return nil
+	}
 
-		for i := range vectors {
-			childIdx := i / vectorsPerChild
+	// ---- Phase 2: In-memory computation — no transaction needed ----
+	// Calculate optimal k: enough children to keep each near MaxClusterSize.
+	// Don't clamp to 16 — we'll handle >16 children by splitting the internal node.
+	k := max(int(math.Ceil(float64(clusterSize)/float64(vi.MaxClusterSize))), 2)
 
-			// Assign remainder vectors to the last child.
-			if childIdx >= k {
-				childIdx = k - 1
-			}
-
-			assignments[i] = childIdx
-		}
-
-		// Compute centroids for each child cluster.
-		// Use float64 accumulators to reduce rounding error on large clusters.
-		childCentroids := make([][]float32, k)
-
-		for i := range k {
-			acc := getSplitVec64(dimensions)
-			count := 0
-
-			for j, v := range vectors {
-				if assignments[j] == i {
-					for dim, val := range v.vector {
-						acc[dim] += float64(val)
-					}
-					count++
-				}
-			}
-
-			centroid := make([]float32, dimensions)
-
-			if count > 0 {
-				invCount := 1.0 / float64(count)
-
-				for dim := range centroid {
-					centroid[dim] = float32(acc[dim] * invCount)
-				}
-			}
-
-			putSplitVec64(acc)
-			childCentroids[i] = centroid
-		}
-
-		// Return pooled vector slices now that centroid computation is done.
+	if len(vectors) < k*2 {
+		// Not enough vectors to split meaningfully; return pooled slices.
 		for _, v := range vectors {
 			putSplitVec(v.vector)
 		}
 
+		return nil
+	}
+
+	// Split vectors by distance into k equal-sized quantiles (B+ tree style).
+	// Vectors are already sorted by distance from closest to furthest.
+	vectorsPerChild := len(vectors) / k
+	assignments := make([]int, len(vectors))
+
+	for i := range vectors {
+		childIdx := i / vectorsPerChild
+
+		// Assign remainder vectors to the last child.
+		if childIdx >= k {
+			childIdx = k - 1
+		}
+
+		assignments[i] = childIdx
+	}
+
+	// Compute centroids for each child cluster.
+	// Use float64 accumulators to reduce rounding error on large clusters.
+	childCentroids := make([][]float32, k)
+
+	for i := range k {
+		acc := getSplitVec64(dimensions)
+		count := 0
+
+		for j, v := range vectors {
+			if assignments[j] == i {
+				for dim, val := range v.vector {
+					acc[dim] += float64(val)
+				}
+
+				count++
+			}
+		}
+
+		centroid := make([]float32, dimensions)
+
+		if count > 0 {
+			invCount := 1.0 / float64(count)
+
+			for dim := range centroid {
+				centroid[dim] = float32(acc[dim] * invCount)
+			}
+		}
+
+		putSplitVec64(acc)
+		childCentroids[i] = centroid
+	}
+
+	// Return pooled vector slices now that centroid computation is done.
+	// We still need id and distance for the write phase.
+	for _, v := range vectors {
+		putSplitVec(v.vector)
+	}
+
+	// ---- Phase 3: Write-only transaction — apply the split ----
+	// This is a short write transaction that only performs mutations.
+	// The heavy I/O (reading vector blobs) already happened in Phase 1.
+	writeErr := vi.DB.Transaction(false, func(db *DatabaseConnection) error {
+		// Optimistic verification: ensure the cluster is still a leaf.
+		// Another goroutine may have split it between Phase 1 and Phase 3.
+		verifyRes, err := db.Exec(
+			infoSQL,
+			[]sqlite3.StatementParameter{
+				{Type: sqlite3.ParameterTypeInteger, Value: clusterID},
+			},
+		)
+
+		if err != nil {
+			if verifyRes != nil {
+				db.ResultPool().Put(verifyRes)
+			}
+
+			return fmt.Errorf("failed to verify cluster info: %w", err)
+		}
+
+		stillLeaf := len(verifyRes.Rows) > 0 && verifyRes.Rows[0][1].Int64() != 0
+		db.ResultPool().Put(verifyRes)
+
+		if !stillLeaf {
+			return nil
+		}
+
 		// Get the next available cluster_id in one round-trip.
+		// Must be inside the write transaction to avoid ID collisions.
 		maxIDRes, err := db.Exec(maxIDSQL, nil)
 
 		if err != nil {
+			if maxIDRes != nil {
+				db.ResultPool().Put(maxIDRes)
+			}
+
 			return err
 		}
 
 		nextClusterID := maxIDRes.Rows[0][0].Int64() + 1
+		db.ResultPool().Put(maxIDRes)
 
 		// Insert k child clusters with their computed centroids.
 		for i := range k {
@@ -1170,7 +1226,7 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 			// Encode centroid into a pooled blob buffer.
 			centroidBlob := encodeFloat32VectorPooled(childCentroids[i])
 
-			_, err = db.Exec(
+			childRes, err := db.Exec(
 				insertChildSQL,
 				[]sqlite3.StatementParameter{
 					{Type: sqlite3.ParameterTypeInteger, Value: childClusterID},
@@ -1178,6 +1234,10 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 					{Type: sqlite3.ParameterTypeBlob, Value: centroidBlob},
 				},
 			)
+
+			if childRes != nil {
+				db.ResultPool().Put(childRes)
+			}
 
 			putEncodeVec(centroidBlob)
 
@@ -1187,12 +1247,16 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 		}
 
 		// Flip the parent from leaf → internal node.
-		_, err = db.Exec(
+		nonLeafRes, err := db.Exec(
 			setNonLeafSQL,
 			[]sqlite3.StatementParameter{
 				{Type: sqlite3.ParameterTypeInteger, Value: clusterID},
 			},
 		)
+
+		if nonLeafRes != nil {
+			db.ResultPool().Put(nonLeafRes)
+		}
 
 		if err != nil {
 			return err
@@ -1252,9 +1316,15 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 				childSizeDeltas[childIdx]++
 			}
 
-			if _, err := db.Exec(insertPrefix+vbldr.String(), params); err != nil {
+			batchRes, batchErr := db.Exec(insertPrefix+vbldr.String(), params)
+
+			if batchRes != nil {
+				db.ResultPool().Put(batchRes)
+			}
+
+			if batchErr != nil {
 				statementParamsPool.Put(paramsBuf)
-				return err
+				return batchErr
 			}
 		}
 
@@ -1267,12 +1337,16 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 		}
 
 		// Zero the parent cluster's size (vectors moved to children).
-		_, err = db.Exec(
+		zeroRes, err := db.Exec(
 			zeroSizeSQL,
 			[]sqlite3.StatementParameter{
 				{Type: sqlite3.ParameterTypeInteger, Value: clusterID},
 			},
 		)
+
+		if zeroRes != nil {
+			db.ResultPool().Put(zeroRes)
+		}
 
 		if err != nil {
 			return err
@@ -1285,13 +1359,10 @@ func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, di
 			}
 		}
 
-		slog.Info("Cluster split completed",
-			"cluster_id", clusterID,
-			"children", k,
-			"vectors_reassigned", len(vectors))
-
 		return nil
 	})
+
+	return writeErr
 }
 
 // splitInternalNode splits an internal node that has too many children (>16)
@@ -1329,10 +1400,15 @@ func (vi *VectorIndexer) splitInternalNode(db *DatabaseConnection, columnName st
 	)
 
 	if err != nil {
+		if maxIDRes != nil {
+			db.ResultPool().Put(maxIDRes)
+		}
+
 		return err
 	}
 
 	newInternalNodeID := maxIDRes.Rows[0][0].Int64() + 1
+	db.ResultPool().Put(maxIDRes)
 
 	// First, compute centroids for each group of children
 	// We need this before creating the internal nodes because centroid_blob is NOT NULL
@@ -1359,22 +1435,31 @@ func (vi *VectorIndexer) splitInternalNode(db *DatabaseConnection, columnName st
 			)
 
 			if err != nil || len(childRes.Rows) == 0 {
+				if childRes != nil {
+					db.ResultPool().Put(childRes)
+				}
+
 				continue
 			}
 
 			centroidBlob := childRes.Rows[0][0].Blob()
 
 			if len(centroidBlob) == 0 {
+				db.ResultPool().Put(childRes)
 				continue
 			}
 
 			vb, err := vector.ParseVectorBlob(centroidBlob)
 
 			if err != nil {
+				db.ResultPool().Put(childRes)
 				continue
 			}
 
 			childCentroid := vb.GetFloat32Slice()
+
+			// Done with childRes — return to pool before processing.
+			db.ResultPool().Put(childRes)
 
 			if len(childCentroid) != dimensions {
 				continue
@@ -1399,7 +1484,7 @@ func (vi *VectorIndexer) splitInternalNode(db *DatabaseConnection, columnName st
 
 	// Create new internal nodes with computed centroids (one less than numInternalNodes, since the original parent becomes one)
 	for i := 1; i < numInternalNodes; i++ {
-		_, err = db.Exec(
+		insRes, err := db.Exec(
 			fmt.Sprintf(`INSERT INTO %s_%s_cluster_tree (cluster_id, parent_id, centroid_blob, cluster_size, is_leaf) VALUES (?, ?, ?, 0, 0)`, vi.TableName, columnName),
 			[]sqlite3.StatementParameter{
 				{Type: sqlite3.ParameterTypeInteger, Value: newInternalNodeID + int64(i) - 1},
@@ -1407,6 +1492,10 @@ func (vi *VectorIndexer) splitInternalNode(db *DatabaseConnection, columnName st
 				{Type: sqlite3.ParameterTypeBlob, Value: internalNodeCentroids[i]},
 			},
 		)
+
+		if insRes != nil {
+			db.ResultPool().Put(insRes)
+		}
 
 		if err != nil {
 			return err
@@ -1422,13 +1511,17 @@ func (vi *VectorIndexer) splitInternalNode(db *DatabaseConnection, columnName st
 	ucb.WriteString(columnName)
 	ucb.WriteString("_cluster_tree SET centroid_blob = ? WHERE cluster_id = ?")
 
-	_, err = db.Exec(
+	ucbRes, err := db.Exec(
 		ucb.String(),
 		[]sqlite3.StatementParameter{
 			{Type: sqlite3.ParameterTypeBlob, Value: internalNodeCentroids[0]},
 			{Type: sqlite3.ParameterTypeInteger, Value: parentClusterID},
 		},
 	)
+
+	if ucbRes != nil {
+		db.ResultPool().Put(ucbRes)
+	}
 
 	if err != nil {
 		return err
@@ -1448,13 +1541,17 @@ func (vi *VectorIndexer) splitInternalNode(db *DatabaseConnection, columnName st
 		// Subsequent groups get reassigned to new internal nodes
 		newParentID := newInternalNodeID + int64(internalNodeIdx) - 1
 
-		_, err = db.Exec(
+		reassignRes, err := db.Exec(
 			fmt.Sprintf(`UPDATE %s_%s_cluster_tree SET parent_id = ? WHERE cluster_id = ?`, vi.TableName, columnName),
 			[]sqlite3.StatementParameter{
 				{Type: sqlite3.ParameterTypeInteger, Value: newParentID},
 				{Type: sqlite3.ParameterTypeInteger, Value: childID},
 			},
 		)
+
+		if reassignRes != nil {
+			db.ResultPool().Put(reassignRes)
+		}
 
 		if err != nil {
 			return err
@@ -1691,7 +1788,11 @@ func (vi *VectorIndexer) updateClusterSizesBatch(
 
 	sb.WriteString(")")
 
-	_, err := db.Exec(sb.String(), nil)
+	res, err := db.Exec(sb.String(), nil)
+
+	if res != nil {
+		db.ResultPool().Put(res)
+	}
 
 	return err
 }

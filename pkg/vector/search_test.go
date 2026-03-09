@@ -2,7 +2,6 @@ package vector_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/server"
@@ -166,12 +165,6 @@ func TestVectorSearchWithClusters(t *testing.T) {
 				t.Fatalf("Failed to insert vector %d: %v", i, err)
 			}
 		}
-
-		// Mark the index as having pending vectors to trigger processing
-		app.VectorIndexMgr.MarkPending(mock.DatabaseID, mock.DatabaseBranchID, "embeddings")
-
-		// Wait briefly for vectors to be mapped to cluster 0 (root cluster)
-		time.Sleep(500 * time.Millisecond)
 
 		// Verify cluster tree exists (at least the root cluster)
 		clustersRes, err := dbConn.Exec("SELECT COUNT(*) FROM embeddings_vector_cluster_tree", nil)

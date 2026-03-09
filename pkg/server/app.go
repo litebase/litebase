@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"log/slog"
 	"time"
 
@@ -30,7 +29,7 @@ type App struct {
 	QueueWorkerPool *queue.WorkerPool
 	Scheduler       *scheduler.Scheduler
 	ServeMux        *netHttp.ServeMux
-	VectorIndexMgr  *VectorIndexManager
+	VectorIndexMgr  *database.VectorIndexManager
 }
 
 func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
@@ -163,8 +162,8 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 	app.InitScheduledTasks()
 
 	// Initialize vector index manager
-	app.VectorIndexMgr = NewVectorIndexManager(app)
-	// Set as global instance so C code can notify it
+	app.VectorIndexMgr = database.NewVectorIndexManager()
+	// Set as global instance so C-level xCommit can schedule splits
 	vector.SetGlobalIndexManager(app.VectorIndexMgr)
 
 	// Start worker pool and scheduler on all nodes when node starts
@@ -214,7 +213,6 @@ func NewApp(configInstance *config.Config, serveMux *netHttp.ServeMux) *App {
 
 	go app.DatabaseManager.WriteQueueManager.Run()
 	go app.LogManager.Run()
-	go app.VectorIndexMgr.Run()
 
 	app.initialized = true
 
@@ -255,16 +253,7 @@ func (app *App) Shutdown() {
 		slog.Error("Failed to stop scheduler", "error", err)
 	}
 
-	if app.VectorIndexMgr != nil {
-		app.VectorIndexMgr.Shutdown()
-	}
-
 	app.QueueWorkerPool.Stop()
-}
-
-// VectorIndexerJob wraps the vector indexer job handler
-func (app *App) VectorIndexerJob(ctx context.Context, data map[string]interface{}) error {
-	return VectorIndexerJob(ctx, app, data)
 }
 
 func (app *App) Run() {

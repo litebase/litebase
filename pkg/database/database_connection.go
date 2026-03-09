@@ -13,6 +13,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/litebase/litebase/internal/utils"
 	"github.com/litebase/litebase/pkg/auth"
 	"github.com/litebase/litebase/pkg/config"
 	"github.com/litebase/litebase/pkg/file"
@@ -467,7 +468,7 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 		}
 	}
 
-	return result, checkpointBarrier(func() error {
+	execErr := checkpointBarrier(func() error {
 		return compactionBarrier(func() error {
 			con.mutex.Lock()
 			defer con.mutex.Unlock()
@@ -497,6 +498,15 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 			return nil
 		})
 	})
+
+	// In auto-commit mode (not inside a Transaction wrapper), drain any
+	// post-commit hooks registered by C-level xCommit callbacks. This runs
+	// splits on the warm-cache connection instead of a cold background one.
+	if execErr == nil && !con.inTransaction {
+		con.drainAndRunPostCommitHooks()
+	}
+
+	return result, execErr
 }
 
 // ExecStream executes a query and streams rows to the provided handler to avoid
@@ -963,6 +973,23 @@ func (con *DatabaseConnection) sqliteConnection() *sqlite3.Connection {
 	return con.sqlite3
 }
 
+// drainAndRunPostCommitHooks drains all post-commit hooks registered for this
+// connection's sqlite3 pointer and runs them synchronously. Hooks are
+// registered by C-level xCommit callbacks (e.g. goTriggerClusterSplits) and
+// run on the same connection whose page cache is still warm from the insert
+// transaction — avoiding the expensive WAL re-reads that occur when a fresh
+// connection is used.
+//
+// Must be called OUTSIDE barriers and with inTransaction==false so that hooks
+// can acquire their own barriers for any database operations they perform.
+func (con *DatabaseConnection) drainAndRunPostCommitHooks() {
+	hooks := utils.DrainPostCommitHooks(con.sqliteConnection().DBPointer())
+
+	for _, hook := range hooks {
+		hook(con)
+	}
+}
+
 // Create a statement for a query.
 func (con *DatabaseConnection) Statement(queryStatement string) (Statement, error) {
 	if con.Closed() {
@@ -1006,9 +1033,14 @@ func (con *DatabaseConnection) Transaction(
 	con.inTransaction = true
 	con.mutex.Unlock()
 
+	// Safety net: ensure inTransaction is always reset, even on panic.
 	defer func() {
 		con.mutex.Lock()
-		con.inTransaction = false
+
+		if con.inTransaction {
+			con.inTransaction = false
+		}
+
 		con.mutex.Unlock()
 	}()
 
@@ -1043,7 +1075,7 @@ func (con *DatabaseConnection) Transaction(
 		compactionBarrier = con.fileSystem.CompactionBarrier
 	}
 
-	return checkpointBarrier(func() error {
+	txErr := checkpointBarrier(func() error {
 		return compactionBarrier(func() error {
 			var err error
 
@@ -1117,6 +1149,21 @@ func (con *DatabaseConnection) Transaction(
 			return handlerError
 		})
 	})
+
+	// Transaction and barriers are complete. Reset the flag so subsequent
+	// operations (including post-commit hooks) acquire their own barriers.
+	con.mutex.Lock()
+	con.inTransaction = false
+	con.mutex.Unlock()
+
+	// After a successful write transaction, drain and run post-commit hooks.
+	// Hooks (e.g. vector cluster splits) run outside barriers on the same
+	// connection whose page cache is still warm from the insert transaction.
+	if txErr == nil && !readOnly {
+		con.drainAndRunPostCommitHooks()
+	}
+
+	return txErr
 }
 
 func (con *DatabaseConnection) Vacuum() error {
