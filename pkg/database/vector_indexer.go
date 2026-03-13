@@ -648,27 +648,6 @@ func FindBestClusterInMemory(clusterTree map[int64]*ClusterNode, distanceMetric 
 	}
 }
 
-// getOrCreateRootCluster ensures root cluster exists and returns its ID
-func (vi *VectorIndexer) getOrCreateRootCluster(db *DatabaseConnection, columnName string) (int64, error) {
-	// Root cluster is always created by C code during table creation
-	// Just verify it exists
-	res, err := db.Exec(
-		fmt.Sprintf(`SELECT cluster_id FROM %s_%s_cluster_tree WHERE cluster_id = 1`, vi.TableName, columnName),
-		nil,
-	)
-
-	if res != nil {
-		defer db.ResultPool().Put(res)
-	}
-
-	if err == nil && len(res.Rows) > 0 {
-		return res.Rows[0][0].Int64(), nil
-	}
-
-	// If root doesn't exist, something is wrong
-	return 0, fmt.Errorf("root cluster not found for column %s", columnName)
-}
-
 // calculateDistance calculates distance between two vectors based on metric
 // calculateDistance computes the distance between two vectors using the specified metric
 func calculateDistance(a, b []float32, distanceMetric int) float64 {
@@ -916,7 +895,7 @@ func (vi *VectorIndexer) splitOversizedClusters(ctx context.Context, columnName 
 
 			attemptedSplits[clusterID] = true
 
-			if err := vi.splitCluster(ctx, columnName, distanceMetric, clusterID); err != nil {
+			if err := vi.splitCluster(ctx, columnName, clusterID); err != nil {
 				slog.Error("Failed to split cluster", "column", columnName, "cluster_id", clusterID, "error", err)
 				// Continue with other clusters
 			} else {
@@ -954,7 +933,7 @@ func (vi *VectorIndexer) splitOversizedClusters(ctx context.Context, columnName 
 //   - Phase 2 (no tx): Compute assignments from sort-order quantiles.
 //   - Phase 3 (write tx): Apply the split — create children, reassign vectors,
 //     update stats.  Short write lock held only for mutations.
-func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, distanceMetric int, clusterID int64) error {
+func (vi *VectorIndexer) splitCluster(ctx context.Context, columnName string, clusterID int64) error {
 	var dimensions int
 
 	for _, col := range vi.VectorColumns {
@@ -1660,39 +1639,9 @@ func putEncodeVec(b []byte) {
 	encodeVecPool.Put(bp)
 }
 
-// splitVecPool holds pooled []float32 buffers used for per-vector copies
-// during cluster splitting. Dimensions vary per table so buffers may be
-// resized; they are always returned with their original capacity.
-var splitVecPool = sync.Pool{
-	New: func() interface{} { s := make([]float32, 0, 512); return &s },
-}
-
-// getSplitVec returns a pooled float32 slice sized to dims.
-func getSplitVec(dims int) []float32 {
-	sp := splitVecPool.Get().(*[]float32)
-	s := *sp
-
-	if cap(s) < dims {
-		s = make([]float32, dims)
-	} else {
-		s = s[:dims]
-	}
-
-	*sp = s
-
-	return s
-}
-
-// putSplitVec returns a pooled float32 slice to the pool.
-func putSplitVec(s []float32) {
-	sp := splitVecPool.Get().(*[]float32)
-	*sp = s[:0]
-	splitVecPool.Put(sp)
-}
-
 // splitVec64Pool holds pooled []float64 accumulators for centroid computation.
 var splitVec64Pool = sync.Pool{
-	New: func() interface{} { s := make([]float64, 0, 512); return &s },
+	New: func() any { s := make([]float64, 0, 512); return &s },
 }
 
 // getSplitVec64 returns a zeroed pooled float64 accumulator slice of length dims.
