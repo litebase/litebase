@@ -254,9 +254,9 @@ func (wal *DatabaseWAL) End(connectionID string) error {
 
 	// Flush buffer outside wal mutex to avoid lock-order inversions
 	if buf != nil {
-		writes := buf.GetWrites()
+		writes, _, _ := buf.Stats()
 
-		if len(writes) > 0 {
+		if writes > 0 {
 			if err := wal.FlushBuffer(); err != nil {
 				// Log flush errors but allow transaction end to proceed so caller can handle higher-level errors.
 				slog.Error("Failed to flush transaction buffer on End", "error", err)
@@ -437,8 +437,6 @@ func (wal *DatabaseWAL) FlushBuffer() error {
 		return nil
 	}
 
-	writes := wal.txnBuffer.GetWrites()
-
 	file, err := wal.File()
 
 	if err != nil {
@@ -446,7 +444,6 @@ func (wal *DatabaseWAL) FlushBuffer() error {
 	}
 
 	slog.Debug("Flushing transaction buffer",
-		"writes", len(writes),
 		"coalesced_writes", len(coalesced),
 		"timestamp", wal.timestamp)
 
@@ -458,22 +455,6 @@ func (wal *DatabaseWAL) FlushBuffer() error {
 		}
 	}
 
-	// Batch-update cache and metadata under wal mutex to minimize lock hold time.
-	// Use original per-page writes so the cache retains per-offset granularity.
-	wal.mutex.Lock()
-
-	for _, w := range writes {
-		cacheKey := wal.getCacheKey(w.offset)
-
-		if cacheErr := wal.cache.Put(cacheKey, w.data); cacheErr != nil {
-			slog.Error("Error caching WAL data during flush", "error", cacheErr)
-		}
-	}
-
-	// Update last write time
-	wal.lastWriteTime = time.Now().UTC()
-	wal.mutex.Unlock()
-
 	// Sync once at the end if needed
 	if wal.shouldSync() {
 		if err := file.Sync(); err != nil {
@@ -481,7 +462,6 @@ func (wal *DatabaseWAL) FlushBuffer() error {
 		}
 	}
 
-	// Update last write time (protect write with mutex)
 	wal.mutex.Lock()
 	wal.lastWriteTime = time.Now().UTC()
 	wal.mutex.Unlock()
@@ -489,7 +469,7 @@ func (wal *DatabaseWAL) FlushBuffer() error {
 	// Clear buffer after successful flush
 	wal.txnBuffer.Clear()
 
-	slog.Debug("Successfully flushed transaction buffer", "writes", len(writes), "timestamp", wal.timestamp)
+	slog.Debug("Successfully flushed transaction buffer", "coalesced_writes", len(coalesced), "timestamp", wal.timestamp)
 
 	return nil
 }

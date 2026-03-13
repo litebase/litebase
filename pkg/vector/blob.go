@@ -111,6 +111,39 @@ func (vb *VectorBlob) GetFloat32Slice() []float32 {
 	return unsafe.Slice((*float32)(unsafe.Pointer(&vb.Data[0])), vb.Dimensions)
 }
 
+// GetFloat32Decoded returns the vector data as a float32 slice regardless of the
+// underlying storage type.  For float32 vectors it returns a zero-alloc unsafe
+// view of the raw bytes.  For float16 and int8 vectors it decodes into a newly
+// allocated []float32.  Returns nil for unsupported or empty types.
+func (vb *VectorBlob) GetFloat32Decoded() []float32 {
+	switch vb.Type {
+	case VectorTypeFloat32:
+		return unsafe.Slice((*float32)(unsafe.Pointer(&vb.Data[0])), vb.Dimensions)
+
+	case VectorTypeFloat16:
+		out := make([]float32, vb.Dimensions)
+
+		for i := range out {
+			h := uint16(vb.Data[i*2]) | uint16(vb.Data[i*2+1])<<8
+			out[i] = float16ToFloat32(h)
+		}
+
+		return out
+
+	case VectorTypeInt8:
+		out := make([]float32, vb.Dimensions)
+
+		for i := 0; i < vb.Dimensions; i++ {
+			out[i] = float32(int8(vb.Data[i])) / 127.0
+		}
+
+		return out
+
+	default:
+		return nil
+	}
+}
+
 // GetFloat64Slice returns the vector data as a float64 slice
 func (vb *VectorBlob) GetFloat64Slice() []float64 {
 	if vb.Type != VectorTypeFloat64 {

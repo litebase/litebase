@@ -221,7 +221,7 @@ func (c *Column) Int64() int64 {
 
 func (c *Column) Reset() {
 	c.ColumnType = 0
-	c.ColumnValue = nil
+	c.ColumnValue = c.ColumnValue[:0] // Preserve backing array for pool reuse
 }
 
 func (c *Column) Text() []byte {

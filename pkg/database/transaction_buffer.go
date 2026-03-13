@@ -51,6 +51,7 @@ type walWrite struct {
 // Memory is allocated from a manager-owned slab to avoid per-write allocations.
 type TransactionBuffer struct {
 	writes      []walWrite    // Ordered slice preserving append-only WAL format
+	coalesced   []walWrite    // Reusable scratch for GetCoalescedWrites (avoids per-flush alloc)
 	offsetIndex map[int64]int // Quick lookup: offset -> index in writes slice
 	mutex       sync.RWMutex
 	memoryLease *memory.Lease
@@ -100,7 +101,8 @@ func NewTransactionBuffer(
 
 	buf := &TransactionBuffer{
 		writes:      make([]walWrite, 0, 1024), // Pre-allocate for ~1024 frames
-		offsetIndex: make(map[int64]int),
+		coalesced:   make([]walWrite, 0, 1024), // Reuse across flushes
+		offsetIndex: make(map[int64]int, 1024), // Match writes pre-allocation
 		memoryLease: lease,
 		slab:        lease.Slab,
 		slabOffset:  0,
@@ -190,15 +192,14 @@ func (b *TransactionBuffer) Contains(offset int64, length int) bool {
 }
 
 // GetWrites returns all buffered writes for flushing.
-// Caller is responsible for writing these to the WAL.
+// The returned slice is the live backing slice — valid as long as the caller
+// holds the SQLite write lock (which prevents concurrent WriteAt calls).
+// Caller must not modify the returned slice.
 func (b *TransactionBuffer) GetWrites() []walWrite {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
 
-	// Return a copy to avoid race conditions
-	writesCopy := make([]walWrite, len(b.writes))
-	copy(writesCopy, b.writes)
-	return writesCopy
+	return b.writes
 }
 
 // GetCoalescedWrites returns writes merged into the fewest possible contiguous
@@ -210,17 +211,17 @@ func (b *TransactionBuffer) GetWrites() []walWrite {
 //
 // Merging is zero-allocation: it re-slices the already-slab-backed data slice
 // (the slab capacity covers all later entries in the same bump region).
-// The returned []walWrite is a new slice of structs (small), but the underlying
-// byte data is never copied.
+// The returned slice reuses b.coalesced — valid until the next call to
+// GetCoalescedWrites or Clear.
 func (b *TransactionBuffer) GetCoalescedWrites() []walWrite {
-	b.mutex.RLock()
-	defer b.mutex.RUnlock()
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 
 	if len(b.writes) == 0 {
 		return nil
 	}
 
-	coalesced := make([]walWrite, 0, len(b.writes))
+	b.coalesced = b.coalesced[:0]
 	cur := b.writes[0]
 
 	for i := 1; i < len(b.writes); i++ {
@@ -245,14 +246,14 @@ func (b *TransactionBuffer) GetCoalescedWrites() []walWrite {
 			// following bytes in the same slab allocation.
 			cur.data = cur.data[:len(cur.data)+len(next.data)]
 		} else {
-			coalesced = append(coalesced, cur)
+			b.coalesced = append(b.coalesced, cur)
 			cur = next
 		}
 	}
 
-	coalesced = append(coalesced, cur)
+	b.coalesced = append(b.coalesced, cur)
 
-	return coalesced
+	return b.coalesced
 }
 
 // Clear resets the buffer after successful flush.
@@ -261,8 +262,11 @@ func (b *TransactionBuffer) Clear() {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
-	b.writes = b.writes[:0] // Reuse slice capacity
-	b.offsetIndex = make(map[int64]int)
+	b.writes = b.writes[:0]        // Reuse slice capacity
+	for k := range b.offsetIndex { // Clear in-place: reuses bucket array
+		delete(b.offsetIndex, k)
+	}
+
 	b.used = 0
 	b.slabOffset = 0 // Reset bump allocator
 }
@@ -278,7 +282,10 @@ func (b *TransactionBuffer) Discard() {
 		"used", b.used)
 
 	b.writes = b.writes[:0]
-	b.offsetIndex = make(map[int64]int)
+	for k := range b.offsetIndex { // Clear in-place: reuses bucket array
+		delete(b.offsetIndex, k)
+	}
+
 	b.used = 0
 	b.slabOffset = 0
 }

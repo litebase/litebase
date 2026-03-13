@@ -373,9 +373,9 @@ func (s *Statement) Exec(result *Result, parameters ...StatementParameter) error
 
 						// Copy data since buffer will be reused
 						if data != nil {
-							result.Rows[rowIndex][i].ColumnValue = append([]byte(nil), data...)
+							result.Rows[rowIndex][i].ColumnValue = append(result.Rows[rowIndex][i].ColumnValue[:0], data...)
 						} else {
-							result.Rows[rowIndex][i].ColumnValue = nil
+							result.Rows[rowIndex][i].ColumnValue = result.Rows[rowIndex][i].ColumnValue[:0]
 						}
 					}
 				}

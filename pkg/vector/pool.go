@@ -14,17 +14,17 @@ var vectorBlobPool = sync.Pool{
 
 // inlineClusterNodePool pools inlineClusterNode objects to reduce per-batch
 // heap allocations when loading the cluster tree.
-var inlineClusterNodePool = sync.Pool{
+var clusterNodePool = sync.Pool{
 	New: func() interface{} {
-		return &inlineClusterNode{
+		return &clusterNode{
 			children: make([]int64, 0, 8),
 		}
 	},
 }
 
-// getInlineClusterNode acquires a node from the pool and resets it.
-func getInlineClusterNode() *inlineClusterNode {
-	n := inlineClusterNodePool.Get().(*inlineClusterNode)
+// getClusterNode acquires a node from the pool and resets it.
+func getClusterNode() *clusterNode {
+	n := clusterNodePool.Get().(*clusterNode)
 	n.clusterID = 0
 	n.parentID = nil
 	n.centroid = nil
@@ -34,13 +34,13 @@ func getInlineClusterNode() *inlineClusterNode {
 	return n
 }
 
-// putInlineClusterNode returns a node to the pool.
-func putInlineClusterNode(n *inlineClusterNode) {
+// putClusterNode returns a node to the pool.
+func putClusterNode(n *clusterNode) {
 	if n == nil {
 		return
 	}
 
-	inlineClusterNodePool.Put(n)
+	clusterNodePool.Put(n)
 }
 
 // float64SlicePool pools []float64 slices used for centroid sum accumulation in

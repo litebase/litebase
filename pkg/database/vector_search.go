@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"sort"
 	"strconv"
 	"sync"
 	"unsafe"
@@ -166,8 +167,12 @@ type ClusterDistance struct {
 	Distance  float64
 }
 
-// findNearestLeafClusters performs hierarchical tree traversal to find nearest leaf clusters
-// This implements the IVF hierarchical search: traverse from root to leaves, then return closest leaf clusters
+// findNearestLeafClusters loads the entire cluster tree in one query and
+// performs hierarchical tree traversal in memory to find the nearest leaf
+// clusters.  This replaces the prior N+1 approach (one SELECT is_leaf per
+// candidate per level) with a single query that loads all nodes (~214 rows for
+// a 1M-vector index), building an in-memory adjacency map for O(1) child
+// lookup during descent.
 func findNearestLeafClusters(
 	dbConn *DatabaseConnection,
 	resultPool *sqlite3.ResultPool,
@@ -178,13 +183,8 @@ func findNearestLeafClusters(
 	k int,
 ) ([]ClusterDistance, error) {
 
-	// Determine how many leaf clusters to search based on k
-	// Balance between speed and recall:
-	// - For small k (<=10): search 3-5 leaf clusters to ensure good recall
-	// - For medium k (11-50): search 5-8 leaf clusters
-	// - For large k (>50): search 10+ leaf clusters
-	// With ~3k vectors per leaf cluster, searching 5 clusters = ~15k vectors
-	numLeafClustersToSearch := 5 // Default: search 5 nearest leaf clusters
+	// Determine how many leaf clusters to search based on k.
+	numLeafClustersToSearch := 5
 
 	if k <= 10 {
 		numLeafClustersToSearch = 3
@@ -194,216 +194,187 @@ func findNearestLeafClusters(
 		numLeafClustersToSearch = min(15, max(10, k/5))
 	}
 
-	// Step 1: Find root clusters (parent_id IS NULL)
-	rootQuery := fmt.Sprintf(`
-		SELECT cluster_id, centroid_blob, is_leaf
-		FROM %s_%s_cluster_tree
-		WHERE parent_id IS NULL
-	`, indexTableName, columnName)
+	// Step 1: Load the entire cluster tree in one query.
+	// For a 1M-vector index this is ~214 rows × ~6 KB per row = ~1.3 MB.
+	treeQuery := fmt.Sprintf(
+		`SELECT cluster_id, parent_id, centroid_blob, is_leaf FROM %s_%s_cluster_tree`,
+		indexTableName, columnName,
+	)
 
-	rootResult, err := dbConn.Exec(rootQuery, nil)
+	treeResult, err := dbConn.Exec(treeQuery, nil)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to query root clusters: %w", err)
+		return nil, fmt.Errorf("failed to load cluster tree: %w", err)
 	}
 
-	defer resultPool.Put(rootResult)
+	defer resultPool.Put(treeResult)
 
-	if len(rootResult.Rows) == 0 {
-		return nil, nil // No clusters exist yet
+	if len(treeResult.Rows) == 0 {
+		return nil, nil
 	}
 
-	// Step 2: Compute distances to root centroids
-	var currentClusters []ClusterDistance
+	type treeNode struct {
+		clusterID int64
+		isLeaf    bool
+		centroid  *vector.VectorBlob
+		children  []int64
+	}
 
-	for _, row := range rootResult.Rows {
-		clusterID := row[0].Int64()
-		centroidBlob := row[1].ColumnValue
-		isLeaf := row[2].Int64()
+	nodes := make(map[int64]*treeNode, len(treeResult.Rows))
+	var rootIDs []int64
 
-		centroid, err := vector.ParseVectorBlob(centroidBlob)
-
-		if err != nil {
-			slog.Warn("Failed to parse root centroid blob", "cluster_id", clusterID, "error", err)
+	for _, row := range treeResult.Rows {
+		if len(row) < 4 {
 			continue
 		}
 
-		var dist float64
+		clusterID := row[0].Int64()
+		isLeaf := row[3].Int64() == 1
 
-		switch metric {
-		case "L2", "l2":
-			dist, _ = vector.DistanceL2(queryVector, centroid)
-		case "cosine":
-			dist, _ = vector.DistanceCosine(queryVector, centroid)
-		case "dot":
-			dist, _ = vector.DistanceDot(queryVector, centroid)
-		default:
-			dist, _ = vector.DistanceL2(queryVector, centroid)
+		var centroid *vector.VectorBlob
+
+		centroidBlob := row[2].ColumnValue
+
+		if len(centroidBlob) > 0 {
+			centroid, _ = vector.ParseVectorBlob(centroidBlob)
 		}
 
-		// If this is a leaf node, add it to current clusters
-		// If it's an internal node, we'll traverse its children
-		currentClusters = append(currentClusters, ClusterDistance{
-			ClusterID: clusterID,
-			Distance:  dist,
-		})
+		nodes[clusterID] = &treeNode{
+			clusterID: clusterID,
+			isLeaf:    isLeaf,
+			centroid:  centroid,
+		}
 
-		// Check if root is a leaf (single-level tree)
-		if isLeaf == 1 {
-			slog.Debug("Root cluster is a leaf (flat structure)", "cluster_id", clusterID)
+		// Track root nodes (no parent).
+		if row[1].ColumnType == sqlite3.ColumnTypeNull || len(row[1].ColumnValue) == 0 {
+			rootIDs = append(rootIDs, clusterID)
 		}
 	}
 
-	// Sort by distance to find nearest clusters
+	// Wire up parent→children relationships.
+	for _, row := range treeResult.Rows {
+		if len(row) < 4 {
+			continue
+		}
+
+		if row[1].ColumnType == sqlite3.ColumnTypeNull || len(row[1].ColumnValue) == 0 {
+			continue
+		}
+
+		childID := row[0].Int64()
+		parentID := row[1].Int64()
+
+		if parent, ok := nodes[parentID]; ok {
+			parent.children = append(parent.children, childID)
+		}
+	}
+
+	if len(rootIDs) == 0 {
+		return nil, nil
+	}
+
+	// Step 2: Compute distances to root nodes.
+	computeDist := func(centroid *vector.VectorBlob) float64 {
+		if centroid == nil {
+			return 1e9
+		}
+
+		switch metric {
+		case "L2", "l2":
+			d, _ := vector.DistanceL2(queryVector, centroid)
+			return d
+		case "cosine":
+			d, _ := vector.DistanceCosine(queryVector, centroid)
+			return d
+		case "dot":
+			d, _ := vector.DistanceDot(queryVector, centroid)
+			return d
+		default:
+			d, _ := vector.DistanceL2(queryVector, centroid)
+			return d
+		}
+	}
+
+	currentClusters := make([]ClusterDistance, 0, len(rootIDs))
+
+	for _, rootID := range rootIDs {
+		node := nodes[rootID]
+		currentClusters = append(currentClusters, ClusterDistance{
+			ClusterID: rootID,
+			Distance:  computeDist(node.centroid),
+		})
+	}
+
 	sortClustersByDistance(currentClusters)
 
-	// Step 3: Iterative tree descent - traverse until we reach leaf clusters
-	// Keep track of closest nodes at each level, then descend into closest parent
-	maxDepth := 10 // Prevent infinite loops in case of circular references
+	// Step 3: Iterative in-memory descent — no additional DB queries.
+	maxDepth := 10
 
 	for depth := 0; depth < maxDepth; depth++ {
-		// Check if all current clusters are leaves
+		// Check if the top-N candidates are all leaves.
 		allLeaves := true
+		limit := min(numLeafClustersToSearch, len(currentClusters))
 
-		for i := 0; i < min(numLeafClustersToSearch, len(currentClusters)); i++ {
-			cluster := currentClusters[i]
+		for i := 0; i < limit; i++ {
+			node, ok := nodes[currentClusters[i].ClusterID]
 
-			// Check if this cluster is a leaf
-			leafCheckQuery := fmt.Sprintf(`
-				SELECT is_leaf 
-				FROM %s_%s_cluster_tree 
-				WHERE cluster_id = ?
-			`, indexTableName, columnName)
-
-			leafCheckResult, err := dbConn.Exec(leafCheckQuery, []sqlite3.StatementParameter{
-				{Type: sqlite3.ParameterTypeInteger, Value: cluster.ClusterID},
-			})
-
-			if err != nil {
-				slog.Warn("Failed to check if cluster is leaf", "cluster_id", cluster.ClusterID, "error", err)
-				continue
-			}
-
-			if len(leafCheckResult.Rows) > 0 {
-				isLeaf := leafCheckResult.Rows[0][0].Int64()
-
-				if isLeaf == 0 {
-					allLeaves = false
-				}
-			}
-
-			resultPool.Put(leafCheckResult)
-
-			if !allLeaves {
+			if !ok || !node.isLeaf {
+				allLeaves = false
 				break
 			}
 		}
 
-		// If all top candidates are leaves, we're done
 		if allLeaves {
-			slog.Debug("Reached leaf clusters", "depth", depth, "num_leaves", min(numLeafClustersToSearch, len(currentClusters)))
+			slog.Debug("Reached leaf clusters", "depth", depth, "num_leaves", limit)
 			break
 		}
 
-		// Find the closest non-leaf cluster and descend into its children
-		var closestNonLeaf *ClusterDistance
+		// Find the closest non-leaf cluster among all candidates.
+		var closestNonLeafIdx int = -1
 
 		for i := 0; i < len(currentClusters); i++ {
-			cluster := currentClusters[i]
+			node, ok := nodes[currentClusters[i].ClusterID]
 
-			leafCheckQuery := fmt.Sprintf(`
-				SELECT is_leaf 
-				FROM %s_%s_cluster_tree 
-				WHERE cluster_id = ?
-			`, indexTableName, columnName)
-
-			leafCheckResult, err := dbConn.Exec(leafCheckQuery, []sqlite3.StatementParameter{
-				{Type: sqlite3.ParameterTypeInteger, Value: cluster.ClusterID},
-			})
-
-			if err != nil {
-				slog.Warn("Failed to check cluster leaf status", "cluster_id", cluster.ClusterID, "error", err)
-				resultPool.Put(leafCheckResult)
-				continue
-			}
-
-			if len(leafCheckResult.Rows) > 0 && leafCheckResult.Rows[0][0].Int64() == 0 {
-				resultPool.Put(leafCheckResult)
-				closestNonLeaf = &currentClusters[i]
+			if ok && !node.isLeaf {
+				closestNonLeafIdx = i
 				break
 			}
-
-			resultPool.Put(leafCheckResult)
 		}
 
-		if closestNonLeaf == nil {
-			// All clusters are leaves
+		if closestNonLeafIdx < 0 {
 			break
 		}
 
-		// Query children of the closest non-leaf cluster
-		childrenQuery := fmt.Sprintf(`
-			SELECT cluster_id, centroid_blob 
-			FROM %s_%s_cluster_tree 
-			WHERE parent_id = ?
-		`, indexTableName, columnName)
+		nonLeafID := currentClusters[closestNonLeafIdx].ClusterID
+		nonLeafNode := nodes[nonLeafID]
 
-		childrenResult, err := dbConn.Exec(childrenQuery, []sqlite3.StatementParameter{
-			{Type: sqlite3.ParameterTypeInteger, Value: closestNonLeaf.ClusterID},
-		})
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to query child clusters: %w", err)
+		if len(nonLeafNode.children) == 0 {
+			slog.Warn("Non-leaf cluster has no children", "cluster_id", nonLeafID)
+			break
 		}
 
-		// Compute distances to children
-		var children []ClusterDistance
+		// Replace the non-leaf with its children.
+		children := make([]ClusterDistance, 0, len(nonLeafNode.children))
 
-		for _, row := range childrenResult.Rows {
-			childID := row[0].Int64()
-			centroidBlob := row[1].ColumnValue
+		for _, childID := range nonLeafNode.children {
+			child, ok := nodes[childID]
 
-			centroid, err := vector.ParseVectorBlob(centroidBlob)
-
-			if err != nil {
+			if !ok {
 				continue
-			}
-
-			var dist float64
-
-			switch metric {
-			case "L2", "l2":
-				dist, _ = vector.DistanceL2(queryVector, centroid)
-			case "cosine":
-				dist, _ = vector.DistanceCosine(queryVector, centroid)
-			case "dot":
-				dist, _ = vector.DistanceDot(queryVector, centroid)
-			default:
-				dist, _ = vector.DistanceL2(queryVector, centroid)
 			}
 
 			children = append(children, ClusterDistance{
 				ClusterID: childID,
-				Distance:  dist,
+				Distance:  computeDist(child.centroid),
 			})
 		}
 
-		resultPool.Put(childrenResult)
-
-		if len(children) == 0 {
-			slog.Warn("Non-leaf cluster has no children", "cluster_id", closestNonLeaf.ClusterID)
-			break
-		}
-
-		// Replace parent with its children in the candidate list
-		// Remove the parent, add children, then resort
-		currentClusters = append(currentClusters[:0], currentClusters[1:]...) // Remove first element (the parent)
-
+		// Remove the expanded non-leaf; append its children.
+		currentClusters = append(currentClusters[:closestNonLeafIdx], currentClusters[closestNonLeafIdx+1:]...)
 		currentClusters = append(currentClusters, children...)
 		sortClustersByDistance(currentClusters)
 	}
 
-	// Return top N leaf clusters
 	numToReturn := min(numLeafClustersToSearch, len(currentClusters))
 
 	return currentClusters[:numToReturn], nil
@@ -599,6 +570,9 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName, columnNam
 		metric = "L2" // Default to L2 if unknown
 	}
 
+	// Numeric metric for DistanceFromBlob — avoids ParseVectorBlob allocation per vector.
+	metricInt, _ := strconv.Atoi(metricValue)
+
 	// Step 1: Hierarchical tree traversal to find nearest leaf clusters for this column
 	leafClusters, err := findNearestLeafClusters(dbConn, resultPool, indexTableName, vectorColumn, queryVector, metric, k)
 
@@ -664,30 +638,18 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName, columnNam
 
 				defer clusterPool.Put(vectorsResult)
 
-				// Calculate distances for all vectors in this cluster
+				// Calculate distances for all vectors in this cluster without
+				// allocating a VectorBlob per row — read the float32 data from
+				// the raw blob bytes directly via DistanceFromBlob.
 				clusterVectors := make([]vector.VectorResult, 0, len(vectorsResult.Rows))
 
 				for _, row := range vectorsResult.Rows {
 					vectorID := row[0].Int64()
-					vectorBlob := row[1].ColumnValue
 
-					v, err := vector.ParseVectorBlob(vectorBlob)
+					dist, ok := vector.DistanceFromBlob(queryVector, row[1].ColumnValue, metricInt)
 
-					if err != nil {
+					if !ok {
 						continue
-					}
-
-					var dist float64
-
-					switch metric {
-					case "L2", "l2":
-						dist, _ = vector.DistanceL2(queryVector, v)
-					case "cosine":
-						dist, _ = vector.DistanceCosine(queryVector, v)
-					case "dot":
-						dist, _ = vector.DistanceDot(queryVector, v)
-					default:
-						dist, _ = vector.DistanceL2(queryVector, v)
 					}
 
 					clusterVectors = append(clusterVectors, vector.VectorResult{
@@ -756,25 +718,11 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName, columnNam
 
 			for _, row := range pendingResult.Rows {
 				vectorID := row[0].Int64()
-				vectorBlob := row[1].ColumnValue
 
-				v, err := vector.ParseVectorBlob(vectorBlob)
+				dist, ok := vector.DistanceFromBlob(queryVector, row[1].ColumnValue, metricInt)
 
-				if err != nil {
+				if !ok {
 					continue
-				}
-
-				var dist float64
-
-				switch metric {
-				case "L2", "l2":
-					dist, _ = vector.DistanceL2(queryVector, v)
-				case "cosine":
-					dist, _ = vector.DistanceCosine(queryVector, v)
-				case "dot":
-					dist, _ = vector.DistanceDot(queryVector, v)
-				default:
-					dist, _ = vector.DistanceL2(queryVector, v)
 				}
 
 				pendingVectors = append(pendingVectors, vector.VectorResult{
@@ -811,16 +759,9 @@ func executeClusterSearch(vfsID, databaseID, branchID, indexTableName, columnNam
 
 // Helper functions
 func sortClustersByDistance(clusters []ClusterDistance) {
-	// Simple bubble sort - fine for small number of clusters
-	n := len(clusters)
-
-	for i := 0; i < n-1; i++ {
-		for j := 0; j < n-i-1; j++ {
-			if clusters[j].Distance > clusters[j+1].Distance {
-				clusters[j], clusters[j+1] = clusters[j+1], clusters[j]
-			}
-		}
-	}
+	sort.Slice(clusters, func(i, j int) bool {
+		return clusters[i].Distance < clusters[j].Distance
+	})
 }
 
 // executeBruteForceSearch performs a brute-force k-NN search on vectors in cluster 0
@@ -856,36 +797,27 @@ func executeBruteForceSearch(dbConn *DatabaseConnection, resultPool *sqlite3.Res
 		return []vector.VectorResult{}, nil
 	}
 
-	// Calculate distance to each pending vector
+	// Numeric metric for DistanceFromBlob — avoids ParseVectorBlob allocation per vector.
+	var metricInt int
+
+	switch metric {
+	case "cosine":
+		metricInt = 1
+	case "dot":
+		metricInt = 2
+	default:
+		metricInt = 0
+	}
+
+	// Calculate distance to each pending vector without allocating a VectorBlob per row.
 	resultHeap := vector.NewTopKHeap(k)
 
 	for _, row := range pendingResult.Rows {
 		rowID := row[0].Int64()
-		vectorBlob := row[1].ColumnValue
 
-		v, err := vector.ParseVectorBlob(vectorBlob)
+		dist, ok := vector.DistanceFromBlob(queryVector, row[1].ColumnValue, metricInt)
 
-		if err != nil {
-			slog.Warn("Failed to parse vector blob", "row_id", rowID, "error", err)
-			continue
-		}
-
-		// Calculate distance based on metric
-		var dist float64
-
-		switch metric {
-		case "L2", "l2":
-			dist, err = vector.DistanceL2(queryVector, v)
-		case "cosine":
-			dist, err = vector.DistanceCosine(queryVector, v)
-		case "dot":
-			dist, err = vector.DistanceDot(queryVector, v)
-		default:
-			dist, err = vector.DistanceL2(queryVector, v)
-		}
-
-		if err != nil {
-			slog.Warn("Failed to calculate distance", "row_id", rowID, "error", err)
+		if !ok {
 			continue
 		}
 

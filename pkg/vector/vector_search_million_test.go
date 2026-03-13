@@ -5,7 +5,6 @@ import (
 	"os"
 	"runtime"
 	"runtime/pprof"
-	"strings"
 	"testing"
 	"time"
 
@@ -16,24 +15,61 @@ import (
 )
 
 func TestVectorSearchWithMillionVectors(t *testing.T) {
-	runVectorSearchWithMillionVectors(t, 128)
+	runVectorSearchWithMillionVectors(t, 128, "")
 }
 
 func TestVectorSearchWithMillionVectors1536Dimensions(t *testing.T) {
-	runVectorSearchWithMillionVectors(t, 1536)
+	runVectorSearchWithMillionVectors(t, 1536, "")
 }
 
 func TestVectorSearchWithMillionVectors3072Dimensions(t *testing.T) {
-	runVectorSearchWithMillionVectors(t, 3072)
+	runVectorSearchWithMillionVectors(t, 3072, "")
+}
+
+func TestVectorSearchWithMillionVectors1536DimensionsWithFloat16Quantization(t *testing.T) {
+	runVectorSearchWithMillionVectors(t, 1536, "float16")
+}
+
+func TestVectorSearchWithMillionVectors1536DimensionsWithInt8Quantization(t *testing.T) {
+	runVectorSearchWithMillionVectors(t, 1536, "int8")
+}
+
+func minimumTimeoutForDimensions(dimensions int) time.Duration {
+	switch {
+	case dimensions >= 3072:
+		return 2 * time.Minute
+	case dimensions >= 1536:
+		return 90 * time.Second
+	default:
+		return 30 * time.Second
+	}
 }
 
 // runVectorSearchWithMillionVectors executes the 1M vector index and ANN query
 // benchmark-style integration test for a given embedding dimension.
-func runVectorSearchWithMillionVectors(t *testing.T, dimensions int) {
+// If storageType is non-empty (e.g. "float16", "int8"), the virtual table is
+// created with that storage_type parameter so inserts are quantized on the fly.
+func runVectorSearchWithMillionVectors(t *testing.T, dimensions int, storageType string) {
 	t.Helper()
 
 	if testing.Short() {
 		t.Skipf("Skipping million-vector test in short mode (dimensions=%d)", dimensions)
+	}
+
+	deadline, hasDeadline := t.Deadline()
+
+	if hasDeadline {
+		remaining := time.Until(deadline)
+		minimum := minimumTimeoutForDimensions(dimensions)
+
+		if remaining < minimum {
+			t.Skipf(
+				"Skipping million-vector test with dimensions=%d: remaining timeout %v is below required minimum %v",
+				dimensions,
+				remaining.Round(time.Second),
+				minimum,
+			)
+		}
 	}
 
 	test.RunWithApp(t, func(app *server.App) {
@@ -50,15 +86,20 @@ func runVectorSearchWithMillionVectors(t *testing.T, dimensions int) {
 		dbConn := conn.GetConnection()
 
 		// Create vector index table
+		var storageTypeClause string
+		if storageType != "" {
+			storageTypeClause = fmt.Sprintf(",\n\t\t\t\tstorage_type=%s", storageType)
+		}
+
 		createSQL := fmt.Sprintf(`
 			CREATE VIRTUAL TABLE embeddings USING vector_index(
 				vector BLOB,
 				dimensions=%d,
 				distance_metric=0,
 				max_cluster_size=5000,
-				min_cluster_size=200
+				min_cluster_size=200%s
 			)
-		`, dimensions)
+		`, dimensions, storageTypeClause)
 
 		createRes, err := dbConn.Exec(createSQL, nil)
 
@@ -70,7 +111,12 @@ func runVectorSearchWithMillionVectors(t *testing.T, dimensions int) {
 			t.Fatalf("Failed to create vector index: %v", err)
 		}
 
-		cpuProfileFileName := fmt.Sprintf("cpu_profile_dim_%d.prof", dimensions)
+		profileSuffix := ""
+		if storageType != "" {
+			profileSuffix = "_" + storageType
+		}
+
+		cpuProfileFileName := fmt.Sprintf("cpu_profile_dim_%d%s.prof", dimensions, profileSuffix)
 		cpuProfileFile, err := os.Create(cpuProfileFileName)
 		if err != nil {
 			t.Fatalf("Failed to create CPU profile file: %v", err)
@@ -82,7 +128,7 @@ func runVectorSearchWithMillionVectors(t *testing.T, dimensions int) {
 			pprof.StopCPUProfile()
 		}()
 
-		memProfileFileName := fmt.Sprintf("mem_profile_dim_%d.prof", dimensions)
+		memProfileFileName := fmt.Sprintf("mem_profile_dim_%d%s.prof", dimensions, profileSuffix)
 		memprofileFile, err := os.Create(memProfileFileName)
 		if err != nil {
 			t.Fatalf("Failed to create memory profile file: %v", err)
@@ -100,35 +146,24 @@ func runVectorSearchWithMillionVectors(t *testing.T, dimensions int) {
 		}()
 
 		const (
-			// Target: 1M vectors under 5 minutes
-			// With optimizations: ~100k inserts in 0.5s, 1M = 5s insert
-			// Indexing: 100k batches, 10 batches total, ~15s per batch = 150s
-			// Total: ~3 minutes (well under 5 min limit)
+			// Target: 1M vectors under 90 seconds.
+			// The C virtual table buffers vectors in INSERT_BUFFER_TARGET_BYTES
+			// (128 MB) before flushing, so SQL batch size has no effect on
+			// throughput — individual row INSERTs inside a transaction are just
+			// as fast as large multi-row INSERTs.
 			totalVectors      = 1000000
-			generateBatchSize = 10000 // How many vectors to generate at once
-			insertBatchSize   = 10000 // Increased for speed
+			generateBatchSize = 10000 // How many vectors to generate per outer loop
 			k                 = 10    // Number of nearest neighbors to return
 		)
 
-		// Build the batched INSERT statement without repeated allocations
-		var builder strings.Builder
+		// Single-row prepared INSERT. The C-level buffer (128 MB) batches
+		// vectors efficiently regardless of Go batch size, so sending one
+		// row at a time keeps peak Go heap allocation per call at ~6 KB
+		// instead of ~62 MB for a 10 000-row batch.
+		insertSQL := "INSERT INTO embeddings(vector) VALUES (?)"
+		insertParam := make([]sqlite3.StatementParameter, 1)
 
-		// Approximate per-item size: 3 for "(?)" + 2 for ", " separator
-		if insertBatchSize > 0 {
-			builder.Grow(5 * insertBatchSize)
-		}
-
-		for i := range insertBatchSize {
-			if i > 0 {
-				builder.WriteString(", ")
-			}
-			builder.WriteString("(?)")
-		}
-		placeholders := builder.String()
-
-		insertSQL := fmt.Sprintf("INSERT INTO embeddings(vector) VALUES %s", placeholders)
-
-		t.Logf("Inserting %d vectors in batches of %d...", totalVectors, insertBatchSize)
+		t.Logf("Inserting %d vectors in batches of %d...", totalVectors, generateBatchSize)
 
 		insertStart := time.Now()
 
@@ -139,64 +174,31 @@ func runVectorSearchWithMillionVectors(t *testing.T, dimensions int) {
 		// Use a single Transaction for all inserts.
 		err = dbConn.Transaction(false, func(txConn *database.DatabaseConnection) error {
 			for batch := range totalVectors / generateBatchSize {
-				// Generate vectors using the iterator which also returns
-				// their binary blob representation to avoid a second
-				// conversion pass. Stream them directly into batched
-				// INSERTs to avoid allocating a large `vectorBlobs` slice.
 				it := GenerateBatch(generateBatchSize, dimensions)
 
-				// Reuse params slice across insert batches to avoid repeated
-				// allocations. Capacity is preallocated to `insertBatchSize`.
-				params := make([]sqlite3.StatementParameter, 0, insertBatchSize)
-
-				// Fill params up to `insertBatchSize` by repeatedly calling
-				// the iterator. We separate generation timing from insert
-				// timing by measuring only the generation loop.
 				for {
-					// generation phase: fill params
 					genStart := time.Now()
-					for len(params) < insertBatchSize {
-						blob, ok := it.NextBlob()
-
-						if !ok {
-							break
-						}
-
-						params = append(params, sqlite3.StatementParameter{Type: sqlite3.ParameterTypeBlob, Value: blob})
-					}
-
+					blob, ok := it.NextBlob()
 					vectorGenTime += time.Since(genStart)
 
-					// If we have nothing to insert (iterator exhausted), break
-					if len(params) == 0 {
+					if !ok {
 						break
 					}
 
-					// Execute via DatabaseConnection.Exec for proper barrier and timestamp management
+					insertParam[0] = sqlite3.StatementParameter{Type: sqlite3.ParameterTypeBlob, Value: blob}
+
 					insertStmtStart := time.Now()
-					result, err := txConn.Exec(insertSQL, params)
+					result, err := txConn.Exec(insertSQL, insertParam)
 					insertTime += time.Since(insertStmtStart)
 
 					if err != nil {
-						return fmt.Errorf("failed to insert batch at vector %d: %w", batch*generateBatchSize+insertedCount, err)
+						putBlobBuf(blob)
+						return fmt.Errorf("failed to insert vector %d: %w", batch*generateBatchSize+insertedCount, err)
 					}
 
-					// Return result to pool to release accumulated memory
 					txConn.ResultPool().Put(result)
-
-					// After successful execution, return blob buffers to the pool
-					for _, p := range params {
-						if p.Type == sqlite3.ParameterTypeBlob {
-							if bb, ok := p.Value.([]byte); ok {
-								putBlobBuf(bb)
-							}
-						}
-					}
-
-					insertedCount += len(params)
-
-					// Reuse params backing array for next batch
-					params = params[:0]
+					putBlobBuf(blob)
+					insertedCount++
 				}
 
 				if (batch+1)%10 == 0 {

@@ -11,6 +11,110 @@
 #define DISTANCE_METRIC_DOT 2
 #define DISTANCE_METRIC_HAMMING 3
 
+// Storage type constants for quantized vector storage.
+// Float32 is the default (wire format from clients).
+// Float16 and Int8 reduce storage size 2× and 4× respectively.
+#define STORAGE_TYPE_FLOAT32 0
+#define STORAGE_TYPE_FLOAT16 1
+#define STORAGE_TYPE_INT8    2
+
+// float32_to_float16 converts a 32-bit float to a 16-bit IEEE 754 binary16.
+static uint16_t float32_to_float16(float f)
+{
+    uint32_t x;
+    memcpy(&x, &f, 4);
+    uint32_t sign = (x >> 16) & 0x8000u;
+    int32_t exp   = (int32_t)((x >> 23) & 0xFFu) - 127;
+    uint32_t mant = x & 0x007FFFFFu;
+
+    if (exp >= 16)
+    {
+        // Overflow or NaN → infinity / NaN
+        return (uint16_t)(sign | 0x7C00u | (mant ? 0x200u : 0u));
+    }
+    if (exp < -24)
+    {
+        return (uint16_t)sign; // underflow → zero
+    }
+    if (exp < -14)
+    {
+        // Subnormal binary16
+        uint32_t shift = (uint32_t)(-14 - exp);
+        mant = (mant | 0x00800000u) >> (shift + 1);
+        return (uint16_t)(sign | mant);
+    }
+    return (uint16_t)(sign | (uint32_t)((exp + 15) << 10) | (mant >> 13));
+}
+
+// quantize_vector_blob converts a float32 vector blob to float16 or int8.
+// The input blob must be a valid VectorVersion1/VectorTypeFloat32 blob.
+// Returns a newly sqlite3_malloc'd buffer that the caller must sqlite3_free,
+// or NULL on error. *outLen receives the length of the returned buffer.
+static void *quantize_vector_blob(const void *blob, int blobLen, int storage_type, int *outLen)
+{
+    if (!blob || blobLen < 6)
+        return NULL;
+
+    const uint8_t *b = (const uint8_t *)blob;
+
+    if (b[0] != 0x01 || b[1] != 0x01) // must be VectorVersion1 / VectorTypeFloat32
+        return NULL;
+
+    uint32_t dims = (uint32_t)b[2] | ((uint32_t)b[3] << 8) | ((uint32_t)b[4] << 16) | ((uint32_t)b[5] << 24);
+
+    if (blobLen < (int)(6 + dims * 4))
+        return NULL;
+
+    const float *floats = (const float *)(b + 6);
+
+    if (storage_type == STORAGE_TYPE_FLOAT16)
+    {
+        int newLen = 6 + (int)dims * 2;
+        uint8_t *out = (uint8_t *)sqlite3_malloc(newLen);
+
+        if (!out)
+            return NULL;
+
+        out[0] = 0x01; out[1] = 0x05; // VectorVersion1 / VectorTypeFloat16
+        out[2] = b[2]; out[3] = b[3]; out[4] = b[4]; out[5] = b[5]; // same dims LE
+
+        uint16_t *halfs = (uint16_t *)(out + 6);
+
+        for (uint32_t i = 0; i < dims; i++)
+            halfs[i] = float32_to_float16(floats[i]);
+
+        *outLen = newLen;
+        return out;
+    }
+
+    if (storage_type == STORAGE_TYPE_INT8)
+    {
+        int newLen = 6 + (int)dims;
+        uint8_t *out = (uint8_t *)sqlite3_malloc(newLen);
+
+        if (!out)
+            return NULL;
+
+        out[0] = 0x01; out[1] = 0x03; // VectorVersion1 / VectorTypeInt8
+        out[2] = b[2]; out[3] = b[3]; out[4] = b[4]; out[5] = b[5];
+
+        int8_t *bytes = (int8_t *)(out + 6);
+
+        for (uint32_t i = 0; i < dims; i++)
+        {
+            float v = floats[i] * 127.0f;
+            if (v >  127.0f) v =  127.0f;
+            if (v < -128.0f) v = -128.0f;
+            bytes[i] = (int8_t)(int)v;
+        }
+
+        *outLen = newLen;
+        return out;
+    }
+
+    return NULL;
+}
+
 // Context passed to vector_index virtual table (same pattern as vector_scan)
 typedef struct
 {
@@ -41,6 +145,15 @@ typedef struct
 // The limiting factor is _cluster_vector_map with 3 params per row (vector_id, cluster_id, distance)
 // So max batch size = 32766 / 3 = 10922 vectors
 #define INSERT_BUFFER_CAPACITY 10922
+
+// Target ~128 MiB of buffered vector payload per flush. This allows all
+// dimension sizes (up to 3072) to reach the 10922-row SQLite variable cap,
+// keeping flush count constant across dimensions and removing the 8x flush
+// overhead gap that made high-dimensional inserts disproportionately slow.
+#define INSERT_BUFFER_TARGET_BYTES (128 * 1024 * 1024)
+
+// Never buffer fewer than this many rows to avoid excessive flush churn.
+#define INSERT_BUFFER_MIN_ROWS 64
 
 // goAssignVectorsInBatch assigns each vector in the batch to its correct leaf
 // cluster using the same sqlite3* connection that holds the current write
@@ -136,6 +249,7 @@ typedef struct vector_index_vtab
     int distance_metric;
     int max_cluster_size;
     int min_cluster_size;
+    int storage_type;     // STORAGE_TYPE_FLOAT32 (default), STORAGE_TYPE_FLOAT16, or STORAGE_TYPE_INT8
     sqlite3_stmt *insert_vector_stmt;
     sqlite3_stmt *upsert_map_stmt;
     sqlite3_stmt *delete_map_stmt;
@@ -164,6 +278,51 @@ typedef struct vector_index_cursor
 
 // Forward declaration for helper function (after typedef)
 static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr);
+
+// Estimate a dimension-aware row buffer capacity so high-dimensional vectors
+// flush more frequently and avoid large transient memory spikes.
+static int compute_insert_buffer_capacity(vector_index_vtab *vtab)
+{
+    int max_vector_bytes_per_row = 0;
+
+    for (int i = 0; i < vtab->num_columns; i++)
+    {
+        if (!vtab->columns[i].is_vector)
+        {
+            continue;
+        }
+
+        int dims = vtab->columns[i].dimensions;
+        if (dims < 0)
+        {
+            dims = 0;
+        }
+
+        // Vector blob format: 2-byte version/type + 4-byte dimensions + data.
+        max_vector_bytes_per_row += 6 + (dims * 4);
+    }
+
+    if (max_vector_bytes_per_row <= 0)
+    {
+        return INSERT_BUFFER_CAPACITY;
+    }
+
+    // Add conservative overhead for non-vector columns and sqlite value copies.
+    int estimated_row_bytes = max_vector_bytes_per_row + 256;
+    int computed = INSERT_BUFFER_TARGET_BYTES / estimated_row_bytes;
+
+    if (computed < INSERT_BUFFER_MIN_ROWS)
+    {
+        computed = INSERT_BUFFER_MIN_ROWS;
+    }
+
+    if (computed > INSERT_BUFFER_CAPACITY)
+    {
+        computed = INSERT_BUFFER_CAPACITY;
+    }
+
+    return computed;
+}
 
 // Prepare (and cache) a multi-row INSERT statement for the _vectors table
 static int prepare_batch_vector_stmt(vector_index_vtab *vtab, int rows, sqlite3_stmt **pStmt, char **pzErr)
@@ -618,12 +777,14 @@ static int parse_index_params(
     int *distance_metric,
     int *max_cluster_size,
     int *min_cluster_size,
+    int *storage_type_out,
     char **pzErr)
 {
     // Default values
     *distance_metric = DISTANCE_METRIC_COSINE;
     *max_cluster_size = 5000;
     *min_cluster_size = 200;
+    *storage_type_out = STORAGE_TYPE_FLOAT32;
     *columns_out = NULL;
     *num_columns_out = 0;
 
@@ -691,6 +852,15 @@ static int parse_index_params(
             else if (strncmp(arg, "min_cluster_size", key_len) == 0)
             {
                 *min_cluster_size = atoi(value);
+            }
+            else if (strncmp(arg, "storage_type", key_len) == 0 && key_len == 12)
+            {
+                if (strcmp(value, "float16") == 0 || strcmp(value, "'float16'") == 0)
+                    *storage_type_out = STORAGE_TYPE_FLOAT16;
+                else if (strcmp(value, "int8") == 0 || strcmp(value, "'int8'") == 0)
+                    *storage_type_out = STORAGE_TYPE_INT8;
+                else if (strcmp(value, "float32") == 0 || strcmp(value, "'float32'") == 0)
+                    *storage_type_out = STORAGE_TYPE_FLOAT32;
             }
             else
             {
@@ -898,10 +1068,10 @@ int vector_index_create(
     int rc;
     ColumnDef *columns = NULL;
     int num_columns = 0;
-    int distance_metric, max_cluster_size, min_cluster_size;
+    int distance_metric, max_cluster_size, min_cluster_size, storage_type;
 
     // Parse parameters
-    rc = parse_index_params(argc, argv, &columns, &num_columns, &distance_metric, &max_cluster_size, &min_cluster_size, pzErr);
+    rc = parse_index_params(argc, argv, &columns, &num_columns, &distance_metric, &max_cluster_size, &min_cluster_size, &storage_type, pzErr);
     if (rc != SQLITE_OK)
     {
         return rc;
@@ -961,6 +1131,7 @@ int vector_index_create(
     vtab->distance_metric = distance_metric;
     vtab->max_cluster_size = max_cluster_size;
     vtab->min_cluster_size = min_cluster_size;
+    vtab->storage_type = storage_type;
 
     // Declare virtual table schema dynamically based on parsed columns
     // Schema format: CREATE TABLE x(id INTEGER PRIMARY KEY, col1 TYPE1, col2 TYPE2, ...)
@@ -1025,11 +1196,13 @@ int vector_index_create(
         "INSERT OR REPLACE INTO %s_metadata (key, value) VALUES "
         "('column_count', '%d'), "
         "('max_cluster_size', '%d'), "
-        "('min_cluster_size', '%d')",
+        "('min_cluster_size', '%d'), "
+        "('storage_type', '%d')",
         vtab->table_name,
         num_columns,
         max_cluster_size,
-        min_cluster_size);
+        min_cluster_size,
+        storage_type);
 
     char *err_msg = NULL;
     rc = sqlite3_exec(db, sql, NULL, NULL, &err_msg);
@@ -1116,8 +1289,8 @@ int vector_index_create(
         return rc;
     }
 
-    // Initialize insert buffer
-    vtab->buffer_capacity = INSERT_BUFFER_CAPACITY;
+    // Initialize insert buffer with adaptive capacity based on vector size.
+    vtab->buffer_capacity = compute_insert_buffer_capacity(vtab);
     vtab->insert_buffer = (PendingInsert *)sqlite3_malloc(sizeof(PendingInsert) * vtab->buffer_capacity);
     if (vtab->insert_buffer == NULL)
     {
@@ -1361,6 +1534,19 @@ int vector_index_connect(
     }
     sqlite3_finalize(stmt);
 
+    // Load storage_type (default: STORAGE_TYPE_FLOAT32 = 0)
+    vtab->storage_type = STORAGE_TYPE_FLOAT32;
+    sql = sqlite3_mprintf("SELECT value FROM %s_metadata WHERE key = 'storage_type'", vtab->table_name);
+    rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    sqlite3_free(sql);
+
+    if (rc == SQLITE_OK && sqlite3_step(stmt) == SQLITE_ROW)
+    {
+        vtab->storage_type = atoi((const char *)sqlite3_column_text(stmt, 0));
+    }
+
+    sqlite3_finalize(stmt);
+
     // Build dynamic schema for sqlite3_declare_vtab
     char *schema = sqlite3_mprintf("CREATE TABLE x(id INTEGER PRIMARY KEY");
     for (int i = 0; i < num_columns; i++)
@@ -1398,8 +1584,8 @@ int vector_index_connect(
         return rc;
     }
 
-    // Initialize insert buffer
-    vtab->buffer_capacity = INSERT_BUFFER_CAPACITY;
+    // Initialize insert buffer with adaptive capacity based on vector size.
+    vtab->buffer_capacity = compute_insert_buffer_capacity(vtab);
     vtab->insert_buffer = (PendingInsert *)sqlite3_malloc(sizeof(PendingInsert) * vtab->buffer_capacity);
     if (vtab->insert_buffer == NULL)
     {
@@ -1755,6 +1941,19 @@ static int flush_insert_buffer(vector_index_vtab *vtab, char **pzErr)
                 {
                     const void *blob = sqlite3_value_blob(val);
                     int blen = sqlite3_value_bytes(val);
+                    // Quantize vector blobs when storage_type is not float32.
+                    // blob_ptrs (for goAssignVectorsInBatch) use the original
+                    // sqlite3_value so float32 distance computation is unaffected.
+                    if (vtab->storage_type != STORAGE_TYPE_FLOAT32 && vtab->columns[j].is_vector)
+                    {
+                        int qlen = 0;
+                        void *qblob = quantize_vector_blob(blob, blen, vtab->storage_type, &qlen);
+                        if (qblob != NULL)
+                        {
+                            sqlite3_bind_blob(stmt, param_idx++, qblob, qlen, sqlite3_free);
+                            break;
+                        }
+                    }
                     sqlite3_bind_blob(stmt, param_idx++, blob, blen, SQLITE_STATIC);
                     break;
                 }

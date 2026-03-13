@@ -15,8 +15,15 @@ import "C"
 import (
 	"errors"
 	"math"
+	"sync"
 	"unsafe"
 )
+
+// tempFloat32Pool holds pooled []float32 buffers used when decoding quantized
+// (float16 or int8) blobs inside DistanceFromBlob to avoid per-call allocation.
+var tempFloat32Pool = sync.Pool{
+	New: func() any { b := make([]float32, 0, 512); return &b },
+}
 
 // Distance metric types
 const (
@@ -107,6 +114,138 @@ func DistanceDot(a, b *VectorBlob) (float64, error) {
 	result := float64(C.compute_distance_dot(aPtr, bPtr, dims))
 
 	return result, nil
+}
+
+// DistanceFromBlob computes the distance between a parsed query vector and a
+// raw vector blob without allocating a VectorBlob for the raw blob.  The blob
+// must use VectorVersion1 format and match the query vector's dimensionality.
+// Supported storage types: VectorTypeFloat32, VectorTypeFloat16, VectorTypeInt8.
+// metric is a numeric constant (0=L2, 1=Cosine, 2=Dot).
+// Returns (distance, ok); ok is false when the blob is malformed, the
+// dimensions do not match, or the type is unsupported.
+func DistanceFromBlob(query *VectorBlob, rawBlob []byte, metric int) (float64, bool) {
+	if len(rawBlob) < 7 || query == nil || len(query.Data) == 0 {
+		return 0, false
+	}
+
+	if rawBlob[0] != VectorVersion1 {
+		return 0, false
+	}
+
+	dims := int(uint32(rawBlob[2]) | uint32(rawBlob[3])<<8 | uint32(rawBlob[4])<<16 | uint32(rawBlob[5])<<24)
+
+	if dims != query.Dimensions {
+		return 0, false
+	}
+
+	aPtr := (*C.float)(unsafe.Pointer(&query.Data[0]))
+	cDims := C.int(dims)
+
+	switch rawBlob[1] {
+	case VectorTypeFloat32:
+		if len(rawBlob) != 6+dims*4 {
+			return 0, false
+		}
+
+		bPtr := (*C.float)(unsafe.Pointer(&rawBlob[6]))
+
+		switch metric {
+		case 0:
+			return float64(C.compute_distance_l2(aPtr, bPtr, cDims)), true
+		case 1:
+			return float64(C.compute_distance_cosine(aPtr, bPtr, cDims)), true
+		case 2:
+			return float64(C.compute_distance_dot(aPtr, bPtr, cDims)), true
+		default:
+			return 0, false
+		}
+
+	case VectorTypeFloat16:
+		if len(rawBlob) != 6+dims*2 {
+			return 0, false
+		}
+
+		// Decode float16 → temp float32 buffer, then compute via SIMD.
+		bp := tempFloat32Pool.Get().(*[]float32)
+		buf := *bp
+
+		if cap(buf) < dims {
+			buf = make([]float32, dims)
+		} else {
+			buf = buf[:dims]
+		}
+
+		for i := 0; i < dims; i++ {
+			h := uint16(rawBlob[6+i*2]) | uint16(rawBlob[7+i*2])<<8
+			buf[i] = float16ToFloat32(h)
+		}
+
+		bPtr := (*C.float)(unsafe.Pointer(&buf[0]))
+		var dist float64
+
+		switch metric {
+		case 0:
+			dist = float64(C.compute_distance_l2(aPtr, bPtr, cDims))
+		case 1:
+			dist = float64(C.compute_distance_cosine(aPtr, bPtr, cDims))
+		case 2:
+			dist = float64(C.compute_distance_dot(aPtr, bPtr, cDims))
+		default:
+			*bp = buf[:0]
+			tempFloat32Pool.Put(bp)
+
+			return 0, false
+		}
+
+		*bp = buf[:0]
+		tempFloat32Pool.Put(bp)
+
+		return dist, true
+
+	case VectorTypeInt8:
+		if len(rawBlob) != 6+dims {
+			return 0, false
+		}
+
+		// Decode int8 → float32 using global scale (val/127.0), then compute via SIMD.
+		bp := tempFloat32Pool.Get().(*[]float32)
+		buf := *bp
+
+		if cap(buf) < dims {
+			buf = make([]float32, dims)
+		} else {
+			buf = buf[:dims]
+		}
+
+		for i := 0; i < dims; i++ {
+			buf[i] = float32(int8(rawBlob[6+i])) / 127.0
+		}
+
+		bPtr := (*C.float)(unsafe.Pointer(&buf[0]))
+		var dist float64
+
+		switch metric {
+		case 0:
+			dist = float64(C.compute_distance_l2(aPtr, bPtr, cDims))
+		case 1:
+			dist = float64(C.compute_distance_cosine(aPtr, bPtr, cDims))
+		case 2:
+			dist = float64(C.compute_distance_dot(aPtr, bPtr, cDims))
+		default:
+			*bp = buf[:0]
+			tempFloat32Pool.Put(bp)
+
+			return 0, false
+		}
+
+		*bp = buf[:0]
+		tempFloat32Pool.Put(bp)
+
+		return dist, true
+
+	default:
+		return 0, false
+	}
 }
 
 // DistanceHamming computes the Hamming distance between two bit vectors

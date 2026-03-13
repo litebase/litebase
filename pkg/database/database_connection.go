@@ -104,6 +104,20 @@ type DatabaseConnection struct {
 	vfsHash                string
 	walManager             *DatabaseWALManager
 	walTimestamp           int64
+	// Pre-bound method values for Exec hot path — allocated once, zero per-call
+	execState   dbExecState
+	execOuterFn func() error
+	execInnerFn func() error
+}
+
+// dbExecState holds per-Exec-call inputs in a reusable struct field so that
+// execInner/execOuter can be pre-bound method values (allocated once at
+// connection creation) rather than new closures on every Exec call.
+type dbExecState struct {
+	result            *sqlite3.Result
+	sql               string
+	parameters        []sqlite3.StatementParameter
+	compactionBarrier func(func() error) error
 }
 
 type StatementKey struct {
@@ -157,6 +171,11 @@ func NewDatabaseConnection(connectionManager *ConnectionManager, branch *Branch)
 		walManager:        walManager,
 		walTimestamp:      time.Now().UTC().UnixNano(),
 	}
+
+	// Pre-bind method values once so every Exec call reuses the same function
+	// pointers instead of allocating new closures.
+	con.execOuterFn = con.execOuter
+	con.execInnerFn = con.execInner
 
 	err = con.openSqliteConnection()
 
@@ -413,6 +432,38 @@ func (con *DatabaseConnection) Context() context.Context {
 	return con.context
 }
 
+// execInner is the innermost body of Exec, bound once at construction to avoid
+// per-call closure allocation. State is passed via con.execState.
+func (con *DatabaseConnection) execInner() error {
+	con.mutex.Lock()
+	defer con.mutex.Unlock()
+
+	con.setTimestamps()
+	defer con.releaseTimestamps()
+
+	statement, err := con.Statement(con.execState.sql)
+
+	if err != nil {
+		return err
+	}
+
+	if err = statement.Sqlite3Statement.Exec(con.execState.result, con.execState.parameters...); err != nil {
+		return err
+	}
+
+	if con.sqliteConnection().Changes() > 0 {
+		con.committedAt = time.Now().UTC()
+		con.vfs.WALUpdated()
+	}
+
+	return nil
+}
+
+// execOuter is the middle body of Exec, bound once at construction.
+func (con *DatabaseConnection) execOuter() error {
+	return con.execState.compactionBarrier(con.execInnerFn)
+}
+
 func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementParameter) (result *sqlite3.Result, err error) {
 	if con.Closed() {
 		return nil, ErrDatabaseConnectionClosed
@@ -468,36 +519,11 @@ func (con *DatabaseConnection) Exec(sql string, parameters []sqlite3.StatementPa
 		}
 	}
 
-	execErr := checkpointBarrier(func() error {
-		return compactionBarrier(func() error {
-			con.mutex.Lock()
-			defer con.mutex.Unlock()
-
-			// Acquire timestamp inside the checkpoint barrier to ensure atomicity
-			con.setTimestamps()
-			defer con.releaseTimestamps()
-
-			statement, err := con.Statement(sql)
-
-			if err != nil {
-				return err
-			}
-
-			err = statement.Sqlite3Statement.Exec(result, parameters...)
-
-			if err != nil {
-				return err
-			}
-
-			if con.sqliteConnection().Changes() > 0 {
-				con.committedAt = time.Now().UTC()
-
-				con.vfs.WALUpdated()
-			}
-
-			return nil
-		})
-	})
+	con.execState.result = result
+	con.execState.sql = sql
+	con.execState.parameters = parameters
+	con.execState.compactionBarrier = compactionBarrier
+	execErr := checkpointBarrier(con.execOuterFn)
 
 	// In auto-commit mode (not inside a Transaction wrapper), drain any
 	// post-commit hooks registered by C-level xCommit callbacks. This runs

@@ -38,6 +38,11 @@ func float32ToFloat16(f float32) uint16 {
 	return uint16(sign | (uint32(exp) << 10) | (mantissa >> 13))
 }
 
+// Float16ToFloat32 converts a float16 (uint16) to float32.
+func Float16ToFloat32(h uint16) float32 {
+	return float16ToFloat32(h)
+}
+
 // float16ToFloat32 converts a float16 (uint16) to float32
 func float16ToFloat32(h uint16) float32 {
 	sign := uint32((h>>15)&1) << 31

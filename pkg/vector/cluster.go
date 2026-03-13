@@ -1,10 +1,10 @@
 package vector
 
-// Inline cluster assignment for the vector_index virtual table.
+// Cluster assignment for the vector_index virtual table.
 //
-// goAssignVectorsInBatch    — assigns correct cluster IDs inline on vtab->db
+// goAssignVectorsInBatch    — assigns correct cluster IDs on vtab->db
 //                             (no cluster_id=0 ever written)
-// goUpdateClusterStats      — updates cluster_size + centroid_blob inline on vtab->db
+// goUpdateClusterStats      — updates cluster_size + centroid_blob on vtab->db
 // goTriggerClusterSplits    — fires a goroutine to split oversized clusters
 //                             (uses ConnectionManager, separate from vtab->db)
 
@@ -47,7 +47,7 @@ type clusterUpdateStmts struct {
 var clusterUpdateStmtCache sync.Map
 
 // clusterTreeStmtCache maps (db pointer, "table_col") to the persistent
-// prepared SELECT statement used by loadInlineClusterTree, so that the full
+// prepared SELECT statement used by loadClusterTree, so that the full
 // cluster tree SELECT is not re-prepared on every flush.
 var clusterTreeStmtCache sync.Map
 
@@ -95,9 +95,9 @@ func getOrPrepareClusterUpdateStmts(sdb *C.sqlite3, tbl, col string) (*clusterUp
 	return stmts, true
 }
 
-// inlineClusterNode is a minimal local copy of the cluster tree node, kept
+// clusterNode is a minimal local copy of the cluster tree node, kept
 // separate from database.ClusterNode to avoid a circular import.
-type inlineClusterNode struct {
+type clusterNode struct {
 	clusterID int64
 	parentID  *int64
 	centroid  []float32
@@ -105,16 +105,16 @@ type inlineClusterNode struct {
 	children  []int64
 }
 
-// loadInlineClusterTree reads the entire cluster tree for one vector column
+// loadClusterTree reads the entire cluster tree for one vector column
 // using the raw sqlite3* that owns the active write transaction.  Reading
 // within the same write transaction is safe in SQLite WAL mode.
 //
 // The underlying SELECT statement is cached per (connection, table, column)
 // with SQLITE_PREPARE_PERSISTENT to avoid re-preparing on every flush.
 //
-// Nodes are acquired from inlineClusterNodePool. Callers must call
-// releaseInlineClusterTree to return nodes to the pool after use.
-func loadInlineClusterTree(db *C.sqlite3, tableName, colName string) (map[int64]*inlineClusterNode, error) {
+// Nodes are acquired from clusterNodePool. Callers must call
+// releaseClusterTree to return nodes to the pool after use.
+func loadClusterTree(db *C.sqlite3, tableName, colName string) (map[int64]*clusterNode, error) {
 	key := clusterStmtKey{db: uintptr(unsafe.Pointer(db)), key: tableName + "_" + colName}
 
 	var stmt *C.sqlite3_stmt
@@ -143,7 +143,7 @@ func loadInlineClusterTree(db *C.sqlite3, tableName, colName string) (map[int64]
 	// Reset at exit so the cached statement is clean for the next call.
 	defer C.sqlite3_reset(stmt)
 
-	tree := make(map[int64]*inlineClusterNode, 64)
+	tree := make(map[int64]*clusterNode, 64)
 
 	for C.sqlite3_step(stmt) == C.SQLITE_ROW {
 		clusterID := int64(C.sqlite3_column_int64(stmt, 0))
@@ -160,7 +160,7 @@ func loadInlineClusterTree(db *C.sqlite3, tableName, colName string) (map[int64]
 		blobPtr := C.sqlite3_column_blob(stmt, 2)
 		blobLen := int(C.sqlite3_column_bytes(stmt, 2))
 
-		// Parse the centroid blob inline without C.GoBytes: read the header
+		// Parse the centroid blob without C.GoBytes: read the header
 		// from the SQLite-owned buffer (valid for the lifetime of this row
 		// fetch), then copy only the float32 data into a Go-owned slice that
 		// outlives the statement.
@@ -192,7 +192,7 @@ func loadInlineClusterTree(db *C.sqlite3, tableName, colName string) (map[int64]
 
 		isLeaf := C.sqlite3_column_int(stmt, 3) != 0
 
-		node := getInlineClusterNode()
+		node := getClusterNode()
 		node.clusterID = clusterID
 		node.parentID = parentID
 		node.centroid = centroid
@@ -217,16 +217,16 @@ func loadInlineClusterTree(db *C.sqlite3, tableName, colName string) (map[int64]
 	return tree, nil
 }
 
-// releaseInlineClusterTree returns all nodes in tree back to the pool.
-func releaseInlineClusterTree(tree map[int64]*inlineClusterNode) {
+// releaseClusterTree returns all nodes in tree back to the pool.
+func releaseClusterTree(tree map[int64]*clusterNode) {
 	for _, node := range tree {
-		putInlineClusterNode(node)
+		putClusterNode(node)
 	}
 }
 
-// findInlineBestCluster traverses the cluster tree from root (id=1) and
+// findBestCluster traverses the cluster tree from root (id=1) and
 // returns the leaf cluster ID and distance that best match vec.
-func findInlineBestCluster(tree map[int64]*inlineClusterNode, distMetric int, vec []float32) (int64, float64) {
+func findBestCluster(tree map[int64]*clusterNode, distMetric int, vec []float32) (int64, float64) {
 	node, ok := tree[1]
 
 	if !ok {
@@ -237,14 +237,14 @@ func findInlineBestCluster(tree map[int64]*inlineClusterNode, distMetric int, ve
 
 	for {
 		if len(node.centroid) > 0 {
-			dist = inlineDistance(vec, node.centroid, distMetric)
+			dist = distance(vec, node.centroid, distMetric)
 		}
 
 		if node.isLeaf || len(node.children) == 0 {
 			return node.clusterID, dist
 		}
 
-		var best *inlineClusterNode
+		var best *clusterNode
 		bestDist := 1e18
 
 		for _, childID := range node.children {
@@ -254,7 +254,7 @@ func findInlineBestCluster(tree map[int64]*inlineClusterNode, distMetric int, ve
 				continue
 			}
 
-			d := inlineDistance(vec, child.centroid, distMetric)
+			d := distance(vec, child.centroid, distMetric)
 
 			if d < bestDist {
 				bestDist = d
@@ -270,43 +270,47 @@ func findInlineBestCluster(tree map[int64]*inlineClusterNode, distMetric int, ve
 	}
 }
 
-// inlineDistance mirrors database.calculateDistance exactly so search and
+// distance mirrors database.calculateDistance exactly so search and
 // insert use the same metric.
-func inlineDistance(a, b []float32, metric int) float64 {
+//
+// All accumulators use float32 so that the Go compiler can auto-vectorise
+// the inner loop with NEON (ARM64) or SSE/AVX (x86-64).  Ordering is
+// identical to the previous float64 version for any normally-scaled input.
+func distance(a, b []float32, metric int) float64 {
 	switch metric {
-	case 0: // L2
-		sum := 0.0
+	case 0: // L2 (squared — monotone with actual L2, avoids sqrtf)
+		var sum float32
 
 		for i := range a {
-			d := float64(a[i] - b[i])
+			d := a[i] - b[i]
 			sum += d * d
 		}
 
-		return sum
+		return float64(sum)
 	case 1: // Cosine (matches database.calculateDistance: 1 - dot/(normA*normB))
-		dot, na, nb := 0.0, 0.0, 0.0
+		var dot, na, nb float32
 
 		for i := range a {
-			dot += float64(a[i] * b[i])
-			na += float64(a[i] * a[i])
-			nb += float64(b[i] * b[i])
+			dot += a[i] * b[i]
+			na += a[i] * a[i]
+			nb += b[i] * b[i]
 		}
 
-		denom := na * nb
+		denom := float64(na) * float64(nb)
 
 		if denom == 0 {
 			return 1.0
 		}
 
-		return 1.0 - dot/denom
+		return 1.0 - float64(dot)/denom
 	case 2: // Dot product (negate so lower = closer)
-		dot := 0.0
+		var dot float32
 
 		for i := range a {
-			dot += float64(a[i] * b[i])
+			dot += a[i] * b[i]
 		}
 
-		return -dot
+		return float64(-dot)
 	default:
 		return 1e18
 	}
@@ -363,7 +367,7 @@ func goAssignVectorsInBatch(
 		dists[i] = 0
 	}
 
-	tree, err := loadInlineClusterTree((*C.sqlite3)(db), tbl, col)
+	tree, err := loadClusterTree((*C.sqlite3)(db), tbl, col)
 
 	if err != nil {
 		slog.Error("goAssignVectorsInBatch: cluster tree unavailable — assigning to root",
@@ -372,7 +376,7 @@ func goAssignVectorsInBatch(
 		return C.SQLITE_OK
 	}
 
-	defer releaseInlineClusterTree(tree)
+	defer releaseClusterTree(tree)
 
 	ptrs := unsafe.Slice(blobPtrs, n)
 	lens := unsafe.Slice(blobLens, n)
@@ -406,7 +410,7 @@ func goAssignVectorsInBatch(
 
 		// vec points directly into C memory; valid until the function returns.
 		vec := unsafe.Slice((*float32)(unsafe.Pointer(uintptr(base)+6)), dims)
-		cid, dist := findInlineBestCluster(tree, metric, vec)
+		cid, dist := findBestCluster(tree, metric, vec)
 
 		clusterIDs[i] = C.sqlite3_int64(cid)
 		dists[i] = C.double(dist)
@@ -416,7 +420,7 @@ func goAssignVectorsInBatch(
 }
 
 // goUpdateClusterStats updates cluster_size and centroid_blob for each cluster
-// that received vectors in this batch.  Called inline on vtab->db after the
+// that received vectors in this batch.  Called on vtab->db after the
 // cluster_vector_map INSERT so the changes are part of the same transaction.
 //
 // This function receives one entry per vector in the batch (not pre-aggregated):

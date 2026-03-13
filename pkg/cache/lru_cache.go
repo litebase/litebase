@@ -29,6 +29,11 @@ type LRUCache struct {
 	items    map[any]*list.Element
 	lruList  *list.List
 	mutex    sync.Mutex
+	// OnEvict is called with the evicted key whenever an entry is removed
+	// due to capacity pressure or an explicit Delete/DeleteIf/Close. It is
+	// called without the cache mutex held so callers must not re-enter the
+	// cache from within the callback.
+	OnEvict func(key any)
 }
 
 func NewLRUCache(capacity int) *LRUCache {
@@ -41,7 +46,6 @@ func NewLRUCache(capacity int) *LRUCache {
 
 func (c *LRUCache) Delete(key any) {
 	c.mutex.Lock()
-	defer c.mutex.Unlock()
 
 	if elem, found := c.items[key]; found {
 		c.lruList.Remove(elem)
@@ -59,7 +63,16 @@ func (c *LRUCache) Delete(key any) {
 		lruCacheItemPool.Put(item)
 
 		delete(c.items, key)
+		c.mutex.Unlock()
+
+		if c.OnEvict != nil {
+			c.OnEvict(key)
+		}
+
+		return
 	}
+
+	c.mutex.Unlock()
 }
 
 // Get retrieves an item from the cache and marks it as recently used.
@@ -82,7 +95,6 @@ func (c *LRUCache) Get(key any) (any, bool) {
 // Put adds an item to the cache.
 func (c *LRUCache) Put(key any, value any) error {
 	c.mutex.Lock()
-	defer c.mutex.Unlock()
 
 	// Copy byte slices using buffer from pool
 	storedValue := value
@@ -116,10 +128,14 @@ func (c *LRUCache) Put(key any, value any) error {
 		// Move to front (most recently used)
 		c.lruList.MoveToFront(elem)
 
+		c.mutex.Unlock()
+
 		return nil
 	}
 
 	// Evict least recently used if at capacity
+	var evictedKey any
+
 	if c.lruList.Len() >= c.capacity {
 		// Remove least recently used (back of list)
 		oldest := c.lruList.Back()
@@ -134,6 +150,7 @@ func (c *LRUCache) Put(key any, value any) error {
 				lruBufferPool.Put(&evictedBuf)
 			}
 
+			evictedKey = item.key
 			delete(c.items, item.key)
 
 			// Return item to pool
@@ -151,6 +168,13 @@ func (c *LRUCache) Put(key any, value any) error {
 	elem := c.lruList.PushFront(newItem)
 	c.items[key] = elem
 
+	c.mutex.Unlock()
+
+	// Fire eviction callback outside the lock to avoid re-entrancy deadlocks.
+	if evictedKey != nil && c.OnEvict != nil {
+		c.OnEvict(evictedKey)
+	}
+
 	return nil
 }
 
@@ -158,7 +182,7 @@ func (c *LRUCache) Put(key any, value any) error {
 // This is O(n) in the number of cache items and should be used sparingly.
 func (c *LRUCache) DeleteIf(predicate func(any) bool) {
 	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	var evictedKeys []any
 
 	var toRemove []*list.Element
 
@@ -180,6 +204,7 @@ func (c *LRUCache) DeleteIf(predicate func(any) bool) {
 			lruBufferPool.Put(&b)
 		}
 
+		evictedKeys = append(evictedKeys, item.key)
 		delete(c.items, item.key)
 
 		// Return item to pool
@@ -187,12 +212,21 @@ func (c *LRUCache) DeleteIf(predicate func(any) bool) {
 		item.value = nil
 		lruCacheItemPool.Put(item)
 	}
+
+	c.mutex.Unlock()
+
+	if c.OnEvict != nil {
+		for _, k := range evictedKeys {
+			c.OnEvict(k)
+		}
+	}
 }
 
 // Close clears the cache and returns all buffers to the pool.
 func (c *LRUCache) Close() {
 	c.mutex.Lock()
-	defer c.mutex.Unlock()
+
+	var evictedKeys []any
 
 	// Return all byte slice buffers to pool
 	for elem := c.lruList.Front(); elem != nil; elem = elem.Next() {
@@ -201,6 +235,8 @@ func (c *LRUCache) Close() {
 		if b, ok := item.value.([]byte); ok {
 			lruBufferPool.Put(&b)
 		}
+
+		evictedKeys = append(evictedKeys, item.key)
 
 		// Return item to pool
 		item.key = nil
@@ -211,4 +247,12 @@ func (c *LRUCache) Close() {
 	// Clear all items
 	c.items = make(map[any]*list.Element, c.capacity)
 	c.lruList.Init()
+
+	c.mutex.Unlock()
+
+	if c.OnEvict != nil {
+		for _, k := range evictedKeys {
+			c.OnEvict(k)
+		}
+	}
 }

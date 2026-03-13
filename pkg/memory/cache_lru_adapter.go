@@ -45,7 +45,7 @@ func NewManagedLRUCache(cfg ManagedLRUCacheConfig) *ManagedLRUCache {
 		}
 	}
 
-	return &ManagedLRUCache{
+	mc := &ManagedLRUCache{
 		cache:       cache.NewLRUCache(cfg.Capacity),
 		manager:     cfg.Manager,
 		sizeFunc:    cfg.SizeFunc,
@@ -53,6 +53,22 @@ func NewManagedLRUCache(cfg ManagedLRUCacheConfig) *ManagedLRUCache {
 		owner:       cfg.Owner,
 		leases:      make(map[any]*Lease),
 	}
+
+	// Release the memory lease whenever the underlying LRU cache naturally
+	// evicts an entry due to capacity pressure (or explicit Delete/Close).
+	// Without this, each evicted page leaves an unreleased lease in the
+	// memory manager reservoir, eventually exhausting available memory.
+	mc.cache.OnEvict = func(key any) {
+		if lease, ok := mc.leases[key]; ok {
+			if mc.manager != nil {
+				mc.manager.Release(lease) //nolint:errcheck
+			}
+
+			delete(mc.leases, key)
+		}
+	}
+
+	return mc
 }
 
 // registerOwnerHandler registers a reclaim handler for this cache owner if one
