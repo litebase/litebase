@@ -39,9 +39,9 @@ func minimumTimeoutForDimensions(dimensions int) time.Duration {
 	case dimensions >= 3072:
 		return 2 * time.Minute
 	case dimensions >= 1536:
-		return 90 * time.Second
+		return 55 * time.Second
 	default:
-		return 30 * time.Second
+		return 8 * time.Second
 	}
 }
 

@@ -270,50 +270,10 @@ func findBestCluster(tree map[int64]*clusterNode, distMetric int, vec []float32)
 	}
 }
 
-// distance mirrors database.calculateDistance exactly so search and
-// insert use the same metric.
-//
-// All accumulators use float32 so that the Go compiler can auto-vectorise
-// the inner loop with NEON (ARM64) or SSE/AVX (x86-64).  Ordering is
-// identical to the previous float64 version for any normally-scaled input.
+// distance computes distance using SIMD-accelerated C functions (NEON/AVX2)
+// via distanceSimd in distance.go.  Metrics: 0=L2, 1=Cosine, 2=Dot.
 func distance(a, b []float32, metric int) float64 {
-	switch metric {
-	case 0: // L2 (squared — monotone with actual L2, avoids sqrtf)
-		var sum float32
-
-		for i := range a {
-			d := a[i] - b[i]
-			sum += d * d
-		}
-
-		return float64(sum)
-	case 1: // Cosine (matches database.calculateDistance: 1 - dot/(normA*normB))
-		var dot, na, nb float32
-
-		for i := range a {
-			dot += a[i] * b[i]
-			na += a[i] * a[i]
-			nb += b[i] * b[i]
-		}
-
-		denom := float64(na) * float64(nb)
-
-		if denom == 0 {
-			return 1.0
-		}
-
-		return 1.0 - float64(dot)/denom
-	case 2: // Dot product (negate so lower = closer)
-		var dot float32
-
-		for i := range a {
-			dot += a[i] * b[i]
-		}
-
-		return float64(-dot)
-	default:
-		return 1e18
-	}
+	return distanceSimd(a, b, metric)
 }
 
 // goAssignVectorsInBatch is exported to C and called from flush_insert_buffer

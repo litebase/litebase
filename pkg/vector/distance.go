@@ -248,6 +248,32 @@ func DistanceFromBlob(query *VectorBlob, rawBlob []byte, metric int) (float64, b
 	}
 }
 
+// distanceSimd computes distance between raw float32 slices using
+// SIMD-accelerated C functions (NEON on ARM64, AVX2 on x86-64).
+// metric: 0=L2 (squared), 1=Cosine, 2=Dot.
+// For L2, the result is squared to match findBestCluster ordering semantics.
+func distanceSimd(a, b []float32, metric int) float64 {
+	if len(a) == 0 || len(a) != len(b) {
+		return 1e18
+	}
+
+	aPtr := (*C.float)(unsafe.Pointer(&a[0]))
+	bPtr := (*C.float)(unsafe.Pointer(&b[0]))
+	dims := C.int(len(a))
+
+	switch metric {
+	case 0:
+		d := float64(C.compute_distance_l2(aPtr, bPtr, dims))
+		return d * d
+	case 1:
+		return float64(C.compute_distance_cosine(aPtr, bPtr, dims))
+	case 2:
+		return float64(C.compute_distance_dot(aPtr, bPtr, dims))
+	default:
+		return 1e18
+	}
+}
+
 // DistanceHamming computes the Hamming distance between two bit vectors
 // Returns the number of differing bits
 func DistanceHamming(a, b *VectorBlob) (int, error) {

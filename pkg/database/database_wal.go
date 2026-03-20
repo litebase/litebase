@@ -22,8 +22,9 @@ import (
 
 const (
 	// WAL cache configuration
-	WALCacheCapacity    = 32000 // Number of pages to cache (32000 pages × 128MB =  per WAL)
-	WALCacheDefaultSize = 4096  // 4KB per page
+	WALCacheCapacity    = 32000   // Number of pages to cache (32000 pages × 128MB =  per WAL)
+	WALCacheDefaultSize = 4096    // 4KB per page
+	writeAccumSize      = 1 << 20 // 1 MB write accumulator
 )
 
 var (
@@ -65,6 +66,9 @@ type DatabaseWAL struct {
 	transactionConnectionId string
 	txnBuffer               *TransactionBuffer // Transaction buffer (protected by SQLite write lock)
 	txnBufferAllocTried     bool
+	writeAccum              []byte // Write accumulator for batching sequential pwrite calls
+	writeAccumOff           int64  // File offset of writeAccum[0]
+	writeAccumN             int    // Valid bytes in writeAccum (writeAccum[:writeAccumN])
 }
 
 // walCacheKey is used as a cache key to avoid string allocations
@@ -227,6 +231,9 @@ func (wal *DatabaseWAL) Abort(connectionID string) error {
 		wal.txnBuffer.Discard()
 	}
 
+	// Discard accumulated writes too.
+	wal.writeAccumN = 0
+
 	wal.inTransaction = false
 	wal.transactionConnectionId = ""
 
@@ -250,6 +257,14 @@ func (wal *DatabaseWAL) End(connectionID string) error {
 	// Snapshot current buffer; release wal mutex before flushing to avoid
 	// lock-order inversions with checkpointing/compaction code paths.
 	buf := wal.txnBuffer
+
+	// Flush write accumulator while we hold the mutex.
+	if wal.writeAccumN > 0 {
+		if file, err := wal.File(); err == nil {
+			_ = wal.flushWriteAccum(file)
+		}
+	}
+
 	wal.mutex.Unlock()
 
 	// Flush buffer outside wal mutex to avoid lock-order inversions
@@ -602,6 +617,28 @@ func (wal *DatabaseWAL) ReadAt(connectionID string, p []byte, off int64) (n int,
 		return 0, err
 	}
 
+	// Check write accumulator before reading from file. The accumulator
+	// holds recent sequential writes that haven't been flushed yet.
+	if wal.writeAccumN > 0 {
+		accumEnd := wal.writeAccumOff + int64(wal.writeAccumN)
+
+		if off >= wal.writeAccumOff && off+int64(len(p)) <= accumEnd {
+			start := off - wal.writeAccumOff
+			copy(p, wal.writeAccum[start:start+int64(len(p))])
+			return len(p), nil
+		}
+
+		// Partial overlap or read precedes accumulator — flush to file
+		// so the file read returns consistent data.
+		if accumEnd > off && off+int64(len(p)) > wal.writeAccumOff {
+			flushFile, flushErr := wal.File()
+
+			if flushErr == nil {
+				_ = wal.flushWriteAccum(flushFile)
+			}
+		}
+	}
+
 	if wal.node.IsPrimary() && !wal.checkpointedAt.IsZero() {
 		panic(fmt.Sprintf("WAL file has been checkpointed, cannot read from it - %d", wal.timestamp))
 	}
@@ -640,7 +677,7 @@ func (wal *DatabaseWAL) RequiresCheckpoint() bool {
 		}
 	}
 
-	return wal.checkpointedAt.IsZero() && (wal.lastKnownSize > 0 || !wal.lastWriteTime.IsZero())
+	return wal.checkpointedAt.IsZero() && (wal.lastKnownSize > 0 || !wal.lastWriteTime.IsZero() || wal.writeAccumN > 0)
 }
 
 func (wal *DatabaseWAL) SetCheckpointing(checkpointing bool) error {
@@ -700,6 +737,15 @@ func (wal *DatabaseWAL) Size() (int64, error) {
 
 	size := info.Size()
 
+	// Account for data in the write accumulator that hasn't been flushed yet.
+	// writeAccumOff/writeAccumN are only modified under wal.mutex.Lock(),
+	// so this read is safe from any caller that holds at least wal.mutex.RLock().
+	accumEnd := wal.writeAccumOff + int64(wal.writeAccumN)
+
+	if accumEnd > size {
+		size = accumEnd
+	}
+
 	wal.lastKnownSize = size
 
 	return size, nil
@@ -717,6 +763,11 @@ func (wal *DatabaseWAL) Sync() error {
 	if err != nil {
 		log.Println(err)
 		return err
+	}
+
+	// Flush any accumulated writes before syncing so all data is durable.
+	if err := wal.flushWriteAccum(file); err != nil {
+		slog.Error("Failed to flush write accumulator during Sync", "error", err)
 	}
 
 	return file.Sync()
@@ -778,9 +829,6 @@ func (wal *DatabaseWAL) WriteAt(connectionID string, p []byte, off int64) (n int
 // writeAtDirect writes directly to the WAL file without buffering.
 // This is used by both direct writes and when flushing transaction buffers.
 func (wal *DatabaseWAL) writeAtDirect(p []byte, off int64) (n int, err error) {
-
-	wal.lastWriteTime = time.Now().UTC()
-
 	file, err := wal.File()
 
 	if err != nil {
@@ -788,18 +836,84 @@ func (wal *DatabaseWAL) writeAtDirect(p []byte, off int64) (n int, err error) {
 		return 0, err
 	}
 
-	n, err = file.WriteAt(p, off)
-
-	if err != nil {
-		return n, err
+	// Use the write accumulator for sequential writes. The WAL is
+	// append-only so consecutive calls have monotonically increasing
+	// offsets. Batching them into larger pwrite syscalls reduces
+	// per-call kernel overhead significantly.
+	if wal.writeAccum == nil {
+		wal.writeAccum = make([]byte, writeAccumSize)
 	}
 
-	// Update cache after successful write
+	expected := wal.writeAccumOff + int64(wal.writeAccumN)
+
+	if off == expected && wal.writeAccumN+len(p) <= len(wal.writeAccum) {
+		// Sequential and fits — accumulate
+		copy(wal.writeAccum[wal.writeAccumN:], p)
+		wal.writeAccumN += len(p)
+
+		// Update cache so subsequent reads hit the cache
+		cacheKey := wal.getCacheKey(off)
+
+		if cacheErr := wal.cache.Put(cacheKey, p); cacheErr != nil {
+			slog.Error("Error caching WAL data", "error", cacheErr)
+		}
+
+		return len(p), nil
+	}
+
+	// Non-sequential or full — flush the accumulator first
+	if err := wal.flushWriteAccum(file); err != nil {
+		return 0, err
+	}
+
+	if len(p) >= len(wal.writeAccum) {
+		// Larger than accumulator — write directly
+		n, err = file.WriteAt(p, off)
+
+		if err != nil {
+			return n, err
+		}
+
+		// Update cache after successful write
+		cacheKey := wal.getCacheKey(off)
+
+		if cacheErr := wal.cache.Put(cacheKey, p[:n]); cacheErr != nil {
+			slog.Error("Error caching WAL data", "error", cacheErr)
+		}
+
+		wal.lastWriteTime = time.Now().UTC()
+
+		return n, nil
+	}
+
+	// Start new accumulation
+	wal.writeAccumOff = off
+	wal.writeAccumN = copy(wal.writeAccum, p)
+
+	// Update cache so subsequent reads hit the cache
 	cacheKey := wal.getCacheKey(off)
 
-	if cacheErr := wal.cache.Put(cacheKey, p[:n]); cacheErr != nil {
+	if cacheErr := wal.cache.Put(cacheKey, p); cacheErr != nil {
 		slog.Error("Error caching WAL data", "error", cacheErr)
 	}
+
+	return len(p), nil
+}
+
+// flushWriteAccum writes accumulated data to the file.
+// Caller must hold wal.mutex.Lock().
+func (wal *DatabaseWAL) flushWriteAccum(file internalStorage.File) error {
+	if wal.writeAccumN == 0 {
+		return nil
+	}
+
+	_, err := file.WriteAt(wal.writeAccum[:wal.writeAccumN], wal.writeAccumOff)
+
+	if err != nil {
+		return err
+	}
+
+	wal.writeAccumN = 0
 
 	if wal.shouldSync() {
 		wal.performAsynchronousSync()
@@ -807,5 +921,5 @@ func (wal *DatabaseWAL) writeAtDirect(p []byte, off int64) (n int, err error) {
 
 	wal.lastWriteTime = time.Now().UTC()
 
-	return n, err
+	return nil
 }

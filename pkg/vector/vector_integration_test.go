@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/litebase/litebase/internal/test"
 	"github.com/litebase/litebase/pkg/server"
@@ -131,14 +132,9 @@ func VectorToBlob(vec []float32) []byte {
 	// Dimensions (uint32, little-endian)
 	binary.LittleEndian.PutUint32(blob[2:6], uint32(len(vec)))
 
-	// Vector data (float32 values)
-	offset := 6
-
-	for _, v := range vec {
-		bits := math.Float32bits(v)
-		binary.LittleEndian.PutUint32(blob[offset:offset+4], bits)
-		offset += 4
-	}
+	// Vector data: direct memcopy on little-endian (ARM64, x86-64).
+	// float32 memory layout IS the little-endian byte representation.
+	copy(blob[6:], unsafe.Slice((*byte)(unsafe.Pointer(&vec[0])), len(vec)*4))
 
 	return blob
 }
