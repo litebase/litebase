@@ -1,57 +1,87 @@
 # Vector BLOB Format
 
-This document describes the binary encoding format for vectors stored in Litebase.
+This document describes the binary encoding format for vectors stored
+in Litebase.
 
 ## Format Specification
 
 ### Version 1 Format
 
-Vectors are encoded as binary BLOBs with the following structure:
+Vectors are encoded as binary BLOBs with a 6-byte header followed by
+type-specific payload:
 
 ```text
-┌─────────┬──────────────┬───────────────────────┐
-│ Version │ Dimensions   │ Vector Data           │
-│ 1 byte  │ 4 bytes      │ dimensions × 4 bytes  │
-└─────────┴──────────────┴───────────────────────┘
+┌─────────┬────────┬──────────────┬────────────────────────┐
+│ Version │ Type   │ Dimensions   │ Vector Data            │
+│ 1 byte  │ 1 byte │ 4 bytes      │ type-dependent         │
+└─────────┴────────┴──────────────┴────────────────────────┘
 ```
 
-### Field Details
+### Header Fields
 
-| Field      | Offset | Size        | Type      | Description                            |
-| ---------- | ------ | ----------- | --------- | -------------------------------------- |
-| Version    | 0      | 1 byte      | uint8     | Format version (0x01)                  |
-| Dimensions | 1      | 4 bytes     | uint32    | Number of dimensions (little-endian)   |
-| Data       | 5      | N × 4 bytes | float32[] | Vector values (little-endian IEEE 754) |
+| Field      | Offset | Size   | Type   | Description                          |
+| ---------- | ------ | ------ | ------ | ------------------------------------ |
+| Version    | 0      | 1 byte | uint8  | Format version (`0x01`)              |
+| Type       | 1      | 1 byte | uint8  | Data type identifier (see below)     |
+| Dimensions | 2      | 4 byte | uint32 | Number of dimensions, little-endian  |
+| Data       | 6      | varies | —      | Type-specific payload                |
+
+### Vector Type Codes
+
+| Type    | Code   | Storage        | Bytes/Dimension           |
+| ------- | ------ | -------------- | ------------------------- |
+| Float32 | `0x01` | IEEE 754 f32   | 4                         |
+| Float64 | `0x02` | IEEE 754 f64   | 8                         |
+| Int8    | `0x03` | Signed integer | 1                         |
+| Int16   | `0x04` | Signed integer | 2                         |
+| Float16 | `0x05` | IEEE 754 f16   | 2                         |
+| Bit     | `0x06` | Bit-packed     | 1 bit (ceil(dims/8) bytes)|
+| Sparse  | `0x07` | Index-value    | Variable                  |
 
 ### Example Encoding
 
-For vector `[1.0, 2.0, 3.0]`:
+For a Float32 vector `[1.0, 2.0, 3.0]`:
 
 ```text
-Offset  Bytes                   Description
-------  ----------------------  ---------------------------
-0x00    01                      Version = 1
-0x01    03 00 00 00             Dimensions = 3 (little-endian)
-0x05    00 00 80 3F             Value[0] = 1.0 (IEEE 754)
-0x09    00 00 00 40             Value[1] = 2.0 (IEEE 754)
-0x0D    00 00 40 40             Value[2] = 3.0 (IEEE 754)
+Offset  Bytes         Description
+------  ----------    --------------------------------
+0x00    01            Version = 1
+0x01    01            Type = Float32 (0x01)
+0x02    03 00 00 00   Dimensions = 3 (little-endian)
+0x06    00 00 80 3F   Value[0] = 1.0 (IEEE 754 f32)
+0x0A    00 00 00 40   Value[1] = 2.0 (IEEE 754 f32)
+0x0E    00 00 40 40   Value[2] = 3.0 (IEEE 754 f32)
 
-Total: 17 bytes
+Total: 18 bytes (6-byte header + 3 × 4 bytes)
 ```
+
+### Type-Specific Payload Sizes
+
+| Type    | Total BLOB size          | Example (3-D) |
+| ------- | ------------------------ | ------------- |
+| Float32 | `6 + dims × 4`           | 18 bytes      |
+| Float64 | `6 + dims × 8`           | 30 bytes      |
+| Int8    | `6 + dims`               | 9 bytes       |
+| Int16   | `6 + dims × 2`           | 12 bytes      |
+| Float16 | `6 + dims × 2`           | 12 bytes      |
+| Bit     | `6 + ceil(dims / 8)`     | 7 bytes       |
+| Sparse  | `6 + nnz × (4 + 4)`      | Variable      |
 
 ## Go API
 
 ### Encoding
 
 ```go
-// From float32 slice
-vec := []float32{1.0, 2.0, 3.0}
-blob, err := vector.EncodeFloat32(vec)
+// Float32 vector
+vec32 := []float32{1.0, 2.0, 3.0}
+blob, err := vector.EncodeFloat32(vec32) // type 0x01
 
-// From JSON string
-jsonStr := "[1.0, 2.0, 3.0]"
-values, err := vector.ParseJSONArray(jsonStr)
-blob, err := vector.EncodeFloat32(values)
+// Float16 vector (precision-reduced)
+vec16, err := vector.EncodeFloat16(vec32) // type 0x05
+
+// Int8 quantized vector
+vec8 := []int8{120, -45, 0}
+blob8, err := vector.EncodeInt8(vec8) // type 0x03
 ```
 
 ### Decoding
@@ -60,13 +90,17 @@ blob, err := vector.EncodeFloat32(values)
 // Parse BLOB to VectorBlob struct
 vecBlob, err := vector.ParseVectorBlob(blob)
 
-// Access properties
-version := vecBlob.Version      // 0x01
-dims := vecBlob.Dimensions      // 3
-data := vecBlob.Data            // Raw []byte
+// Access header fields
+version    := vecBlob.Version    // 0x01
+vectorType := vecBlob.Type       // e.g. 0x01 = Float32
+dims       := vecBlob.Dimensions // e.g. 3
+rawData    := vecBlob.Data       // raw payload bytes
 
-// Get as float32 slice
-floats := vecBlob.GetFloat32Slice()  // []float32{1.0, 2.0, 3.0}
+// Type-safe data access
+floats := vecBlob.GetFloat32Slice()  // nil if not Float32
+
+// Decode any supported type to float32 for distance computation
+f32 := vecBlob.GetFloat32Decoded() // float32, float16, or int8
 ```
 
 ## SQL Usage
@@ -74,53 +108,44 @@ floats := vecBlob.GetFloat32Slice()  // []float32{1.0, 2.0, 3.0}
 ### Encoding in SQL
 
 ```sql
--- Direct JSON array encoding
-INSERT INTO embeddings (vector) 
+-- Full precision (float32)
+INSERT INTO embeddings (vector)
 VALUES (vector_f32('[1.0, 2.0, 3.0]'));
 
--- From variable
-INSERT INTO embeddings (vector) 
-VALUES (vector_f32(?));  -- Pass "[1.0, 2.0, 3.0]" as parameter
+-- Half precision (float16, 2 bytes/dim)
+INSERT INTO embeddings (vector)
+VALUES (vector_f16('[1.0, 2.0, 3.0]'));
+
+-- Quantized integer (int8, 1 byte/dim)
+INSERT INTO embeddings (vector)
+VALUES (vector_int8('[120, -45, 0]'));
+
+-- Binary (1 bit/dim)
+INSERT INTO embeddings (vector)
+VALUES (vector_bit('[1, 0, 1, 1, 0, 1, 0, 0]'));
 ```
 
 ### Retrieving Vectors
 
 ```sql
--- Get raw BLOB
+-- Returns raw BLOB (6-byte header + payload)
 SELECT id, vector FROM embeddings WHERE id = 1;
 
--- Returns BLOB: 0x01 03000000 0000803F 00000040 00004040
+-- Float32 [1.0, 2.0, 3.0] returns:
+-- 0x01 01 03000000 0000803F 00000040 00004040
+--  ^   ^  ^------  ^-----float data---------
+-- ver type dims
 ```
 
 ## Validation
 
 ### Constraints
 
-1. **Version byte must be 0x01**
-
-   ```go
-   if blob[0] != 0x01 {
-       return ErrUnsupportedVersion
-   }
-   ```
-
-2. **Dimensions must be valid**
-
-   ```go
-   if dims <= 0 || dims > 4096 {
-       return ErrInvalidDimensions
-   }
-   ```
-
-3. **BLOB size must match**
-
-   ```go
-   expectedSize := 5 + (dims * 4)
-
-   if len(blob) != expectedSize {
-       return ErrInvalidBlobFormat
-   }
-   ```
+1. **Version byte must be `0x01`** — only version 1 is supported
+2. **Type byte must be `0x01`-`0x07`** — unknown types are rejected
+3. **Dimensions must be 1–4096** — enforced by `MaxDimensions`
+4. **BLOB length must match the type formula** — e.g. Float32
+   requires exactly `6 + dims × 4` bytes
 
 ### Error Handling
 
@@ -130,11 +155,11 @@ vecBlob, err := vector.ParseVectorBlob(blob)
 if err != nil {
     switch err {
     case vector.ErrInvalidBlobFormat:
-        // Invalid structure or size
+        // Wrong length or structure
     case vector.ErrUnsupportedVersion:
-        // Version byte not 0x01
+        // Version byte is not 0x01
     case vector.ErrInvalidDimensions:
-        // Dimensions out of range
+        // Dimensions == 0 or > 4096
     }
 }
 ```
@@ -143,60 +168,33 @@ if err != nil {
 
 ### Size Calculation
 
+All types share the same 6-byte header; only the payload size differs:
+
 ```text
-Size (bytes) = 1 + 4 + (dimensions × 4)
-             = 5 + (dimensions × 4)
+Float32  = 6 + (dims × 4)
+Float64  = 6 + (dims × 8)
+Int8     = 6 + dims
+Int16    = 6 + (dims × 2)
+Float16  = 6 + (dims × 2)
+Bit      = 6 + ceil(dims / 8)
+Sparse   = 6 + (nnz × 4) + (nnz × 4)  [indices + values]
 ```
 
-Examples:
+Examples for a 1536-D embedding:
 
-- 128-D vector: 5 + (128 × 4) = **517 bytes**
-- 384-D vector: 5 + (384 × 4) = **1,541 bytes**
-- 1536-D vector: 5 + (1536 × 4) = **6,149 bytes**
-
-### Storage Comparison
-
-| Format      | 128-D  | 384-D   | 1536-D  |
-| ----------- | ------ | ------- | ------- |
-| Binary BLOB | 517 B  | 1.5 KB  | 6.0 KB  |
-| JSON Array  | ~640 B | ~1.9 KB | ~7.6 KB |
-| Space Saved | 19%    | 21%     | 21%     |
-
-## Future Versions
-
-### Planned Extensions
-
-- **Version 2**: Compressed vectors (quantization)
-- **Version 3**: Sparse vector support
-- **Version 4**: Multi-precision (float16, int8)
-
-### Backwards Compatibility
-
-The version byte ensures future formats can coexist:
-
-```go
-switch blob[0] {
-case 0x01:
-    return parseV1(blob)
-case 0x02:
-    return parseV2(blob)  // Future
-default:
-    return ErrUnsupportedVersion
-}
-```
-
-## Best Practices
-
-1. **Always validate BLOBs** before processing
-2. **Use provided APIs** instead of manual parsing
-3. **Check dimensions** match your model requirements
-4. **Handle errors gracefully** with proper error types
-5. **Consider memory alignment** for SIMD operations
+| Type    | Size     | vs Float32 |
+| ------- | -------- | ---------- |
+| Float32 | 6,150 B  | 100%       |
+| Float16 | 3,078 B  | 50%        |
+| Int8    | 1,542 B  | 25%        |
+| Bit     | 198 B    | 3%         |
 
 ## Implementation Notes
 
-- Little-endian byte order for cross-platform compatibility
-- IEEE 754 float32 format (widely supported)
-- Header overhead minimal (5 bytes fixed)
+- Little-endian byte order throughout (version, type, dimensions, data)
+- IEEE 754 encoding for Float32, Float64, and Float16 payloads
+- Bit vectors pack 8 dimensions per byte, LSB first
+- Sparse vectors encode non-zero indices as `uint32` followed by
+  `float32` values, both little-endian
 - Direct memory mapping possible for SIMD operations
 - No padding or alignment bytes (packed format)

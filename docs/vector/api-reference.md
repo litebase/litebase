@@ -74,6 +74,11 @@ func (vb *VectorBlob) GetBitVector() []bool
 
 // GetSparseVector returns sparse vector with index-value pairs
 func (vb *VectorBlob) GetSparseVector() *SparseVector
+
+// GetFloat32Decoded returns a float32 slice regardless of storage
+// type. Supports Float32 (zero-alloc), Float16, and Int8.
+// Returns nil for other types.
+func (vb *VectorBlob) GetFloat32Decoded() []float32
 ```
 
 **Example:**
@@ -119,30 +124,6 @@ sparse := &vector.SparseVector{
 }
 
 blob, _ := vector.EncodeSparse(1000, sparse.Indices, sparse.Values)
-```
-
-#### WorkerPool
-
-```go
-type WorkerPool struct {
-    // Internal fields (not exported)
-}
-```
-
-**Methods:**
-
-```go
-// NewWorkerPool creates a pool with specified worker count
-func NewWorkerPool(numWorkers int) *WorkerPool
-
-// Shutdown stops all workers gracefully
-func (wp *WorkerPool) Shutdown()
-
-// ProcessVectors applies function to each vector in parallel
-func (wp *WorkerPool) ProcessVectors(
-    vectors []*VectorBlob,
-    fn func(*VectorBlob) float64,
-) []float64
 ```
 
 ### Functions
@@ -418,6 +399,33 @@ dist, _ := vector.DistanceDot(vec1, vec2)
 // dist = -2.0 (aligned)
 ```
 
+---
+
+```go
+// DistanceFromBlob calculates distance between a parsed query
+// VectorBlob and a raw BLOB byte slice without parsing the raw
+// slice into a full VectorBlob. Supports Float32, Float16, and
+// Int8. metric is a distance metric constant (MetricL2 etc.).
+func DistanceFromBlob(
+    query *VectorBlob,
+    rawBlob []byte,
+    metric int,
+) (float64, error)
+```
+
+**Example:**
+
+```go
+// Compute L2 distance without fully parsing every candidate
+for _, rawBlob := range rawCandidates {
+    dist, err := vector.DistanceFromBlob(
+        queryVec,
+        rawBlob,
+        vector.DistanceMetricL2,
+    )
+}
+```
+
 #### Validation
 
 ```go
@@ -436,38 +444,6 @@ func ValidateDimensions(a, b *VectorBlob) error
 if err := vector.ValidateDimensions(vec1, vec2); err != nil {
     log.Fatal("Dimension mismatch")
 }
-```
-
-#### Worker Pool
-
-```go
-// GetWorkerPool returns global worker pool instance
-func GetWorkerPool() *WorkerPool
-```
-
-**Returns:**
-
-- Global worker pool (created if needed)
-- Default size: `2 × NumCPU`
-
-**Example:**
-
-```go
-pool := vector.GetWorkerPool()
-results := pool.ProcessVectors(vectors, computeFunc)
-```
-
----
-
-```go
-// ShutdownWorkerPool stops global worker pool
-func ShutdownWorkerPool()
-```
-
-**Example:**
-
-```go
-defer vector.ShutdownWorkerPool()
 ```
 
 #### Initialization

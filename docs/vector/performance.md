@@ -25,47 +25,28 @@ Benchmark results (384-dimensional vectors):
 | Cosine Distance | 48.2 μs | 7.1 μs | **6.8x** |
 | Dot Product     | 38.9 μs | 5.8 μs | **6.7x** |
 
-## Worker Pool
+## Insert Buffer
 
-### Parallel Processing
+Bulk inserts into `vector_index` are batched in memory before being
+written to SQLite. The buffer capacity is adaptive:
 
-Use the worker pool for batch operations:
-
-```go
-// Initialize (happens automatically)
-pool := vector.GetWorkerPool()
-
-// Process many vectors in parallel
-results := make([]float64, len(candidates))
-pool.ProcessBatch(candidates, func(i int, v *VectorBlob) {
-    results[i], _ = vector.DistanceL2(query, v)
-})
+```text
+target_bytes  = 128 MiB
+row_bytes     = dimensions × 4   (float32)
+buffer_rows   = clamp(target_bytes / row_bytes, 64, 10922)
 ```
 
-### Worker Pool Configuration
+The buffer is flushed at `xSync` (savepoints) and at `xCommit`.
+During the transaction, SQLite's page cache is raised to 64 MiB
+(`PRAGMA cache_size = -65536`) to accommodate bulk writes.
 
-```go
-// Default: 2 × NumCPU workers
-pool := vector.NewWorkerPool(8)  // Custom size
+**Recommendations:**
 
-// Process with worker pool
-pool.ProcessVectors(vectors, func(v *VectorBlob) float64 {
-    return someComputation(v)
-})
-
-// Clean shutdown
-defer pool.Shutdown()
-```
-
-### Throughput Comparison
-
-Benchmark: 10,000 distance calculations
-
-| Method                  | Time     | Throughput      |
-| ----------------------- | -------- | --------------- |
-| Sequential              | 425 ms   | 23,500 ops/sec  |
-| Worker Pool (8 workers) | 68 ms    | 147,000 ops/sec |
-| **Speedup**             | **6.3x** |                 |
+- Insert in large transactions (thousands of rows) rather than
+  one row per transaction to amortise the flush overhead.
+- For 1,536-D vectors (e.g., OpenAI embeddings) the buffer holds
+  ~10,922 rows before auto-flushing — commit batches of at least
+  this size for maximum throughput.
 
 ## Memory Optimization
 

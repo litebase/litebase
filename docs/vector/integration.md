@@ -1,6 +1,8 @@
 # Vector Extension Integration
 
-The vector package has been successfully integrated with Litebase's SQLite database system. This document describes the integration architecture and how to use vector functionality in databases.
+The vector package has been successfully integrated with Litebase's
+SQLite database system. This document describes the integration
+architecture and how to use vector functionality in databases.
 
 ## Architecture Overview
 
@@ -37,23 +39,25 @@ The extension provides:
 
 - `vector_hamming_distance(blob1, blob2)` - Hamming distance for bit vectors
 
-**Virtual Table:**
+**Virtual Tables:**
 
-- `vector_scan` - k-NN search module for similarity queries
-
-> **Note**: The `vector_scan` virtual table module is registered but requires implementation updates to support:
->
-> 1. Eponymous table-valued function syntax for direct querying
-> 2. Parameter passing for vfsID, databaseID, branchID, table, column, k, and metric
->
-> Currently, these parameters are passed programmatically via the CGO bridge (`goVectorScan`), which allows the vector scan system to work across databases and branches. The database/branch IDs are necessary because the scan acquires connections via `vfs.GetVfsFromId(vfsID)` → `connManager.Get(databaseID, branchID)`, enabling cross-database vector searches.
+- `vector_index` - k-NN search module using hierarchical IVF
+  clustering. See [Vector Index](vector-index.md) for full
+  documentation.
+- `vector_scan` - Low-level scan bridge used internally by
+  `vector_index`. Parameters (vfsID, databaseID, branchID, table,
+  column, k, metric) are passed via the CGO bridge (`goVectorScan`),
+  which allows cross-database vector searches by acquiring
+  connections through `vfs.GetVfsFromId(vfsID)` →
+  `connManager.Get(databaseID, branchID)`.
 
 ### 2. VFS Connection Manager Adapter
 
 A bridge between the database connection manager and the VFS interface:
 
 - **Location**: `pkg/database/vfs_connection_adapter.go`
-- **Purpose**: Allows vector operations to acquire database connections through VFS
+- **Purpose**: Allows vector operations to acquire database
+  connections through VFS
 - **Interface**: Implements `vfs.ConnectionManager`
 
 The adapter is set on each VFS instance when database connections are registered:
@@ -70,8 +74,10 @@ The vector package exports C-callable functions that the SQLite extension uses:
 
 **Vector Encoding:**
 
-- `goEncodeVector` / `goEncodeVectorF64` / `goEncodeVectorInt8` / `goEncodeVectorInt16` - Parse JSON and encode vectors
-- `goEncodeVectorF16` / `goEncodeVectorBit` / `goEncodeVectorSparse` - Encode specialized vector types
+- `goEncodeVector` / `goEncodeVectorF64` / `goEncodeVectorInt8` /
+  `goEncodeVectorInt16` - Parse JSON and encode vectors
+- `goEncodeVectorF16` / `goEncodeVectorBit` / `goEncodeVectorSparse`
+  - Encode specialized vector types
 - `goFreeVector` - Frees allocated memory
 
 **Quantization:**
@@ -90,10 +96,12 @@ The vector package exports C-callable functions that the SQLite extension uses:
 - `goGetScanResult` - Retrieves next result from scan
 - `goReleaseScanResults` - Cleans up scan resources
 
-**Important**: Any binary that uses the vector extension must import the vector package:
+**Important**: Any binary that uses the vector extension must import
+the vector package:
 
 ```go
-import _ "github.com/litebase/litebase/pkg/vector" // Import for CGO exports
+// Import for CGO exports
+import _ "github.com/litebase/litebase/pkg/vector"
 ```
 
 This ensures the CGO exports are linked during compilation.
@@ -142,7 +150,11 @@ SET vec_f16 = vector_quantize_f16(vec_f32),
     vec_bit = vector_quantize_bit(vec_f32);
 
 -- Compute distances
-SELECT id, vector_hamming_distance(vec_bit, vector_quantize_bit(vector_f32('[1, 1, 1, 1]'))) as distance
+SELECT id,
+  vector_hamming_distance(
+    vec_bit,
+    vector_quantize_bit(vector_f32('[1, 1, 1, 1]'))
+  ) as distance
 FROM embeddings
 ORDER BY distance
 LIMIT 10;
