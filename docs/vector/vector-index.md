@@ -7,18 +7,30 @@ distance metrics, and automatic quantization for compressed storage.
 
 ## Contents
 
-- [Overview](#overview)
-- [Creating a Vector Index](#creating-a-vector-index)
-- [Column Definitions](#column-definitions)
-- [Index Parameters](#index-parameters)
-- [Shadow Tables](#shadow-tables)
-- [Inserting Vectors](#inserting-vectors)
-- [Querying](#querying)
-- [Multi-Column Indexes](#multi-column-indexes)
-- [Architecture](#architecture)
-- [Insert Buffer](#insert-buffer)
-- [Cluster Management](#cluster-management)
-- [Storage Types](#storage-types)
+- [vector\_index Virtual Table](#vector_index-virtual-table)
+  - [Contents](#contents)
+  - [Overview](#overview)
+  - [Creating a Vector Index](#creating-a-vector-index)
+  - [Column Definitions](#column-definitions)
+  - [Index Parameters](#index-parameters)
+    - [Global Parameters](#global-parameters)
+    - [Per-Column Parameters](#per-column-parameters)
+  - [Shadow Tables](#shadow-tables)
+    - [`{name}_vectors`](#name_vectors)
+    - [`{name}_{col}_cluster_tree`](#name_col_cluster_tree)
+    - [`{name}_{col}_cluster_vector_map`](#name_col_cluster_vector_map)
+    - [`{name}_metadata`](#name_metadata)
+  - [Inserting Vectors](#inserting-vectors)
+  - [Querying](#querying)
+  - [Multi-Column Indexes](#multi-column-indexes)
+  - [Architecture](#architecture)
+  - [Insert Buffer](#insert-buffer)
+  - [Cluster Management](#cluster-management)
+    - [Finding the Best Cluster](#finding-the-best-cluster)
+    - [Statement Caching](#statement-caching)
+    - [Post-Commit Splits](#post-commit-splits)
+  - [Storage Types](#storage-types)
+  - [See Also](#see-also)
 
 ## Overview
 
@@ -81,10 +93,10 @@ Parameters are not real columns and are stripped from the schema.
 | Parameter         | Default   | Description                          |
 | ----------------- | --------- | ------------------------------------ |
 | `dimensions`      | required  | Vector dimensions (max 4096)         |
-| `distance_metric` | `cosine`  | `cosine`, `l2`, or `dot`             |
-| `max_cluster_size`| `5000`    | Max vectors per leaf before split    |
-| `min_cluster_size`| `200`     | Min vectors for a valid split        |
-| `storage_type`    | `float32` | `float32`, `float16`, or `int8`      |
+| `distance_metric` | `cosine`  | `cosine`, `l2`, or `dot`                                        |
+| `max_cluster_size`| `5000`    | Target max vectors per leaf; splits trigger at 1.5× this value       |
+| `min_cluster_size`| `200`     | Must be less than `max_cluster_size`; validated at creation time only |
+| `storage_type`    | `float32` | `float32`, `float16`, or `int8`                                       |
 
 ### Per-Column Parameters
 
@@ -303,7 +315,8 @@ After each commit the database calls `goTriggerClusterSplits` via
 the `VectorIndexManagerInterface`. The manager schedules a
 background job that:
 
-1. Reads all leaf nodes with `cluster_size > max_cluster_size`.
+1. Reads all leaf nodes with `cluster_size > max_cluster_size × 1.5`
+   (the 1.5× buffer reduces churn from frequent small splits).
 2. Splits each oversize leaf into two children using k-means
    (k = 2).
 3. Reassigns vectors from the old leaf to the new children.
