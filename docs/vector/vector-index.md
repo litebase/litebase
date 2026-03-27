@@ -81,7 +81,7 @@ Parameters are not real columns and are stripped from the schema.
 | Parameter         | Default   | Description                          |
 | ----------------- | --------- | ------------------------------------ |
 | `dimensions`      | required  | Vector dimensions (max 4096)         |
-| `distance_metric` | `l2`      | `cosine`, `l2`, or `dot`             |
+| `distance_metric` | `cosine`  | `cosine`, `l2`, or `dot`             |
 | `max_cluster_size`| `5000`    | Max vectors per leaf before split    |
 | `min_cluster_size`| `200`     | Min vectors for a valid split        |
 | `storage_type`    | `float32` | `float32`, `float16`, or `int8`      |
