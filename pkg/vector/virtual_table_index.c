@@ -1680,11 +1680,109 @@ int vector_index_connect(
     return SQLITE_OK;
 }
 
-// xBestIndex: Query planner
+// xBestIndex: Advertise metadata column constraints to SQLite for pushdown.
+// Vector columns are never pushed down — they are handled by the ANN search
+// path in vector_search() / vector_scan().  For non-vector, non-rowid columns
+// with comparison operators we tell SQLite to pass the value in to xFilter
+// via argv, which then builds a WHERE clause on the _vectors shadow table.
 int vector_index_best_index(sqlite3_vtab *pVtab, sqlite3_index_info *pIdxInfo)
 {
-    pIdxInfo->estimatedCost = 1000.0;
-    pIdxInfo->estimatedRows = 1000;
+    vector_index_vtab *vtab = (vector_index_vtab *)pVtab;
+
+    // Count usable constraints on filterable (non-vector) columns.
+    int nUsable = 0;
+
+    for (int i = 0; i < pIdxInfo->nConstraint; i++)
+    {
+        const struct sqlite3_index_constraint *con = &pIdxInfo->aConstraint[i];
+
+        if (!con->usable)
+            continue;
+
+        // Skip rowid constraints (iColumn < 0) and the implicit 'id' column
+        // (iColumn == 0, which is the INTEGER PRIMARY KEY rowid alias in the
+        // declared schema).  User columns are at iColumn >= 1, mapping to
+        // vtab->columns[iColumn - 1].
+        if (con->iColumn <= 0)
+            continue;
+
+        int vtab_col_idx = con->iColumn - 1;
+
+        if (vtab_col_idx >= vtab->num_columns)
+            continue;
+
+        // Skip vector columns — distance filtering belongs to vector_search().
+        if (vtab->columns[vtab_col_idx].is_vector)
+            continue;
+
+        // Only push down comparison operators.
+        if (con->op != SQLITE_INDEX_CONSTRAINT_EQ &&
+            con->op != SQLITE_INDEX_CONSTRAINT_GT &&
+            con->op != SQLITE_INDEX_CONSTRAINT_GE &&
+            con->op != SQLITE_INDEX_CONSTRAINT_LT &&
+            con->op != SQLITE_INDEX_CONSTRAINT_LE)
+            continue;
+
+        nUsable++;
+    }
+
+    if (nUsable == 0)
+    {
+        pIdxInfo->estimatedCost = 1000.0;
+        pIdxInfo->estimatedRows = 1000;
+        return SQLITE_OK;
+    }
+
+    // Build idxStr: "N col1:op1 col2:op2 ..."
+    // Each token needs at most ~12 chars; add 8 for the leading count.
+    char *idxStr = (char *)sqlite3_malloc(nUsable * 12 + 8);
+
+    if (!idxStr)
+        return SQLITE_NOMEM;
+
+    char *ptr = idxStr;
+    ptr += sprintf(ptr, "%d", nUsable);
+
+    int argvIndex = 1;
+
+    for (int i = 0; i < pIdxInfo->nConstraint; i++)
+    {
+        const struct sqlite3_index_constraint *con = &pIdxInfo->aConstraint[i];
+
+        if (!con->usable)
+            continue;
+
+        if (con->iColumn <= 0)
+            continue;
+
+        int vtab_col_idx = con->iColumn - 1;
+
+        if (vtab_col_idx >= vtab->num_columns)
+            continue;
+
+        if (vtab->columns[vtab_col_idx].is_vector)
+            continue;
+
+        if (con->op != SQLITE_INDEX_CONSTRAINT_EQ &&
+            con->op != SQLITE_INDEX_CONSTRAINT_GT &&
+            con->op != SQLITE_INDEX_CONSTRAINT_GE &&
+            con->op != SQLITE_INDEX_CONSTRAINT_LT &&
+            con->op != SQLITE_INDEX_CONSTRAINT_LE)
+            continue;
+
+        // Encode as "vtab_col_idx:op" so xFilter can look up vtab->columns directly.
+        ptr += sprintf(ptr, " %d:%d", vtab_col_idx, (int)con->op);
+        pIdxInfo->aConstraintUsage[i].argvIndex = argvIndex++;
+        pIdxInfo->aConstraintUsage[i].omit = 1;
+    }
+
+    *ptr = '\0';
+
+    pIdxInfo->idxStr = idxStr;
+    pIdxInfo->needToFreeIdxStr = 1;
+    pIdxInfo->estimatedCost = 10.0;
+    pIdxInfo->estimatedRows = 50;
+
     return SQLITE_OK;
 }
 
@@ -2247,7 +2345,26 @@ int vector_index_close(sqlite3_vtab_cursor *pCursor)
     return SQLITE_OK;
 }
 
-// xFilter: Initialize cursor for iteration
+// op_to_sql maps a SQLite index constraint op code to an SQL operator string.
+static const char *op_to_sql(int op)
+{
+    switch (op)
+    {
+    case SQLITE_INDEX_CONSTRAINT_EQ: return "=";
+    case SQLITE_INDEX_CONSTRAINT_GT: return ">";
+    case SQLITE_INDEX_CONSTRAINT_GE: return ">=";
+    case SQLITE_INDEX_CONSTRAINT_LT: return "<";
+    case SQLITE_INDEX_CONSTRAINT_LE: return "<=";
+    default: return NULL;
+    }
+}
+
+// xFilter: Initialize cursor for iteration.
+// When constraints on non-vector metadata columns were advertised by xBestIndex,
+// idxStr encodes them as "N col1:op1 col2:op2 ..." and the corresponding values
+// arrive in argv[0..N-1].  These are folded into a WHERE clause on the _vectors
+// shadow table so that filtering happens inside the database engine rather than
+// as a post-fetch pass by SQLite.
 int vector_index_filter(
     sqlite3_vtab_cursor *pCursor,
     int idxNum,
@@ -2258,11 +2375,19 @@ int vector_index_filter(
     vector_index_cursor *cursor = (vector_index_cursor *)pCursor;
     vector_index_vtab *vtab = (vector_index_vtab *)pCursor->pVtab;
 
-    // Flush any buffered inserts before reading to ensure consistency
+    // Finalize any previous statement so the cursor can be reused.
+    if (cursor->stmt)
+    {
+        sqlite3_finalize(cursor->stmt);
+        cursor->stmt = NULL;
+    }
+
+    // Flush any buffered inserts before reading to ensure consistency.
     if (vtab->buffer_size > 0)
     {
         char *err_msg = NULL;
         int rc = flush_insert_buffer(vtab, &err_msg);
+
         if (rc != SQLITE_OK)
         {
             pCursor->pVtab->zErrMsg = err_msg;
@@ -2270,9 +2395,9 @@ int vector_index_filter(
         }
     }
 
-    // Query vectors via JOIN with cluster_vector_map (Hierarchical IVF v2 schema)
-    // Use first vector column name dynamically for the JOIN
+    // Use first vector column name for the cluster_vector_map JOIN.
     const char *vector_col_name = "vector"; // default
+
     for (int i = 0; i < vtab->num_columns; i++)
     {
         if (vtab->columns[i].is_vector)
@@ -2282,30 +2407,102 @@ int vector_index_filter(
         }
     }
 
-    // Build column list: "v.id, v.col1, v.col2, ..." to select ALL user-defined columns
+    // Build column list: "v.id, v.col1, v.col2, ..." to select ALL user-defined columns.
     char *column_list = sqlite3_mprintf("v.id");
+
     for (int i = 0; i < vtab->num_columns; i++)
     {
         char *new_list = sqlite3_mprintf("%s, v.%s", column_list, vtab->columns[i].name);
         sqlite3_free(column_list);
         column_list = new_list;
+
         if (!column_list)
+            return SQLITE_NOMEM;
+    }
+
+    // Parse pushed-down constraints from idxStr (format: "N col1:op1 col2:op2 ...").
+    int nConstraints = 0;
+    int constraint_cols[64];
+    int constraint_ops[64];
+
+    if (idxStr && idxStr[0] != '\0')
+    {
+        const char *p = idxStr;
+        nConstraints = (int)strtol(p, (char **)&p, 10);
+
+        if (nConstraints > 64)
+            nConstraints = 64;
+
+        for (int i = 0; i < nConstraints; i++)
         {
+            while (*p == ' ')
+                p++;
+
+            constraint_cols[i] = (int)strtol(p, (char **)&p, 10);
+            p++; // skip ':'
+            constraint_ops[i] = (int)strtol(p, (char **)&p, 10);
+        }
+    }
+
+    // Build optional WHERE clause from the pushed-down constraints.
+    char *where_clause = sqlite3_mprintf("");
+
+    if (!where_clause)
+    {
+        sqlite3_free(column_list);
+        return SQLITE_NOMEM;
+    }
+
+    for (int i = 0; i < nConstraints && i < argc; i++)
+    {
+        const char *op_str = op_to_sql(constraint_ops[i]);
+
+        if (!op_str)
+            continue;
+
+        int col_idx = constraint_cols[i];
+
+        if (col_idx < 0 || col_idx >= vtab->num_columns)
+            continue;
+
+        const char *col_name = vtab->columns[col_idx].name;
+        char *new_where;
+
+        if (where_clause[0] == '\0')
+            new_where = sqlite3_mprintf(" WHERE v.%s %s ?", col_name, op_str);
+        else
+            new_where = sqlite3_mprintf("%s AND v.%s %s ?", where_clause, col_name, op_str);
+
+        sqlite3_free(where_clause);
+        where_clause = new_where;
+
+        if (!where_clause)
+        {
+            sqlite3_free(column_list);
             return SQLITE_NOMEM;
         }
     }
 
     char *sql = sqlite3_mprintf(
         "SELECT %s FROM %s_vectors v "
-        "INNER JOIN %s_%s_cluster_vector_map m ON v.id = m.vector_id",
-        column_list, vtab->table_name, vtab->table_name, vector_col_name);
+        "INNER JOIN %s_%s_cluster_vector_map m ON v.id = m.vector_id%s",
+        column_list, vtab->table_name, vtab->table_name, vector_col_name,
+        where_clause);
+
     sqlite3_free(column_list);
+    sqlite3_free(where_clause);
 
     int rc = sqlite3_prepare_v2(vtab->db, sql, -1, &cursor->stmt, NULL);
     sqlite3_free(sql);
+
     if (rc != SQLITE_OK)
-    {
         return rc;
+
+    // Bind pushed-down constraint values to the WHERE clause parameters.
+    for (int i = 0; i < nConstraints && i < argc; i++)
+    {
+        if (argv[i])
+            sqlite3_bind_value(cursor->stmt, i + 1, argv[i]);
     }
 
     cursor->eof = 0;
@@ -2527,10 +2724,11 @@ int vector_index_update(
     }
     else if (argc > 1 && sqlite3_value_type(argv[0]) != SQLITE_NULL && sqlite3_value_type(argv[1]) != SQLITE_NULL)
     {
-        // UPDATE: argv[0] = old rowid, argv[1] = new rowid, argv[2+] = columns
+        // UPDATE: argv[0] = old rowid, argv[1] = new rowid
+        // argv[2] = id column (INTEGER PRIMARY KEY, skip), argv[3..] = vtab->columns[0..]
         sqlite3_int64 old_vector_id = sqlite3_value_int64(argv[0]);
-        const void *vector_data = sqlite3_value_blob(argv[3]);
-        int vector_size = sqlite3_value_bytes(argv[3]);
+        char *set_clause;
+        char *tmp_clause;
         sqlite3_stmt *stmt;
 
         // Multi-column support: Delete old mappings from all column-specific cluster_vector_map tables
@@ -2567,45 +2765,97 @@ int vector_index_update(
             }
         }
 
-        // Insert new vector using first vector column name
-        const char *vector_col_name = "vector"; // default
+        // Build SET clause: "col0 = ?, col1 = ?, ..."
+        set_clause = sqlite3_mprintf("");
+
+        if (!set_clause)
+            return SQLITE_NOMEM;
+
         for (int i = 0; i < vtab->num_columns; i++)
         {
-            if (vtab->columns[i].is_vector)
-            {
-                vector_col_name = vtab->columns[i].name;
-                break;
-            }
+            if (set_clause[0] == '\0')
+                tmp_clause = sqlite3_mprintf("%s = ?", vtab->columns[i].name);
+            else
+                tmp_clause = sqlite3_mprintf("%s, %s = ?", set_clause, vtab->columns[i].name);
+
+            sqlite3_free(set_clause);
+            set_clause = tmp_clause;
+
+            if (!set_clause)
+                return SQLITE_NOMEM;
         }
 
+        // UPDATE the _vectors row in place (preserves the same rowid).
         sql = sqlite3_mprintf(
-            "INSERT INTO %s_vectors (%s) VALUES (?1)",
-            vtab->table_name, vector_col_name);
+            "UPDATE %s_vectors SET %s WHERE id = ?",
+            vtab->table_name, set_clause);
+        sqlite3_free(set_clause);
 
         rc = sqlite3_prepare_v2(vtab->db, sql, -1, &stmt, NULL);
         sqlite3_free(sql);
-        if (rc != SQLITE_OK)
-            return rc;
 
-        sqlite3_bind_blob(stmt, 1, vector_data, vector_size, SQLITE_TRANSIENT);
+        if (rc != SQLITE_OK)
+        {
+            pVtab->zErrMsg = sqlite3_mprintf("Failed to prepare UPDATE for %s_vectors: %s",
+                                             vtab->table_name, sqlite3_errmsg(vtab->db));
+            return rc;
+        }
+
+        // Bind user column values: argv[3..3+num_columns-1] = vtab->columns[0..n-1]
+        for (int i = 0; i < vtab->num_columns; i++)
+        {
+            int argv_idx = 3 + i;
+
+            if (argv_idx < argc)
+                sqlite3_bind_value(stmt, i + 1, argv[argv_idx]);
+            else
+                sqlite3_bind_null(stmt, i + 1);
+        }
+
+        sqlite3_bind_int64(stmt, vtab->num_columns + 1, old_vector_id);
 
         rc = sqlite3_step(stmt);
         sqlite3_finalize(stmt);
+
         if (rc != SQLITE_DONE)
+        {
+            pVtab->zErrMsg = sqlite3_mprintf("UPDATE of %s_vectors row %lld failed: %s",
+                                             vtab->table_name, (long long)old_vector_id,
+                                             sqlite3_errmsg(vtab->db));
             return rc;
+        }
 
-        sqlite3_int64 new_vector_id = sqlite3_last_insert_rowid(vtab->db);
-
-        // Assign new vector to cluster 0 for all vector columns
+        // Re-assign each vector column to the correct leaf cluster via goAssignVectorsInBatch.
+        // This mirrors the INSERT path — cluster_id=0 is never written.
         for (int i = 0; i < vtab->num_columns; i++)
         {
             if (!vtab->columns[i].is_vector)
-            {
                 continue;
-            }
 
+            int argv_idx = 3 + i;
+
+            if (argv_idx >= argc || sqlite3_value_type(argv[argv_idx]) != SQLITE_BLOB)
+                continue;
+
+            void *blob_ptr = (void *)sqlite3_value_blob(argv[argv_idx]);
+            int blob_len = sqlite3_value_bytes(argv[argv_idx]);
+            sqlite3_int64 cluster_id = 1; // safe default: root cluster
+            double distance = 0.0;
+
+            goAssignVectorsInBatch(
+                vtab->db,
+                vtab->table_name,
+                (char *)vtab->columns[i].name,
+                vtab->columns[i].distance_metric,
+                1,
+                &blob_ptr,
+                &blob_len,
+                &cluster_id,
+                &distance);
+
+            // Insert new cluster map entry using the same vector_id (rowid unchanged).
             sql = sqlite3_mprintf(
-                "INSERT INTO %s_%s_cluster_vector_map (vector_id, cluster_id) VALUES (?, ?)",
+                "INSERT INTO %s_%s_cluster_vector_map (vector_id, cluster_id, distance) VALUES (?, ?, ?)",
                 vtab->table_name, vtab->columns[i].name);
 
             rc = sqlite3_prepare_v2(vtab->db, sql, -1, &stmt, NULL);
@@ -2618,21 +2868,23 @@ int vector_index_update(
                 return rc;
             }
 
-            sqlite3_bind_int64(stmt, 1, new_vector_id);
-            sqlite3_bind_int64(stmt, 2, 0);
+            sqlite3_bind_int64(stmt, 1, old_vector_id);
+            sqlite3_bind_int64(stmt, 2, cluster_id);
+            sqlite3_bind_double(stmt, 3, distance);
 
             rc = sqlite3_step(stmt);
             sqlite3_finalize(stmt);
 
             if (rc != SQLITE_DONE && rc != SQLITE_OK)
             {
-                pVtab->zErrMsg = sqlite3_mprintf("UPDATE assign to %s_%s_cluster_vector_map failed: %s",
+                pVtab->zErrMsg = sqlite3_mprintf("UPDATE insert to %s_%s_cluster_vector_map failed: %s",
                                                  vtab->table_name, vtab->columns[i].name, sqlite3_errmsg(vtab->db));
                 return rc;
             }
         }
 
-        *pRowid = new_vector_id;
+        // rowid is unchanged — the _vectors row was updated in place.
+        *pRowid = old_vector_id;
         sql = NULL;
     }
 

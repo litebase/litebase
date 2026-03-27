@@ -295,9 +295,7 @@ func TestVectorIndexUpdate(t *testing.T) {
 			t.Fatalf("Failed to update vector: %v", err)
 		}
 
-		// Verify we still have 1 vector (count shouldn't change)
-		// Note: UPDATE implementation actually creates a new vector and deletes the old one,
-		// so we might temporarily have 2 vectors during the operation
+		// The _vectors row is updated in place, so the count stays at 1.
 		res, err = dbConn.Exec("SELECT COUNT(*) FROM product_vectors_vectors", nil)
 
 		if err != nil {
@@ -306,18 +304,12 @@ func TestVectorIndexUpdate(t *testing.T) {
 
 		countAfter := res.Rows[0][0].Int64()
 
-		// The count could be 1 or 2 depending on whether the old vector was deleted
-		// In the current implementation, UPDATE inserts a new vector, so we get 2
-		if countAfter < 1 {
-			t.Errorf("Expected at least 1 vector after update, got %d", countAfter)
+		if countAfter != 1 {
+			t.Errorf("Expected 1 vector after update, got %d", countAfter)
 		}
 
-		t.Logf("Vector count after update: %d", countAfter)
-
-		t.Logf("Vector count after update: %d", countAfter)
-
-		// Verify cluster mappings exist (should match vector count)
-		res, err = dbConn.Exec("SELECT COUNT(*) FROM product_vectors_embedding_cluster_vector_map", nil)
+		// There should be exactly 1 cluster mapping, assigned to a real cluster.
+		res, err = dbConn.Exec("SELECT COUNT(*) FROM product_vectors_embedding_cluster_vector_map WHERE cluster_id > 0", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to count cluster mappings: %v", err)
@@ -325,33 +317,28 @@ func TestVectorIndexUpdate(t *testing.T) {
 
 		mappingCount := res.Rows[0][0].Int64()
 
-		if mappingCount < 1 {
-			t.Errorf("Expected at least 1 cluster mapping after update, got %d", mappingCount)
+		if mappingCount != 1 {
+			t.Errorf("Expected 1 cluster mapping after update with cluster_id > 0, got %d", mappingCount)
 		}
 
-		t.Logf("Cluster mapping count after update: %d", mappingCount)
-
-		t.Logf("Cluster mapping count after update: %d", mappingCount)
-
-		// Verify we can read back a vector (should get the updated one)
-		res, err = dbConn.Exec("SELECT id, embedding FROM product_vectors_vectors ORDER BY id DESC LIMIT 1", nil)
+		// The rowid must be unchanged after an in-place update.
+		res, err = dbConn.Exec("SELECT id, embedding FROM product_vectors_vectors LIMIT 1", nil)
 
 		if err != nil {
 			t.Fatalf("Failed to query updated vector: %v", err)
 		}
 
-		if len(res.Rows) < 1 {
-			t.Fatalf("Expected at least 1 row, got %d", len(res.Rows))
+		if len(res.Rows) != 1 {
+			t.Fatalf("Expected 1 row, got %d", len(res.Rows))
 		}
 
 		updatedID := res.Rows[0][0].Int64()
 		updatedBlob := res.Rows[0][1].Blob()
 
-		// With the current UPDATE implementation (delete old + insert new),
-		// the new vector will have a different ID
-		t.Logf("UPDATE behavior: original_id=%d, new_id=%d", originalID, updatedID)
+		if updatedID != originalID {
+			t.Errorf("Expected rowid to be unchanged after update: original=%d, got=%d", originalID, updatedID)
+		}
 
-		// Verify the blob exists
 		if len(updatedBlob) == 0 {
 			t.Error("Updated vector has empty blob")
 		}

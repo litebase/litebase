@@ -45,29 +45,24 @@ func TestVectorIndexUserDefinedColumns(t *testing.T) {
 			vec := NewTestVector(128)
 			blob := VectorToBlob(vec)
 
-			// TODO: Once column_values buffer is implemented, this should work
-			// For now, this will fail because INSERT only supports vector column
 			_, err := dbConn.Exec(`
 				INSERT INTO products(product_id, category, vector) 
 				VALUES (?, ?, ?)
 			`, []sqlite3.StatementParameter{
 				{Type: sqlite3.ParameterTypeInteger, Value: int64(1001)},
-				{Type: sqlite3.ParameterTypeText, Value: "electronics"},
+				{Type: sqlite3.ParameterTypeText, Value: []byte("electronics")},
 				{Type: sqlite3.ParameterTypeBlob, Value: blob},
 			})
 
 			if err != nil {
-				t.Logf("Expected failure (not yet implemented): %v", err)
-				t.Skip("Column_values buffer not yet implemented - skipping INSERT test")
+				t.Fatalf("Failed to insert row with all columns: %v", err)
 			}
 
 			t.Logf("✓ Successfully inserted row with all columns")
 		})
 
 		t.Run("SelectAllColumns", func(t *testing.T) {
-			t.Skip("Skipping until INSERT is implemented")
-
-			// Query back the data
+			// Query back the data inserted in the previous sub-test.
 			res, err := dbConn.Exec("SELECT product_id, category FROM products WHERE rowid = 1", nil)
 
 			if err != nil {
